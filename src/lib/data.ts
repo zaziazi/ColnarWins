@@ -7,7 +7,14 @@ import {
   demoStandingOrders,
   isDemoMode,
 } from "./demo";
-import type { Customer, Driver, OrderListItem, Product, StandingOrder } from "./types";
+import type {
+  Customer,
+  Driver,
+  OrderForEdit,
+  OrderListItem,
+  Product,
+  StandingOrder,
+} from "./types";
 
 /**
  * The only place the app reads data.
@@ -163,4 +170,33 @@ export async function getDrivers(): Promise<Driver[]> {
   if (error) throw error;
 
   return (data ?? []).map((s) => ({ id: s.id, fullName: s.full_name }));
+}
+
+/** Only drafts are editable — see the "Uredi" button on /pisarna. */
+export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> {
+  if (isDemoMode) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sales_order")
+    .select(
+      "id,customer_id,status,delivery_date,driver_note,customer(name),order_line(product_id,quantity_ordered)",
+    )
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    customerId: data.customer_id,
+    customerName: (data.customer as unknown as { name: string } | null)?.name ?? "—",
+    status: data.status,
+    deliveryDate: data.delivery_date,
+    note: data.driver_note ?? "",
+    lines: (data.order_line ?? []).map((l) => ({
+      productId: l.product_id,
+      quantity: l.quantity_ordered,
+    })),
+  };
 }

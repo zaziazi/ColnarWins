@@ -72,3 +72,13 @@ export interface Driver {
   id: string;
   fullName: string;
 }
+
+export interface OrderForEdit {
+  id: string;
+  customerId: string;
+  customerName: string;
+  status: OrderStatus;
+  deliveryDate: string | null;
+  note: string;
+  lines: StandingOrderLine[];
+}

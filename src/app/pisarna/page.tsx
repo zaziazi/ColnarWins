@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge, statusLabel, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
-import { Card } from "@/components/ui/card";
+import { Card, FieldLabel } from "@/components/ui/card";
 import { getDrivers, getOrders } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
@@ -95,17 +95,34 @@ function OrderCard({
               {order.createdByName && ` · vnesel/a ${order.createdByName}`}
             </p>
           </div>
-          <Badge tone={statusTone[order.status]}>{statusLabel[order.status]}</Badge>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <Badge tone={statusTone[order.status]}>{statusLabel[order.status]}</Badge>
+            {order.status === "draft" && (
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-7 px-2 text-[11.5px] gap-1"
+              >
+                <Link href={`/pisarna/${order.id}/uredi`}>
+                  <Pencil className="size-3" /> Uredi
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
 
         <p className="text-[12.5px] text-ink-muted mt-2.5 leading-relaxed">{order.lineSummary}</p>
-        <div className="flex items-center justify-between mt-1.5">
+        <div className="flex items-end justify-between mt-1.5">
           <p className="text-[13px] font-semibold tabular">{eur(order.totalGross)}</p>
-          <DriverAssign
-            orderId={order.id}
-            drivers={drivers}
-            assignedDriverId={order.assignedDriverId}
-          />
+          <div className="text-right">
+            <FieldLabel className="mb-1">Voznik</FieldLabel>
+            <DriverAssign
+              orderId={order.id}
+              drivers={drivers}
+              assignedDriverId={order.assignedDriverId}
+            />
+          </div>
         </div>
       </div>
     </Card>

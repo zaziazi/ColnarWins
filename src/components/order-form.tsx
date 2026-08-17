@@ -13,10 +13,19 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
 import { eur, dateSl } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Customer, Product, StandingOrder } from "@/lib/types";
+import type { Customer, Product, StandingOrder, StandingOrderLine } from "@/lib/types";
 import { createOrder } from "@/app/pisarna/novo/actions";
+import { updateOrder } from "@/app/pisarna/actions";
 
 type UnitMode = "piece" | "case";
+
+interface EditOrder {
+  id: string;
+  customerId: string;
+  deliveryDate: string | null;
+  note: string;
+  lines: StandingOrderLine[];
+}
 
 interface Props {
   customers: Customer[];
@@ -24,6 +33,8 @@ interface Props {
   standingOrders: StandingOrder[];
   /** Next few plausible delivery dates, computed on the server. */
   deliveryDates: string[];
+  /** When present, edits this existing draft instead of creating a new order. */
+  editOrder?: EditOrder;
 }
 
 /**
@@ -34,14 +45,28 @@ interface Props {
  * serves that: the standing order pre-fills, quantities step by case, and the
  * running total is always visible so the operator can read it back on the call.
  */
-export function OrderForm({ customers, products, standingOrders, deliveryDates }: Props) {
+export function OrderForm({
+  customers,
+  products,
+  standingOrders,
+  deliveryDates,
+  editOrder,
+}: Props) {
   const router = useRouter();
 
-  const [customerId, setCustomerId] = React.useState<string | null>(null);
-  const [quantities, setQuantities] = React.useState<Record<string, number>>({});
+  const [customerId, setCustomerId] = React.useState<string | null>(
+    editOrder?.customerId ?? null,
+  );
+  const [quantities, setQuantities] = React.useState<Record<string, number>>(() => {
+    const next: Record<string, number> = {};
+    for (const line of editOrder?.lines ?? []) next[line.productId] = line.quantity;
+    return next;
+  });
   const [unitModes, setUnitModes] = React.useState<Record<string, UnitMode>>({});
-  const [deliveryDate, setDeliveryDate] = React.useState(deliveryDates[0] ?? "");
-  const [note, setNote] = React.useState("");
+  const [deliveryDate, setDeliveryDate] = React.useState(
+    editOrder?.deliveryDate ?? deliveryDates[0] ?? "",
+  );
+  const [note, setNote] = React.useState(editOrder?.note ?? "");
   const [pending, startTransition] = React.useTransition();
 
   const customer = customers.find((c) => c.id === customerId) ?? null;
@@ -89,17 +114,38 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
   function submit() {
     if (!customerId || lines.length === 0) return;
 
+    const orderLines = lines.map((l) => ({
+      productId: l.product.id,
+      quantity: l.quantity,
+      unitPriceNet: l.product.unitPriceNet,
+      vatRate: l.product.vatRate,
+    }));
+
     startTransition(async () => {
+      if (editOrder) {
+        const result = await updateOrder({
+          orderId: editOrder.id,
+          deliveryDate,
+          note,
+          lines: orderLines,
+        });
+
+        if (!result.ok) {
+          toast.error(result.error ?? "Sprememb ni bilo mogoče shraniti");
+          return;
+        }
+
+        toast.success(`Naročilo za ${customer?.name} posodobljeno`);
+        router.push("/pisarna");
+        router.refresh();
+        return;
+      }
+
       const result = await createOrder({
         customerId,
         deliveryDate,
         note,
-        lines: lines.map((l) => ({
-          productId: l.product.id,
-          quantity: l.quantity,
-          unitPriceNet: l.product.unitPriceNet,
-          vatRate: l.product.vatRate,
-        })),
+        lines: orderLines,
         holdForReview: blocked,
       });
 
@@ -123,14 +169,18 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
       {/* ---------------------------------------------------- customer */}
       <Card className="p-3.5">
         <FieldLabel>Kupec</FieldLabel>
-        <Combobox
-          options={customerOptions}
-          value={customerId}
-          onChange={selectCustomer}
-          placeholder="— izberi kupca —"
-          searchPlaceholder="Ime ali kraj…"
-          emptyText="Ni takega kupca."
-        />
+        {editOrder ? (
+          <p className="text-[15px] font-semibold h-11 flex items-center">{customer?.name}</p>
+        ) : (
+          <Combobox
+            options={customerOptions}
+            value={customerId}
+            onChange={selectCustomer}
+            placeholder="— izberi kupca —"
+            searchPlaceholder="Ime ali kraj…"
+            emptyText="Ni takega kupca."
+          />
+        )}
       </Card>
 
       {!customer && (
@@ -151,7 +201,7 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
               <strong>
                 Odprto {eur(customer.openBalance)}, {customer.daysOverdue} dni v zamudi.
               </strong>
-              {blocked
+              {blocked && !editOrder
                 ? " Naročilo bo shranjeno kot osnutek in ga mora potrditi pisarna."
                 : " Pred dostavo se dogovori za plačilo."}
             </Callout>
@@ -277,9 +327,11 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
             onClick={submit}
             loading={pending}
             disabled={lines.length === 0}
-            variant={blocked ? "secondary" : "primary"}
+            variant={!editOrder && blocked ? "secondary" : "primary"}
           >
-            {blocked ? (
+            {editOrder ? (
+              "Shrani spremembe"
+            ) : blocked ? (
               <>
                 <AlertTriangle /> Shrani kot osnutek
               </>

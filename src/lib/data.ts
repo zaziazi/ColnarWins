@@ -508,14 +508,40 @@ export async function getVessels(): Promise<Vessel[]> {
   }));
 }
 
-/** Recent readings (Brix/pH/SO2/notes) across all vessels, newest first. */
-export async function getVesselReadings(limit = 100): Promise<VesselReading[]> {
+/** A single vessel by id, or null if it doesn't exist. RLS makes this manager-only. */
+export async function getVessel(id: string): Promise<Vessel | null> {
+  if (isDemoMode) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("vessel")
+    .select("id,name,material,capacity_l,current_product_id,current_volume_l,active,product(name)")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    material: data.material,
+    capacityL: Number(data.capacity_l),
+    currentProductId: data.current_product_id,
+    currentProductName: (data.product as unknown as { name: string } | null)?.name ?? null,
+    currentVolumeL: Number(data.current_volume_l),
+    active: data.active,
+  };
+}
+
+/** Recent readings (Brix/pH/SO2/notes) for one vessel, newest first. */
+export async function getVesselReadings(vesselId: string, limit = 100): Promise<VesselReading[]> {
   if (isDemoMode) return [];
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vessel_reading")
     .select("id,vessel_id,recorded_at,brix,ph,so2,note,staff(full_name)")
+    .eq("vessel_id", vesselId)
     .order("recorded_at", { ascending: false })
     .limit(limit);
 

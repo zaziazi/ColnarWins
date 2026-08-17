@@ -34,6 +34,7 @@ export async function adjustVessel(input: z.infer<typeof AdjustVesselInput>): Pr
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/klet");
+  revalidatePath(`/klet/${parsed.data.vesselId}`);
   return { ok: true };
 }
 
@@ -68,6 +69,7 @@ export async function recordHarvestIntake(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/klet");
+  revalidatePath(`/klet/${parsed.data.vesselId}`);
   return { ok: true };
 }
 
@@ -102,6 +104,7 @@ export async function recordBottlingRun(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/klet");
+  revalidatePath(`/klet/${parsed.data.vesselId}`);
   return { ok: true };
 }
 
@@ -188,5 +191,6 @@ export async function recordReading(input: z.infer<typeof RecordReadingInput>): 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/klet");
+  revalidatePath(`/klet/${parsed.data.vesselId}`);
   return { ok: true };
 }

@@ -39,15 +39,10 @@ export function VesselCard({
 
   return (
     <Card className="p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-[15px] truncate">{vessel.name}</h3>
-          <p className="text-[11.5px] text-ink-subtle mt-0.5">
-            {vessel.currentProductName ?? "prazen"} · {vessel.currentVolumeL.toLocaleString("sl-SI")} /{" "}
-            {vessel.capacityL.toLocaleString("sl-SI")} l
-          </p>
-        </div>
-      </div>
+      <p className="text-[13px] text-ink-muted">
+        {vessel.currentProductName ?? "prazen"} · {vessel.currentVolumeL.toLocaleString("sl-SI")} /{" "}
+        {vessel.capacityL.toLocaleString("sl-SI")} l
+      </p>
 
       <div className="mt-2.5 h-1.5 rounded-full bg-surface-muted overflow-hidden">
         <div

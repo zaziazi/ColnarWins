@@ -1,0 +1,23 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" rx="56" fill="#f6f3ef"/>
+  <!-- wine bottle -->
+  <!-- neck -->
+  <rect x="118" y="38" width="20" height="46" fill="#7a1230"/>
+  <!-- cork/foil -->
+  <rect x="115" y="32" width="26" height="14" rx="3" fill="#231a1c"/>
+  <!-- body: neck tapers into shoulders then a tall body with rounded base -->
+  <path d="M 118 84
+           L 138 84
+           C 156 100, 168 112, 168 140
+           L 168 196
+           C 168 210, 156 220, 128 220
+           C 100 220, 88 210, 88 196
+           L 88 140
+           C 88 112, 100 100, 118 84
+           Z"
+        fill="#7a1230"/>
+  <!-- label -->
+  <rect x="100" y="150" width="56" height="40" rx="3" fill="#f6f3ef"/>
+  <line x1="108" y1="164" x2="148" y2="164" stroke="#7a1230" stroke-width="4"/>
+  <line x1="108" y1="176" x2="140" y2="176" stroke="#7a1230" stroke-width="4"/>
+</svg>

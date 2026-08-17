@@ -8,11 +8,13 @@ import {
   isDemoMode,
 } from "./demo";
 import type {
+  CurrentStaff,
   Customer,
   Driver,
   OrderForEdit,
   OrderListItem,
   Product,
+  ReceivablesAgeingBucket,
   RouteWithStops,
   StandingOrder,
   UnroutedOrder,
@@ -40,11 +42,12 @@ export async function getCustomers(): Promise<Customer[]> {
 
   if (error) throw error;
 
-  // Open balance comes from v_open_invoice; joined separately to keep the
-  // customer query cheap and cacheable.
-  const { data: balances } = await supabase
-    .from("v_open_invoice")
-    .select("customer_id,balance_open,days_overdue");
+  // Open balance comes through customer_balance_summary(), a security
+  // definer RPC — not a direct v_open_invoice query. invoice/payment RLS is
+  // manager-only, but every office user still needs this aggregate for the
+  // overdue-balance warning on the order form, so the RPC exposes just
+  // that, deliberately bypassing the tightened RLS for that one purpose.
+  const { data: balances } = await supabase.rpc("customer_balance_summary");
 
   const byCustomer = new Map<string, { balance: number; days: number }>();
   for (const b of balances ?? []) {
@@ -355,4 +358,77 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
       loadingList,
     };
   });
+}
+
+/** The logged-in staff member, or null if logged out / demo mode. Drives role-based UI. */
+export async function getCurrentStaff(): Promise<CurrentStaff | null> {
+  if (isDemoMode) return null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("staff")
+    .select("id,full_name,role")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (error || !data) return null;
+
+  return { id: data.id, fullName: data.full_name, role: data.role };
+}
+
+/** Receivables bucketed by age, for the manager dashboard. RLS makes this manager-only. */
+export async function getReceivablesAgeing(): Promise<ReceivablesAgeingBucket[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("v_receivables_ageing")
+    .select("bucket,invoice_count,amount");
+
+  if (error) throw error;
+
+  return (data ?? []).map((r) => ({
+    bucket: r.bucket,
+    invoiceCount: r.invoice_count,
+    amount: Number(r.amount),
+  }));
+}
+
+/**
+ * Order value for the current calendar month — not "revenue": no real
+ * customer has an invoice yet (invoicing-at-delivery, §7.5, isn't built),
+ * so this is order totals, the best honest proxy available today.
+ */
+export async function getMonthlyOrderTotals(): Promise<{ count: number; totalGross: number }> {
+  if (isDemoMode) return { count: 0, totalGross: 0 };
+
+  const supabase = await createClient();
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+
+  const { data, error } = await supabase
+    .from("sales_order")
+    .select("order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate)")
+    .neq("status", "draft")
+    .neq("status", "cancelled")
+    .gte("created_at", monthStart)
+    .lt("created_at", monthEnd);
+
+  if (error) throw error;
+
+  let totalGross = 0;
+  for (const o of data ?? []) {
+    for (const l of o.order_line ?? []) {
+      const q = l.quantity_delivered ?? l.quantity_ordered;
+      totalGross += q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
+    }
+  }
+
+  return { count: (data ?? []).length, totalGross };
 }

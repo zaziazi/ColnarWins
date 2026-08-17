@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { getDrivers, getRoutesForDate, getUnroutedOrders } from "@/lib/data";
+import { getCurrentStaff, getDrivers, getRoutesForDate, getUnroutedOrders } from "@/lib/data";
 import { eur, dateSl } from "@/lib/format";
 import { AddToRoute } from "./add-to-route";
 import { RouteCreator } from "./route-creator";
@@ -51,14 +51,20 @@ export default async function DeliveryPlanPage({
   const prevDate = toDateStr(new Date(selected.getTime() - 86400000));
   const nextDateStr = toDateStr(new Date(selected.getTime() + 86400000));
 
-  const [routes, unrouted, drivers] = await Promise.all([
+  const [routes, unrouted, drivers, staff] = await Promise.all([
     getRoutesForDate(date),
     getUnroutedOrders(date),
     getDrivers(),
+    getCurrentStaff(),
   ]);
 
   return (
-    <AppShell title="Načrt dostave" subtitle="Poti in nakladalni listi" who="Marija · pisarna">
+    <AppShell
+      title="Načrt dostave"
+      subtitle="Poti in nakladalni listi"
+      who="Marija · pisarna"
+      role={staff?.role}
+    >
       {/* -------------------------------------------------- date switcher */}
       <div className="flex items-center justify-between mb-5">
         <Link

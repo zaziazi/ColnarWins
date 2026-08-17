@@ -123,3 +123,17 @@ export interface RouteWithStops {
   stops: RouteStop[];
   loadingList: LoadingListLine[];
 }
+
+export type StaffRole = "office" | "driver" | "sales" | "manager";
+
+export interface CurrentStaff {
+  id: string;
+  fullName: string;
+  role: StaffRole;
+}
+
+export interface ReceivablesAgeingBucket {
+  bucket: "within_terms" | "overdue_1_30" | "overdue_30_plus";
+  invoiceCount: number;
+  amount: number;
+}

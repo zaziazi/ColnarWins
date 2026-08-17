@@ -5,7 +5,7 @@ import { Badge, statusLabel, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card, FieldLabel } from "@/components/ui/card";
-import { getDrivers, getOrders } from "@/lib/data";
+import { getCurrentStaff, getDrivers, getOrders } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
 import { DriverAssign } from "./driver-assign";
@@ -22,7 +22,11 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default async function OrdersPage() {
-  const [orders, drivers] = await Promise.all([getOrders(), getDrivers()]);
+  const [orders, drivers, staff] = await Promise.all([
+    getOrders(),
+    getDrivers(),
+    getCurrentStaff(),
+  ]);
   const drafts = orders.filter((o) => o.status === "draft");
   const rest = orders.filter((o) => o.status !== "draft");
 
@@ -31,6 +35,7 @@ export default async function OrdersPage() {
       title="Naročila"
       subtitle={`${narocila(orders.length)} · zadnjih 50`}
       who="Marija · pisarna"
+      role={staff?.role}
     >
       {isDemoMode && (
         <Callout tone="wine" className="mb-4">

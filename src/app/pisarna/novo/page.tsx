@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { OrderForm } from "@/components/order-form";
-import { getCustomers, getProducts, getStandingOrders } from "@/lib/data";
+import { getCurrentStaff, getCustomers, getProducts, getStandingOrders } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +20,11 @@ function nextDeliveryDates(count = 4): string[] {
 }
 
 export default async function NewOrderPage() {
-  const [customers, products, standingOrders] = await Promise.all([
+  const [customers, products, standingOrders, staff] = await Promise.all([
     getCustomers(),
     getProducts(),
     getStandingOrders(),
+    getCurrentStaff(),
   ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function NewOrderPage() {
       title="Novo naročilo"
       subtitle="Vnos med telefonskim klicem"
       who="Marija · pisarna"
+      role={staff?.role}
     >
       <OrderForm
         customers={customers}

@@ -1,7 +1,13 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { OrderForm } from "@/components/order-form";
-import { getCustomers, getOrderForEdit, getProducts, getStandingOrders } from "@/lib/data";
+import {
+  getCurrentStaff,
+  getCustomers,
+  getOrderForEdit,
+  getProducts,
+  getStandingOrders,
+} from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,18 +29,19 @@ function nextDeliveryDates(count = 4): string[] {
 export default async function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [customers, products, standingOrders, order] = await Promise.all([
+  const [customers, products, standingOrders, order, staff] = await Promise.all([
     getCustomers(),
     getProducts(),
     getStandingOrders(),
     getOrderForEdit(id),
+    getCurrentStaff(),
   ]);
 
   const editable = order && (order.status === "draft" || order.status === "confirmed");
 
   if (!editable) {
     return (
-      <AppShell title="Uredi naročilo" who="Marija · pisarna">
+      <AppShell title="Uredi naročilo" who="Marija · pisarna" role={staff?.role}>
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             {order ? "Tega naročila ni več mogoče urejati." : "Naročilo ne obstaja."}
@@ -49,6 +56,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
       title="Uredi naročilo"
       subtitle={order.customerName}
       who="Marija · pisarna"
+      role={staff?.role}
     >
       <OrderForm
         customers={customers}

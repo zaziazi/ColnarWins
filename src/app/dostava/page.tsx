@@ -1,9 +1,14 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
+import { getCurrentStaff } from "@/lib/data";
 
-export default function DeliveryPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DeliveryPage() {
+  const staff = await getCurrentStaff();
+
   return (
-    <AppShell title="Dostava" subtitle="Pogled na voznikovem telefonu">
+    <AppShell title="Dostava" subtitle="Pogled na voznikovem telefonu" role={staff?.role}>
       <Card className="p-7 text-center">
         <p className="text-[13.5px] text-ink-muted leading-relaxed">
           Še ni zgrajeno. Največji tehnični del — podpis, GPS in delo brez signala.

@@ -2,16 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Briefcase } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Briefcase, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { StaffRole } from "@/lib/types";
 
-const NAV = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof Plus;
+  exact?: boolean;
+};
+
+const NAV: NavItem[] = [
   { href: "/pisarna/novo", label: "Novo",       icon: Plus },
   { href: "/pisarna",      label: "Naro\u010dila",   icon: ClipboardList, exact: true },
   { href: "/nacrt",        label: "Na\u010drt",      icon: MapPin },
   { href: "/dostava",      label: "Voznik",     icon: Truck },
   { href: "/komerciala",   label: "Komerciala", icon: Briefcase },
 ];
+
+const MANAGER_NAV: NavItem = { href: "/pregled", label: "Pregled", icon: LayoutDashboard };
 
 /**
  * One shell for the whole field app.
@@ -24,14 +34,17 @@ export function AppShell({
   title,
   subtitle,
   who,
+  role,
   children,
 }: {
   title: string;
   subtitle?: string;
   who?: string;
+  role?: StaffRole;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const nav = role === "manager" ? [...NAV, MANAGER_NAV] : NAV;
 
   return (
     <div className="min-h-dvh flex flex-col mx-auto w-full max-w-[520px] bg-canvas">
@@ -49,7 +62,7 @@ export function AppShell({
       <main className="flex-1 px-4 py-4 pb-24">{children}</main>
 
       <nav className="fixed bottom-0 inset-x-0 mx-auto w-full max-w-[520px] bg-surface border-t border-line flex">
-        {NAV.map(({ href, label, icon: Icon, exact }) => {
+        {nav.map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
           return (
             <Link

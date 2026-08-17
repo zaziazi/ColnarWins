@@ -12,8 +12,11 @@ import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input, Textarea } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
 import { eur, dateSl } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Customer, Product, StandingOrder } from "@/lib/types";
 import { createOrder } from "@/app/pisarna/novo/actions";
+
+type UnitMode = "piece" | "case";
 
 interface Props {
   customers: Customer[];
@@ -36,6 +39,7 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
 
   const [customerId, setCustomerId] = React.useState<string | null>(null);
   const [quantities, setQuantities] = React.useState<Record<string, number>>({});
+  const [unitModes, setUnitModes] = React.useState<Record<string, UnitMode>>({});
   const [deliveryDate, setDeliveryDate] = React.useState(deliveryDates[0] ?? "");
   const [note, setNote] = React.useState("");
   const [pending, startTransition] = React.useTransition();
@@ -181,6 +185,7 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
           <Card className="px-3.5">
             {products.map((p, i) => {
               const qty = quantities[p.id] ?? 0;
+              const mode = unitModes[p.id] ?? "case";
               return (
                 <div
                   key={p.id}
@@ -201,12 +206,19 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
                       {p.volumeL?.toLocaleString("sl-SI")} l · {eur(p.unitPriceNet)}
                     </p>
                   </div>
-                  <Stepper
-                    value={qty}
-                    step={p.caseSize}
-                    label={`${p.name} ${p.vintage ?? ""}`}
-                    onChange={(v) => setQuantities((q) => ({ ...q, [p.id]: v }))}
-                  />
+                  <div className="flex flex-col items-end gap-1">
+                    <UnitToggle
+                      mode={mode}
+                      caseSize={p.caseSize}
+                      onChange={(m) => setUnitModes((u) => ({ ...u, [p.id]: m }))}
+                    />
+                    <Stepper
+                      value={qty}
+                      step={mode === "case" ? p.caseSize : 1}
+                      label={`${p.name} ${p.vintage ?? ""}`}
+                      onChange={(v) => setQuantities((q) => ({ ...q, [p.id]: v }))}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -282,6 +294,47 @@ export function OrderForm({ customers, products, standingOrders, deliveryDates }
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function UnitToggle({
+  mode,
+  caseSize,
+  onChange,
+}: {
+  mode: UnitMode;
+  caseSize: number;
+  onChange: (mode: UnitMode) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-[var(--radius-control)] border border-line overflow-hidden text-[10.5px] font-semibold leading-none">
+      <button
+        type="button"
+        onClick={() => onChange("piece")}
+        aria-pressed={mode === "piece"}
+        className={cn(
+          "h-6 px-2 transition-colors",
+          mode === "piece"
+            ? "bg-wine text-white"
+            : "bg-surface text-ink-subtle hover:bg-surface-muted",
+        )}
+      >
+        kos
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("case")}
+        aria-pressed={mode === "case"}
+        className={cn(
+          "h-6 px-2 transition-colors border-l border-line",
+          mode === "case"
+            ? "bg-wine text-white"
+            : "bg-surface text-ink-subtle hover:bg-surface-muted",
+        )}
+      >
+        karton × {caseSize}
+      </button>
     </div>
   );
 }

@@ -5,9 +5,10 @@ import { Badge, statusLabel, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
-import { getOrders } from "@/lib/data";
+import { getDrivers, getOrders } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
+import { DriverAssign } from "./driver-assign";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default async function OrdersPage() {
-  const orders = await getOrders();
+  const [orders, drivers] = await Promise.all([getOrders(), getDrivers()]);
   const drafts = orders.filter((o) => o.status === "draft");
   const rest = orders.filter((o) => o.status !== "draft");
 
@@ -49,7 +50,7 @@ export default async function OrdersPage() {
           <SectionHeading>Čaka na potrditev</SectionHeading>
           <div className="space-y-2.5 mb-6">
             {drafts.map((o) => (
-              <OrderCard key={o.id} order={o} highlight />
+              <OrderCard key={o.id} order={o} drivers={drivers} highlight />
             ))}
           </div>
         </>
@@ -58,7 +59,7 @@ export default async function OrdersPage() {
       <SectionHeading>Vsa naročila</SectionHeading>
       <div className="space-y-2.5">
         {rest.map((o) => (
-          <OrderCard key={o.id} order={o} />
+          <OrderCard key={o.id} order={o} drivers={drivers} />
         ))}
       </div>
     </AppShell>
@@ -75,9 +76,11 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function OrderCard({
   order,
+  drivers,
   highlight,
 }: {
   order: Awaited<ReturnType<typeof getOrders>>[number];
+  drivers: Awaited<ReturnType<typeof getDrivers>>;
   highlight?: boolean;
 }) {
   return (
@@ -89,13 +92,21 @@ function OrderCard({
             <p className="text-[11.5px] text-ink-subtle mt-0.5">
               #{order.orderNumber} · {SOURCE_LABEL[order.source] ?? order.source}
               {order.deliveryDate && ` · dostava ${dateShort(order.deliveryDate)}`}
+              {order.createdByName && ` · vnesel/a ${order.createdByName}`}
             </p>
           </div>
           <Badge tone={statusTone[order.status]}>{statusLabel[order.status]}</Badge>
         </div>
 
         <p className="text-[12.5px] text-ink-muted mt-2.5 leading-relaxed">{order.lineSummary}</p>
-        <p className="text-[13px] font-semibold tabular mt-1.5">{eur(order.totalGross)}</p>
+        <div className="flex items-center justify-between mt-1.5">
+          <p className="text-[13px] font-semibold tabular">{eur(order.totalGross)}</p>
+          <DriverAssign
+            orderId={order.id}
+            drivers={drivers}
+            assignedDriverId={order.assignedDriverId}
+          />
+        </div>
       </div>
     </Card>
   );

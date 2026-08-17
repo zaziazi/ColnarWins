@@ -64,4 +64,11 @@ export interface OrderListItem {
   totalGross: number;
   lineSummary: string;
   createdAt: string;
+  createdByName: string | null;
+  assignedDriverId: string | null;
+}
+
+export interface Driver {
+  id: string;
+  fullName: string;
 }

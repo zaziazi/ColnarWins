@@ -7,7 +7,7 @@ import {
   demoStandingOrders,
   isDemoMode,
 } from "./demo";
-import type { Customer, OrderListItem, Product, StandingOrder } from "./types";
+import type { Customer, Driver, OrderListItem, Product, StandingOrder } from "./types";
 
 /**
  * The only place the app reads data.
@@ -111,7 +111,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
   const { data, error } = await supabase
     .from("sales_order")
     .select(
-      "id,order_number,status,source,delivery_date,created_at,customer(name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
+      "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
     )
     .neq("status", "cancelled")
     .order("created_at", { ascending: false })
@@ -143,6 +143,24 @@ export async function getOrders(): Promise<OrderListItem[]> {
         )
         .join(" \u00b7 "),
       createdAt: o.created_at,
+      createdByName: (o.creator as unknown as { full_name: string } | null)?.full_name ?? null,
+      assignedDriverId: o.assigned_driver_id,
     };
   });
+}
+
+export async function getDrivers(): Promise<Driver[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("staff")
+    .select("id,full_name")
+    .eq("role", "driver")
+    .eq("active", true)
+    .order("full_name");
+
+  if (error) throw error;
+
+  return (data ?? []).map((s) => ({ id: s.id, fullName: s.full_name }));
 }

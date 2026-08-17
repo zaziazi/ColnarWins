@@ -66,6 +66,8 @@ export interface OrderListItem {
   createdAt: string;
   createdByName: string | null;
   assignedDriverId: string | null;
+  /** Set once this order is a stop on a route — the route's driver, read-only. */
+  routedDriverName: string | null;
 }
 
 export interface Driver {
@@ -81,4 +83,43 @@ export interface OrderForEdit {
   deliveryDate: string | null;
   note: string;
   lines: StandingOrderLine[];
+}
+
+export type RouteStatus = "planned" | "in_progress" | "completed";
+
+export interface UnroutedOrder {
+  id: string;
+  orderNumber: number;
+  customerName: string;
+  city: string | null;
+  deliveryNotes: string | null;
+  totalGross: number;
+  lineSummary: string;
+}
+
+export interface RouteStop {
+  id: string;
+  orderId: string;
+  orderNumber: number;
+  sequence: number;
+  customerName: string;
+  address: string | null;
+  city: string | null;
+  deliveryNotes: string | null;
+  totalGross: number;
+}
+
+export interface LoadingListLine {
+  productName: string;
+  quantity: number;
+}
+
+export interface RouteWithStops {
+  id: string;
+  vehicle: string;
+  driverId: string | null;
+  driverName: string | null;
+  status: RouteStatus;
+  stops: RouteStop[];
+  loadingList: LoadingListLine[];
 }

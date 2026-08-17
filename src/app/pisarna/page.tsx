@@ -117,11 +117,17 @@ function OrderCard({
           <p className="text-[13px] font-semibold tabular">{eur(order.totalGross)}</p>
           <div className="text-right">
             <FieldLabel className="mb-1">Voznik</FieldLabel>
-            <DriverAssign
-              orderId={order.id}
-              drivers={drivers}
-              assignedDriverId={order.assignedDriverId}
-            />
+            {order.routedDriverName ? (
+              <p className="text-[12.5px] font-medium text-ink-muted h-7 flex items-center justify-end">
+                {order.routedDriverName}
+              </p>
+            ) : (
+              <DriverAssign
+                orderId={order.id}
+                drivers={drivers}
+                assignedDriverId={order.assignedDriverId}
+              />
+            )}
           </div>
         </div>
       </div>

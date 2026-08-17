@@ -13,7 +13,9 @@ import type {
   OrderForEdit,
   OrderListItem,
   Product,
+  RouteWithStops,
   StandingOrder,
+  UnroutedOrder,
 } from "./types";
 
 /**
@@ -118,7 +120,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
   const { data, error } = await supabase
     .from("sales_order")
     .select(
-      "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
+      "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name)))",
     )
     .neq("status", "cancelled")
     .order("created_at", { ascending: false })
@@ -152,6 +154,12 @@ export async function getOrders(): Promise<OrderListItem[]> {
       createdAt: o.created_at,
       createdByName: (o.creator as unknown as { full_name: string } | null)?.full_name ?? null,
       assignedDriverId: o.assigned_driver_id,
+      routedDriverName:
+        (
+          o.route_stop as unknown as {
+            route: { driver: { full_name: string } | null } | null;
+          } | null
+        )?.route?.driver?.full_name ?? null,
     };
   });
 }
@@ -199,4 +207,152 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
       quantity: l.quantity_ordered,
     })),
   };
+}
+
+/**
+ * Confirmed orders for a delivery date that aren't a stop on any route yet.
+ * An order can only ever have one route_stop (order_id is unique there), so
+ * "not yet routed" just means no matching route_stop row exists.
+ */
+export async function getUnroutedOrders(date: string): Promise<UnroutedOrder[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+
+  const { data: routed, error: routedError } = await supabase
+    .from("route_stop")
+    .select("order_id");
+  if (routedError) throw routedError;
+  const routedIds = (routed ?? []).map((r) => r.order_id);
+
+  let query = supabase
+    .from("sales_order")
+    .select(
+      "id,order_number,customer(name,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
+    )
+    .eq("status", "confirmed")
+    .eq("delivery_date", date);
+
+  if (routedIds.length > 0) {
+    query = query.not("id", "in", `(${routedIds.join(",")})`);
+  }
+
+  const { data, error } = await query.order("order_number");
+  if (error) throw error;
+
+  return (data ?? []).map((o) => {
+    const lines = o.order_line ?? [];
+    const gross = lines.reduce((s, l) => {
+      const q = l.quantity_delivered ?? l.quantity_ordered;
+      return s + q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
+    }, 0);
+    const customer = o.customer as unknown as {
+      name: string;
+      city: string | null;
+      delivery_notes: string | null;
+    } | null;
+
+    return {
+      id: o.id,
+      orderNumber: o.order_number,
+      customerName: customer?.name ?? "—",
+      city: customer?.city ?? null,
+      deliveryNotes: customer?.delivery_notes ?? null,
+      totalGross: gross,
+      lineSummary: lines
+        .map(
+          (l) =>
+            `${l.quantity_delivered ?? l.quantity_ordered}× ` +
+            ((l.product as unknown as { name: string } | null)?.name ?? ""),
+        )
+        .join(" · "),
+    };
+  });
+}
+
+/** Routes for a delivery date, with their stops in sequence and an aggregated loading list. */
+export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("route")
+    .select(
+      "id,vehicle,driver_id,status,driver:staff(full_name),route_stop(id,sequence,order_id,sales_order(order_number,customer(name,address,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))))",
+    )
+    .eq("route_date", date)
+    .order("vehicle");
+
+  if (error) throw error;
+
+  type StopRow = {
+    id: string;
+    sequence: number;
+    order_id: string;
+    sales_order: {
+      order_number: number;
+      customer: {
+        name: string;
+        address: string | null;
+        city: string | null;
+        delivery_notes: string | null;
+      } | null;
+      order_line: {
+        quantity_ordered: number;
+        quantity_delivered: number | null;
+        unit_price_net: string;
+        vat_rate: string;
+        product: { name: string } | null;
+      }[];
+    } | null;
+  };
+
+  return (data ?? []).map((r) => {
+    const stopsRaw = (r.route_stop ?? []) as unknown as StopRow[];
+
+    const stops = stopsRaw
+      .slice()
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((s) => {
+        const so = s.sales_order;
+        const lines = so?.order_line ?? [];
+        const gross = lines.reduce((sum, l) => {
+          const q = l.quantity_delivered ?? l.quantity_ordered;
+          return sum + q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
+        }, 0);
+        return {
+          id: s.id,
+          orderId: s.order_id,
+          orderNumber: so?.order_number ?? 0,
+          sequence: s.sequence,
+          customerName: so?.customer?.name ?? "—",
+          address: so?.customer?.address ?? null,
+          city: so?.customer?.city ?? null,
+          deliveryNotes: so?.customer?.delivery_notes ?? null,
+          totalGross: gross,
+        };
+      });
+
+    const productTotals = new Map<string, number>();
+    for (const s of stopsRaw) {
+      for (const l of s.sales_order?.order_line ?? []) {
+        const name = l.product?.name ?? "—";
+        const q = l.quantity_delivered ?? l.quantity_ordered;
+        productTotals.set(name, (productTotals.get(name) ?? 0) + q);
+      }
+    }
+    const loadingList = Array.from(productTotals.entries())
+      .map(([productName, quantity]) => ({ productName, quantity }))
+      .sort((a, b) => a.productName.localeCompare(b.productName));
+
+    return {
+      id: r.id,
+      vehicle: r.vehicle,
+      driverId: r.driver_id,
+      driverName: (r.driver as unknown as { full_name: string } | null)?.full_name ?? null,
+      status: r.status,
+      stops,
+      loadingList,
+    };
+  });
 }

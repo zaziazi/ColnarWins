@@ -137,3 +137,41 @@ export interface ReceivablesAgeingBucket {
   invoiceCount: number;
   amount: number;
 }
+
+export interface StockLevel {
+  productId: string;
+  productName: string;
+  caseSize: number;
+  quantityOnHand: number;
+}
+
+export interface StockMovementEntry {
+  id: string;
+  productName: string;
+  movementType: "bottling" | "adjustment";
+  quantityDelta: number;
+  note: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export interface Vessel {
+  id: string;
+  name: string;
+  capacityL: number;
+  currentProductId: string | null;
+  currentProductName: string | null;
+  currentVolumeL: number;
+  active: boolean;
+}
+
+export interface BulkMovementEntry {
+  id: string;
+  vesselName: string;
+  productName: string | null;
+  movementType: "harvest_intake" | "bottling_out" | "adjustment";
+  volumeL: number;
+  note: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}

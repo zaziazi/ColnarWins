@@ -8,6 +8,7 @@ import {
   isDemoMode,
 } from "./demo";
 import type {
+  BulkMovementEntry,
   CurrentStaff,
   Customer,
   Driver,
@@ -17,7 +18,10 @@ import type {
   ReceivablesAgeingBucket,
   RouteWithStops,
   StandingOrder,
+  StockLevel,
+  StockMovementEntry,
   UnroutedOrder,
+  Vessel,
 } from "./types";
 
 /**
@@ -431,4 +435,98 @@ export async function getMonthlyOrderTotals(): Promise<{ count: number; totalGro
   }
 
   return { count: (data ?? []).length, totalGross };
+}
+
+/** Bottled stock per product. RLS makes this manager-only. */
+export async function getStockLevels(): Promise<StockLevel[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product")
+    .select("id,name,case_size,product_stock(quantity_on_hand)")
+    .eq("active", true)
+    .order("name");
+
+  if (error) throw error;
+
+  return (data ?? []).map((p) => ({
+    productId: p.id,
+    productName: p.name,
+    caseSize: p.case_size,
+    quantityOnHand:
+      (p.product_stock as unknown as { quantity_on_hand: number } | null)?.quantity_on_hand ?? 0,
+  }));
+}
+
+/** Recent bottled-stock movements (bottling runs, adjustments), newest first. */
+export async function getStockMovements(limit = 15): Promise<StockMovementEntry[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stock_movement")
+    .select("id,movement_type,quantity_delta,note,created_at,product(name),staff(full_name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    productName: (m.product as unknown as { name: string } | null)?.name ?? "—",
+    movementType: m.movement_type,
+    quantityDelta: m.quantity_delta,
+    note: m.note,
+    createdByName: (m.staff as unknown as { full_name: string } | null)?.full_name ?? null,
+    createdAt: m.created_at,
+  }));
+}
+
+/** Cellar vessels with their current contents. RLS makes this manager-only. */
+export async function getVessels(): Promise<Vessel[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("vessel")
+    .select("id,name,capacity_l,current_product_id,current_volume_l,active,product(name)")
+    .order("name");
+
+  if (error) throw error;
+
+  return (data ?? []).map((v) => ({
+    id: v.id,
+    name: v.name,
+    capacityL: Number(v.capacity_l),
+    currentProductId: v.current_product_id,
+    currentProductName: (v.product as unknown as { name: string } | null)?.name ?? null,
+    currentVolumeL: Number(v.current_volume_l),
+    active: v.active,
+  }));
+}
+
+/** Recent bulk-wine movements (harvest intake, bottling out, adjustments), newest first. */
+export async function getBulkMovements(limit = 15): Promise<BulkMovementEntry[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("bulk_movement")
+    .select("id,movement_type,volume_l,note,created_at,vessel(name),product(name),staff(full_name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    vesselName: (m.vessel as unknown as { name: string } | null)?.name ?? "—",
+    productName: (m.product as unknown as { name: string } | null)?.name ?? null,
+    movementType: m.movement_type,
+    volumeL: Number(m.volume_l),
+    note: m.note,
+    createdByName: (m.staff as unknown as { full_name: string } | null)?.full_name ?? null,
+    createdAt: m.created_at,
+  }));
 }

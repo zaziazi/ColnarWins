@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Briefcase, LayoutDashboard } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Briefcase, LayoutDashboard, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 
@@ -21,7 +21,10 @@ const NAV: NavItem[] = [
   { href: "/komerciala",   label: "Komerciala", icon: Briefcase },
 ];
 
-const MANAGER_NAV: NavItem = { href: "/pregled", label: "Pregled", icon: LayoutDashboard };
+const MANAGER_NAV_ITEMS: NavItem[] = [
+  { href: "/pregled", label: "Pregled", icon: LayoutDashboard },
+  { href: "/zaloge",  label: "Zaloge",  icon: Warehouse },
+];
 
 /**
  * One shell for the whole field app.
@@ -44,7 +47,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const nav = role === "manager" ? [...NAV, MANAGER_NAV] : NAV;
+  const nav = role === "manager" ? [...NAV, ...MANAGER_NAV_ITEMS] : NAV;
 
   return (
     <div className="min-h-dvh flex flex-col mx-auto w-full max-w-[520px] bg-canvas">

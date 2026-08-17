@@ -39,7 +39,12 @@ export default async function DashboardPage() {
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   return (
-    <AppShell title="Pregled" subtitle="Promet in terjatve" who={`${staff.fullName} · vodstvo`}>
+    <AppShell
+      title="Pregled"
+      subtitle="Promet in terjatve"
+      who={`${staff.fullName} · vodstvo`}
+      role={staff.role}
+    >
       <SectionHeading>Naročila ta mesec</SectionHeading>
       <Card className="p-3.5 mb-6">
         <p className="text-2xl font-bold tabular">{eur(monthly.totalGross)}</p>

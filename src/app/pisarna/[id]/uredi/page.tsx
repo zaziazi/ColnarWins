@@ -41,7 +41,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
 
   if (!editable) {
     return (
-      <AppShell title="Uredi naročilo" who="Marija · pisarna" role={staff?.role}>
+      <AppShell title="Uredi naročilo" who="Marija · pisarna" role={staff?.role} section="narocila">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             {order ? "Tega naročila ni več mogoče urejati." : "Naročilo ne obstaja."}
@@ -57,6 +57,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
       subtitle={order.customerName}
       who="Marija · pisarna"
       role={staff?.role}
+      section="narocila"
     >
       <OrderForm
         customers={customers}

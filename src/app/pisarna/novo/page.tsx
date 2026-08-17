@@ -33,6 +33,7 @@ export default async function NewOrderPage() {
       subtitle="Vnos med telefonskim klicem"
       who="Marija · pisarna"
       role={staff?.role}
+      section="narocila"
     >
       <OrderForm
         customers={customers}

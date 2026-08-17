@@ -64,6 +64,7 @@ export default async function DeliveryPlanPage({
       subtitle="Poti in nakladalni listi"
       who="Marija · pisarna"
       role={staff?.role}
+      section="narocila"
     >
       {/* -------------------------------------------------- date switcher */}
       <div className="flex items-center justify-between mb-5">

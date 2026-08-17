@@ -8,7 +8,7 @@ export default async function DeliveryPage() {
   const staff = await getCurrentStaff();
 
   return (
-    <AppShell title="Dostava" subtitle="Pogled na voznikovem telefonu" role={staff?.role}>
+    <AppShell title="Dostava" subtitle="Pogled na voznikovem telefonu" role={staff?.role} section="narocila">
       <Card className="p-7 text-center">
         <p className="text-[13.5px] text-ink-muted leading-relaxed">
           Še ni zgrajeno. Največji tehnični del — podpis, GPS in delo brez signala.

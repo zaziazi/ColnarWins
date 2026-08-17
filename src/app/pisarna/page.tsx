@@ -36,6 +36,7 @@ export default async function OrdersPage() {
       subtitle={`${narocila(orders.length)} · zadnjih 50`}
       who="Marija · pisarna"
       role={staff?.role}
+      section="narocila"
     >
       {isDemoMode && (
         <Callout tone="wine" className="mb-4">

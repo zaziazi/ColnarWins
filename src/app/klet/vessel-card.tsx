@@ -7,13 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Card, FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
-import { adjustVessel, recordBottlingRun, recordHarvestIntake } from "./actions";
+import { adjustVessel, recordBottlingRun, recordHarvestIntake, recordReading } from "./actions";
 import { cn } from "@/lib/utils";
-import type { Product, Vessel } from "@/lib/types";
+import { dateShort } from "@/lib/format";
+import type { Product, Vessel, VesselReading } from "@/lib/types";
 
-type Mode = null | "sprejem" | "steklenicenje" | "popravek";
+type Mode = null | "sprejem" | "steklenicenje" | "popravek" | "meritev";
 
-export function VesselCard({ vessel, products }: { vessel: Vessel; products: Product[] }) {
+export function VesselCard({
+  vessel,
+  products,
+  readings,
+}: {
+  vessel: Vessel;
+  products: Product[];
+  readings: VesselReading[];
+}) {
   const router = useRouter();
   const [mode, setMode] = React.useState<Mode>(null);
   const fillPct = vessel.capacityL > 0 ? Math.min(100, (vessel.currentVolumeL / vessel.capacityL) * 100) : 0;
@@ -71,6 +80,13 @@ export function VesselCard({ vessel, products }: { vessel: Vessel; products: Pro
         >
           Popravek
         </Button>
+        <Button
+          size="sm"
+          variant={mode === "meritev" ? "primary" : "secondary"}
+          onClick={() => toggle("meritev")}
+        >
+          Meritev
+        </Button>
       </div>
 
       {mode === "sprejem" && (
@@ -81,6 +97,34 @@ export function VesselCard({ vessel, products }: { vessel: Vessel; products: Pro
       )}
       {mode === "popravek" && (
         <VesselAdjustmentForm vesselId={vessel.id} onDone={afterSuccess} onCancel={() => setMode(null)} />
+      )}
+      {mode === "meritev" && (
+        <ReadingForm vesselId={vessel.id} onDone={afterSuccess} onCancel={() => setMode(null)} />
+      )}
+
+      {readings.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-line space-y-2">
+          {readings.map((r) => (
+            <div key={r.id} className="text-[12.5px]">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold tabular">
+                  {[
+                    r.brix !== null && `${r.brix}° Brix`,
+                    r.ph !== null && `pH ${r.ph}`,
+                    r.so2 !== null && `SO2 ${r.so2}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Opomba"}
+                </span>
+                <span className="text-[11px] text-ink-subtle shrink-0">
+                  {dateShort(r.recordedAt)}
+                  {r.createdByName && ` · ${r.createdByName}`}
+                </span>
+              </div>
+              {r.note && <p className="text-ink-muted mt-0.5">{r.note}</p>}
+            </div>
+          ))}
+        </div>
       )}
     </Card>
   );
@@ -207,6 +251,95 @@ function BottlingForm({
       <div className="flex gap-2">
         <Button size="sm" onClick={submit} loading={pending} disabled={!liters || !bottles}>
           Zabeleži stekleničenje
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Prekliči
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ReadingForm({
+  vesselId,
+  onDone,
+  onCancel,
+}: {
+  vesselId: string;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const [brix, setBrix] = React.useState("");
+  const [ph, setPh] = React.useState("");
+  const [so2, setSo2] = React.useState("");
+  const [note, setNote] = React.useState("");
+  const [pending, startTransition] = React.useTransition();
+
+  const hasValue = brix || ph || so2 || note.trim();
+
+  function submit() {
+    if (!hasValue) return;
+
+    startTransition(async () => {
+      const result = await recordReading({
+        vesselId,
+        brix: brix ? parseFloat(brix) : undefined,
+        ph: ph ? parseFloat(ph) : undefined,
+        so2: so2 ? parseFloat(so2) : undefined,
+        note,
+      });
+      if (!result.ok) {
+        toast.error(result.error ?? "Meritev ni uspela");
+        return;
+      }
+      onDone("Meritev zabeležena");
+    });
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-line space-y-2.5">
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <FieldLabel>Sladkor (°Brix)</FieldLabel>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={brix}
+            onChange={(e) => setBrix(e.target.value.replace(/[^\d.]/g, ""))}
+            placeholder="npr. 18"
+            autoFocus
+          />
+        </div>
+        <div>
+          <FieldLabel>pH</FieldLabel>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={ph}
+            onChange={(e) => setPh(e.target.value.replace(/[^\d.]/g, ""))}
+            placeholder="npr. 3.3"
+          />
+        </div>
+        <div>
+          <FieldLabel>SO2</FieldLabel>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={so2}
+            onChange={(e) => setSo2(e.target.value.replace(/[^\d.]/g, ""))}
+            placeholder="npr. 30"
+          />
+        </div>
+      </div>
+      <Textarea
+        placeholder="Opomba (okus, vonj, videz…)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="min-h-[52px]"
+      />
+      <div className="flex gap-2">
+        <Button size="sm" onClick={submit} loading={pending} disabled={!hasValue}>
+          Zabeleži meritev
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           Prekliči

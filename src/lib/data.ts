@@ -22,6 +22,7 @@ import type {
   StockMovementEntry,
   UnroutedOrder,
   Vessel,
+  VesselReading,
 } from "./types";
 
 /**
@@ -490,7 +491,7 @@ export async function getVessels(): Promise<Vessel[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vessel")
-    .select("id,name,capacity_l,current_product_id,current_volume_l,active,product(name)")
+    .select("id,name,material,capacity_l,current_product_id,current_volume_l,active,product(name)")
     .order("name");
 
   if (error) throw error;
@@ -498,11 +499,37 @@ export async function getVessels(): Promise<Vessel[]> {
   return (data ?? []).map((v) => ({
     id: v.id,
     name: v.name,
+    material: v.material,
     capacityL: Number(v.capacity_l),
     currentProductId: v.current_product_id,
     currentProductName: (v.product as unknown as { name: string } | null)?.name ?? null,
     currentVolumeL: Number(v.current_volume_l),
     active: v.active,
+  }));
+}
+
+/** Recent readings (Brix/pH/SO2/notes) across all vessels, newest first. */
+export async function getVesselReadings(limit = 100): Promise<VesselReading[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("vessel_reading")
+    .select("id,vessel_id,recorded_at,brix,ph,so2,note,staff(full_name)")
+    .order("recorded_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    vesselId: r.vessel_id,
+    recordedAt: r.recorded_at,
+    brix: r.brix === null ? null : Number(r.brix),
+    ph: r.ph === null ? null : Number(r.ph),
+    so2: r.so2 === null ? null : Number(r.so2),
+    note: r.note,
+    createdByName: (r.staff as unknown as { full_name: string } | null)?.full_name ?? null,
   }));
 }
 

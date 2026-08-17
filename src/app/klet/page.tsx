@@ -1,9 +1,16 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
-import { getBulkMovements, getCurrentStaff, getProducts, getVessels } from "@/lib/data";
+import {
+  getBulkMovements,
+  getCurrentStaff,
+  getProducts,
+  getVessels,
+  getVesselReadings,
+} from "@/lib/data";
 import { dateShort } from "@/lib/format";
 import { NewVesselForm } from "./new-vessel-form";
 import { VesselCard } from "./vessel-card";
+import type { Vessel, VesselReading } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +34,21 @@ export default async function CellarPage() {
     );
   }
 
-  const [vessels, bulkMovements, products] = await Promise.all([
+  const [vessels, bulkMovements, products, readings] = await Promise.all([
     getVessels(),
     getBulkMovements(10),
     getProducts(),
+    getVesselReadings(),
   ]);
+
+  const stainless = vessels.filter((v) => v.material === "stainless");
+  const wood = vessels.filter((v) => v.material === "wood");
+  const readingsByVessel = new Map<string, VesselReading[]>();
+  for (const r of readings) {
+    const list = readingsByVessel.get(r.vesselId) ?? [];
+    list.push(r);
+    readingsByVessel.set(r.vesselId, list);
+  }
 
   return (
     <AppShell
@@ -53,11 +70,20 @@ export default async function CellarPage() {
           <p className="text-[13px] text-ink-muted">Še ni rezervoarjev.</p>
         </Card>
       ) : (
-        <div className="space-y-2.5 mb-6">
-          {vessels.map((vessel) => (
-            <VesselCard key={vessel.id} vessel={vessel} products={products} />
-          ))}
-        </div>
+        <>
+          <VesselGroup
+            label="Inox cisterne"
+            vessels={stainless}
+            products={products}
+            readingsByVessel={readingsByVessel}
+          />
+          <VesselGroup
+            label="Leseni sodi"
+            vessels={wood}
+            products={products}
+            readingsByVessel={readingsByVessel}
+          />
+        </>
       )}
 
       <SectionHeading>Nedavno</SectionHeading>
@@ -89,6 +115,36 @@ export default async function CellarPage() {
         )}
       </Card>
     </AppShell>
+  );
+}
+
+function VesselGroup({
+  label,
+  vessels,
+  products,
+  readingsByVessel,
+}: {
+  label: string;
+  vessels: Vessel[];
+  products: Awaited<ReturnType<typeof getProducts>>;
+  readingsByVessel: Map<string, VesselReading[]>;
+}) {
+  if (vessels.length === 0) return null;
+
+  return (
+    <>
+      <SectionHeading>{label}</SectionHeading>
+      <div className="space-y-2.5 mb-6">
+        {vessels.map((vessel) => (
+          <VesselCard
+            key={vessel.id}
+            vessel={vessel}
+            products={products}
+            readings={readingsByVessel.get(vessel.id) ?? []}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

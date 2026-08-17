@@ -108,6 +108,7 @@ export async function recordBottlingRun(
 const CreateVesselInput = z.object({
   name: z.string().min(1).max(60),
   capacityL: z.number().positive(),
+  material: z.enum(["stainless", "wood"]),
 });
 
 export async function createVessel(input: z.infer<typeof CreateVesselInput>): Promise<ActionResult> {
@@ -124,7 +125,65 @@ export async function createVessel(input: z.infer<typeof CreateVesselInput>): Pr
   const supabase = await createClient();
   const { error } = await supabase
     .from("vessel")
-    .insert({ name: parsed.data.name, capacity_l: parsed.data.capacityL });
+    .insert({
+      name: parsed.data.name,
+      capacity_l: parsed.data.capacityL,
+      material: parsed.data.material,
+    });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/klet");
+  return { ok: true };
+}
+
+const RecordReadingInput = z
+  .object({
+    vesselId: z.string().min(1),
+    brix: z.number().optional(),
+    ph: z.number().optional(),
+    so2: z.number().optional(),
+    note: z.string().max(300).optional().default(""),
+  })
+  .refine(
+    (v) => v.brix !== undefined || v.ph !== undefined || v.so2 !== undefined || v.note !== "",
+    { message: "Vnesi vsaj eno meritev ali opombo." },
+  );
+
+export async function recordReading(input: z.infer<typeof RecordReadingInput>): Promise<ActionResult> {
+  const parsed = RecordReadingInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna meritev." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let createdBy: string | null = null;
+  if (user) {
+    const { data: staff } = await supabase
+      .from("staff")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single();
+    createdBy = staff?.id ?? null;
+  }
+
+  const { error } = await supabase.from("vessel_reading").insert({
+    vessel_id: parsed.data.vesselId,
+    brix: parsed.data.brix ?? null,
+    ph: parsed.data.ph ?? null,
+    so2: parsed.data.so2 ?? null,
+    note: parsed.data.note || null,
+    created_by: createdBy,
+  });
 
   if (error) return { ok: false, error: error.message };
 

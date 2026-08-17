@@ -155,9 +155,12 @@ export interface StockMovementEntry {
   createdAt: string;
 }
 
+export type VesselMaterial = "stainless" | "wood";
+
 export interface Vessel {
   id: string;
   name: string;
+  material: VesselMaterial;
   capacityL: number;
   currentProductId: string | null;
   currentProductName: string | null;
@@ -174,4 +177,15 @@ export interface BulkMovementEntry {
   note: string | null;
   createdByName: string | null;
   createdAt: string;
+}
+
+export interface VesselReading {
+  id: string;
+  vesselId: string;
+  recordedAt: string;
+  brix: number | null;
+  ph: number | null;
+  so2: number | null;
+  note: string | null;
+  createdByName: string | null;
 }

@@ -61,10 +61,19 @@ const UpdateOrderInput = z.object({
 
 export type UpdateOrderInput = z.infer<typeof UpdateOrderInput>;
 
+const EDITABLE_STATUSES = ["draft", "confirmed"];
+
 /**
- * Edits an existing draft order — only drafts, since a confirmed order's
- * prices are already snapshotted and shouldn't move. Lines are replaced
- * wholesale rather than diffed; simpler and the order is still a draft.
+ * Edits an existing draft or confirmed order. Planned/delivered/invoiced/
+ * cancelled orders stay locked — editing those would misalign a route, a
+ * delivery, or an already-issued invoice.
+ *
+ * For a draft, lines re-price to today's catalogue (nothing is confirmed
+ * yet, so there's no history to protect). For a confirmed order, a line
+ * that already existed keeps its originally snapshotted price even if the
+ * catalogue changed since — "snapshotted at confirmation" means exactly
+ * that. Only a genuinely new line (a product not previously on the order)
+ * gets today's catalogue price.
  */
 export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult> {
   const parsed = UpdateOrderInput.safeParse(input);
@@ -89,8 +98,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
   if (fetchError || !existing) {
     return { ok: false, error: "Naročilo ne obstaja." };
   }
-  if (existing.status !== "draft") {
-    return { ok: false, error: "Samo osnutke je mogoče urejati." };
+  if (!EDITABLE_STATUSES.includes(existing.status)) {
+    return { ok: false, error: "Tega naročila ni več mogoče urejati." };
   }
 
   const { error: updateError } = await supabase
@@ -100,6 +109,31 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   if (updateError) return { ok: false, error: updateError.message };
 
+  const { data: priorLines, error: priorError } = await supabase
+    .from("order_line")
+    .select("product_id,unit_price_net,vat_rate")
+    .eq("order_id", orderId);
+
+  if (priorError) return { ok: false, error: priorError.message };
+
+  const priorByProduct = new Map(
+    (priorLines ?? []).map((l) => [
+      l.product_id,
+      { unitPriceNet: Number(l.unit_price_net), vatRate: Number(l.vat_rate) },
+    ]),
+  );
+
+  const resolvedLines = lines.map((l) => {
+    const prior = existing.status === "confirmed" ? priorByProduct.get(l.productId) : undefined;
+    return {
+      order_id: orderId,
+      product_id: l.productId,
+      quantity_ordered: l.quantity,
+      unit_price_net: prior?.unitPriceNet ?? l.unitPriceNet,
+      vat_rate: prior?.vatRate ?? l.vatRate,
+    };
+  });
+
   const { error: deleteError } = await supabase
     .from("order_line")
     .delete()
@@ -107,15 +141,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   if (deleteError) return { ok: false, error: deleteError.message };
 
-  const { error: lineError } = await supabase.from("order_line").insert(
-    lines.map((l) => ({
-      order_id: orderId,
-      product_id: l.productId,
-      quantity_ordered: l.quantity,
-      unit_price_net: l.unitPriceNet,
-      vat_rate: l.vatRate,
-    })),
-  );
+  const { error: lineError } = await supabase.from("order_line").insert(resolvedLines);
 
   if (lineError) return { ok: false, error: lineError.message };
 

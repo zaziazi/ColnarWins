@@ -30,14 +30,14 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
     getOrderForEdit(id),
   ]);
 
-  if (!order || order.status !== "draft") {
+  const editable = order && (order.status === "draft" || order.status === "confirmed");
+
+  if (!editable) {
     return (
       <AppShell title="Uredi naročilo" who="Marija · pisarna">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
-            {order
-              ? "To naročilo ni več osnutek, zato ga ni mogoče urejati."
-              : "Naročilo ne obstaja."}
+            {order ? "Tega naročila ni več mogoče urejati." : "Naročilo ne obstaja."}
           </p>
         </Card>
       </AppShell>

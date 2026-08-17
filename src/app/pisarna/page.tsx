@@ -97,7 +97,7 @@ function OrderCard({
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             <Badge tone={statusTone[order.status]}>{statusLabel[order.status]}</Badge>
-            {order.status === "draft" && (
+            {(order.status === "draft" || order.status === "confirmed") && (
               <Button
                 asChild
                 variant="secondary"

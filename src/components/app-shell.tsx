@@ -38,7 +38,7 @@ export function AppShell({
       <header className="sticky top-0 z-20 bg-surface border-b border-line px-4 pt-4 pb-3">
         <div className="flex items-baseline justify-between gap-3">
           <span className="font-bold tracking-[-0.01em]">
-            Vinarna<span className="text-wine">.</span>
+            Colnix<span className="text-wine">.</span>
           </span>
           {who && <span className="text-xs text-ink-subtle">{who}</span>}
         </div>

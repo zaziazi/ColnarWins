@@ -3,7 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vinarna",
+  title: "Colnix",
   description: "Naro\u010dila, dostava in ra\u010duni",
 };
 

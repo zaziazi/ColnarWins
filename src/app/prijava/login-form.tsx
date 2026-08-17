@@ -40,7 +40,7 @@ export function LoginForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="ime@vinarna.si"
+          placeholder="ime@colnix.si"
         />
       </div>
       <div>

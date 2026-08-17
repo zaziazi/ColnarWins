@@ -1,4 +1,4 @@
-# Vinarna — naročila, dostava in računi
+# Colnix — naročila, dostava in računi
 
 Next.js 15 (App Router) · Supabase · Tailwind v4 · TypeScript
 

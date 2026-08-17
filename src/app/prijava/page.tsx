@@ -7,7 +7,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[380px]">
         <div className="text-center mb-7">
           <p className="font-bold text-lg tracking-[-0.01em]">
-            Vinarna<span className="text-wine">.</span>
+            Colnix<span className="text-wine">.</span>
           </p>
           <p className="text-[13px] text-ink-muted mt-1">Naročila, dostava in računi</p>
         </div>

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vinarna — oblikovni sistem</title>
+<style>
+  /* ===================================================================
+     These are the exact values in src/app/globals.css.
+     Change them there, not here — this page is the reference, the app
+     is the source of truth.
+     =================================================================== */
+  :root{
+    --canvas:#f6f3ef; --surface:#fff; --surface-muted:#faf7f4;
+    --ink:#231a1c; --ink-muted:#6b5c5f; --ink-subtle:#9c8e91;
+    --line:#e7ded9; --line-strong:#d4c8c2;
+    --wine:#7a1230; --wine-hover:#630e27; --wine-soft:#fdf1f3; --wine-border:#f3dbe1;
+    --good:#1f7a4d; --good-soft:#eaf6f0; --good-ink:#17553a;
+    --warn:#8a5c00; --warn-soft:#fdf3e0;
+    --danger:#a32222; --danger-soft:#fbeaea;
+    --info:#1b4f8a; --info-soft:#eef3fa;
+    --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
+    --radius-control:10px; --radius-card:14px;
+    --shadow-card:0 1px 2px rgb(35 26 28/.05), 0 8px 24px rgb(35 26 28/.05);
+    --shadow-pop:0 4px 12px rgb(35 26 28/.08), 0 16px 40px rgb(35 26 28/.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .tabular{font-variant-numeric:tabular-nums}
+  .wrap{max-width:1160px;margin:0 auto;padding:36px 22px 80px}
+
+  .badge-top{display:inline-block;background:var(--wine-soft);color:var(--wine);font-size:11px;font-weight:700;
+    letter-spacing:.09em;text-transform:uppercase;padding:5px 11px;border-radius:100px;margin-bottom:12px}
+  h1{font-size:28px;margin:0 0 9px;letter-spacing:-.025em}
+  .lede{margin:0 0 6px;color:var(--ink-muted);max-width:720px}
+  .meta{color:var(--ink-subtle);font-size:13px;margin:0 0 34px}
+
+  h2{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-subtle);
+    margin:40px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+  h3{font-size:14px;font-weight:650;margin:22px 0 10px}
+  .note{font-size:13px;color:var(--ink-muted);margin:0 0 14px;max-width:700px}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:20px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+  /* swatches */
+  .sw{background:var(--surface);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .sw .chip{height:64px}
+  .sw .t{padding:9px 11px}
+  .sw .t b{display:block;font-size:12.5px}
+  .sw .t code{font-size:11px;color:var(--ink-subtle);font-family:ui-monospace,SFMono-Regular,monospace}
+
+  /* components */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;
+    border-radius:var(--radius-control);font-size:15px;font-weight:600;border:1px solid transparent;
+    cursor:pointer;font-family:inherit;transition:background .15s}
+  .btn-primary{background:var(--wine);color:#fff}
+  .btn-primary:hover{background:var(--wine-hover)}
+  .btn-secondary{background:var(--surface);color:var(--ink);border-color:var(--line)}
+  .btn-secondary:hover{background:var(--surface-muted)}
+  .btn-ghost{background:transparent;color:var(--ink-muted)}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-sm{height:36px;padding:0 12px;font-size:14px}
+  .btn-lg{height:52px;width:100%;font-size:16px}
+  .btn[disabled]{opacity:.4;cursor:not-allowed}
+
+  .inp{width:100%;height:44px;padding:0 12px;border-radius:var(--radius-control);background:var(--surface);
+    border:1px solid var(--line);font:inherit;color:var(--ink);outline:none}
+  .inp::placeholder{color:var(--ink-subtle)}
+  .inp:hover{border-color:var(--line-strong)}
+  .inp.focus{border-color:var(--wine);box-shadow:0 0 0 4px var(--wine-soft)}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:100px;padding:4px 10px;
+    font-size:11px;font-weight:700;letter-spacing:.02em}
+  .b-neutral{background:var(--surface-muted);color:var(--ink-muted)}
+  .b-wine{background:var(--wine-soft);color:var(--wine)}
+  .b-good{background:var(--good-soft);color:var(--good-ink)}
+  .b-warn{background:var(--warn-soft);color:var(--warn)}
+  .b-danger{background:var(--danger-soft);color:var(--danger)}
+  .b-info{background:var(--info-soft);color:var(--info)}
+
+  .callout{border-radius:12px;border:1px solid;padding:12px;display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.55}
+  .callout svg{width:16px;height:16px;flex:0 0 auto;margin-top:2px}
+  .c-wine{background:var(--wine-soft);border-color:var(--wine-border);color:var(--ink)}
+  .c-good{background:var(--good-soft);border-color:#cfe8dc;color:var(--good-ink)}
+  .c-warn{background:var(--warn-soft);border-color:#f0dcb4;color:var(--warn)}
+  .c-danger{background:var(--danger-soft);border-color:#f3d4d4;color:var(--danger)}
+
+  .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:var(--radius-control);
+    overflow:hidden;background:var(--surface)}
+  .stepper button{width:44px;height:44px;border:0;background:transparent;color:var(--ink);cursor:pointer;
+    display:grid;place-items:center;font-family:inherit}
+  .stepper button:hover{background:var(--surface-muted)}
+  .stepper .q{width:44px;height:44px;text-align:center;border:0;background:transparent;font:inherit;
+    font-weight:700;font-variant-numeric:tabular-nums;outline:none}
+
+  .flabel{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-subtle);margin-bottom:8px}
+
+  /* phone frame */
+  .phone{width:390px;background:var(--surface);border:1px solid var(--line);border-radius:24px;overflow:hidden;
+    box-shadow:var(--shadow-card)}
+  .ph-top{padding:15px 16px 12px;border-bottom:1px solid var(--line)}
+  .ph-top .brand{font-weight:700;font-size:15px}
+  .ph-top .brand span{color:var(--wine)}
+  .ph-top .who{float:right;font-size:12px;color:var(--ink-subtle);font-weight:400}
+  .ph-top h4{margin:10px 0 2px;font-size:20px;letter-spacing:-.02em}
+  .ph-top p{margin:0;font-size:12.5px;color:var(--ink-muted)}
+  .ph-body{background:var(--canvas);padding:14px;display:grid;gap:11px}
+  .ph-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-card);padding:13px}
+  .ph-nav{display:flex;border-top:1px solid var(--line);background:var(--surface)}
+  .ph-nav a{flex:1;text-align:center;padding:8px 0 10px;font-size:10.5px;font-weight:600;color:var(--ink-subtle);
+    text-decoration:none;display:grid;justify-items:center;gap:3px}
+  .ph-nav a.on{color:var(--wine)}
+  .ph-nav svg{width:20px;height:20px}
+
+  .line{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .line:last-of-type{border-bottom:0}
+  .line .nm{flex:1;min-width:0}
+  .line .nm b{display:block;font-size:14px;font-weight:600}
+  .line .nm span{font-size:11.5px;color:var(--ink-subtle)}
+  .tot{border-top:2px solid var(--line);margin-top:6px;padding-top:11px}
+  .tot .r{display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-muted);padding:2px 0}
+  .tot .r.big{font-size:16px;font-weight:700;color:var(--ink);padding-top:8px}
+
+  .rules li{margin-bottom:9px;font-size:14px}
+  code.k{font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;background:var(--surface-muted);
+    padding:2px 6px;border-radius:5px;border:1px solid var(--line)}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);text-align:center;
+    font-size:12.5px;color:var(--ink-subtle)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="badge-top">Oblikovni sistem</div>
+  <h1>Vinarna — vmesnik</h1>
+  <p class="lede">Vsaka barva, zaobljenost in razmik pride iz ene datoteke: <code class="k">src/app/globals.css</code>. Ta stran je referenca — če barve tu ni, je tudi v aplikaciji ne sme biti.</p>
+  <p class="meta">Različica 1.0 · ujema se s kodo v repozitoriju</p>
+
+  <!-- ============================================================ -->
+  <h2>Barve</h2>
+  <h3>Površine in besedilo</h3>
+  <div class="grid g4">
+    <div class="sw"><div class="chip" style="background:#f6f3ef"></div><div class="t"><b>canvas</b><code>#f6f3ef</code></div></div>
+    <div class="sw"><div class="chip" style="background:#fff;border-bottom:1px solid var(--line)"></div><div class="t"><b>surface</b><code>#ffffff</code></div></div>
+    <div class="sw"><div class="chip" style="background:#faf7f4"></div><div class="t"><b>surface-muted</b><code>#faf7f4</code></div></div>
+    <div class="sw"><div class="chip" style="background:#e7ded9"></div><div class="t"><b>line</b><code>#e7ded9</code></div></div>
+    <div class="sw"><div class="chip" style="background:#231a1c"></div><div class="t"><b>ink</b><code>#231a1c</code></div></div>
+    <div class="sw"><div class="chip" style="background:#6b5c5f"></div><div class="t"><b>ink-muted</b><code>#6b5c5f</code></div></div>
+    <div class="sw"><div class="chip" style="background:#9c8e91"></div><div class="t"><b>ink-subtle</b><code>#9c8e91</code></div></div>
+  </div>
+
+  <h3>Znamka</h3>
+  <div class="grid g4">
+    <div class="sw"><div class="chip" style="background:#7a1230"></div><div class="t"><b>wine</b><code>#7a1230</code></div></div>
+    <div class="sw"><div class="chip" style="background:#630e27"></div><div class="t"><b>wine-hover</b><code>#630e27</code></div></div>
+    <div class="sw"><div class="chip" style="background:#fdf1f3"></div><div class="t"><b>wine-soft</b><code>#fdf1f3</code></div></div>
+    <div class="sw"><div class="chip" style="background:#f3dbe1"></div><div class="t"><b>wine-border</b><code>#f3dbe1</code></div></div>
+  </div>
+
+  <h3>Stanja</h3>
+  <p class="note">Te barve pomenijo stanje in se <b>nikoli</b> ne uporabijo za okras ali za »četrto serijo« v grafu. Vedno nastopajo skupaj z ikono in besedo — pomen ne sme biti odvisen samo od barve.</p>
+  <div class="grid g4">
+    <div class="sw"><div class="chip" style="background:#1f7a4d"></div><div class="t"><b>good</b><code>#1f7a4d</code></div></div>
+    <div class="sw"><div class="chip" style="background:#8a5c00"></div><div class="t"><b>warn</b><code>#8a5c00</code></div></div>
+    <div class="sw"><div class="chip" style="background:#a32222"></div><div class="t"><b>danger</b><code>#a32222</code></div></div>
+    <div class="sw"><div class="chip" style="background:#1b4f8a"></div><div class="t"><b>info</b><code>#1b4f8a</code></div></div>
+  </div>
+
+  <h3>Grafi</h3>
+  <p class="note">Ločen nabor, preverjen za barvno slepoto. Nikoli se ne meša s stanji.</p>
+  <div class="grid g4">
+    <div class="sw"><div class="chip" style="background:#2a78d6"></div><div class="t"><b>series-1</b><code>#2a78d6</code></div></div>
+    <div class="sw"><div class="chip" style="background:#eb6834"></div><div class="t"><b>series-2</b><code>#eb6834</code></div></div>
+    <div class="sw"><div class="chip" style="background:#1baf7a"></div><div class="t"><b>series-3</b><code>#1baf7a</code></div></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Gumbi</h2>
+  <p class="note">Privzeta višina je 44 px — najmanjši udoben cilj za prst. Voznik jih pritiska stoje, z eno roko, pogosto v rokavicah.</p>
+  <div class="panel">
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn btn-primary">Potrdi naročilo</button>
+      <button class="btn btn-secondary">Uredi</button>
+      <button class="btn btn-ghost">Prekliči</button>
+      <button class="btn btn-danger">Izbriši</button>
+      <button class="btn btn-primary" disabled>Onemogočen</button>
+    </div>
+    <div class="row">
+      <button class="btn btn-primary btn-sm">Majhen</button>
+      <button class="btn btn-secondary btn-sm">Majhen</button>
+    </div>
+    <div style="margin-top:14px;max-width:340px">
+      <button class="btn btn-primary btn-lg">Čez celo širino — glavna akcija</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Polja</h2>
+  <div class="panel grid g2">
+    <div>
+      <div class="flabel">Privzeto</div>
+      <input class="inp" placeholder="ime@vinarna.si">
+    </div>
+    <div>
+      <div class="flabel">V fokusu</div>
+      <input class="inp focus" value="Picerija Foculus">
+    </div>
+    <div>
+      <div class="flabel">Števec količine — koraki po zaboju</div>
+      <div class="stepper">
+        <button>−</button><input class="q" value="12"><button>+</button>
+      </div>
+    </div>
+    <div>
+      <div class="flabel">Izbirnik kupca</div>
+      <button class="inp" style="text-align:left;display:flex;align-items:center;justify-content:space-between">
+        <span>Gostilna Škrlj</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c8e91" stroke-width="2" stroke-linecap="round"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Oznake stanj</h2>
+  <p class="note">Stanje naročila ima eno samo barvo v vseh treh aplikacijah. Direktor in pisarna vidita isto besedo in isto barvo.</p>
+  <div class="panel row">
+    <span class="badge b-warn">Osnutek</span>
+    <span class="badge b-good">Potrjeno</span>
+    <span class="badge b-info">Načrtovano</span>
+    <span class="badge b-info">Dostavljeno</span>
+    <span class="badge b-neutral">Račun izdan</span>
+    <span class="badge b-danger">Preklicano</span>
+    <span class="badge b-wine">Samodejno</span>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Sporočila</h2>
+  <p class="note">Vedno z ikono. Pripeta na stvar, ki jo zadeva — nikoli na vrhu strani, kjer jih nihče ne bere.</p>
+  <div class="panel grid" style="gap:10px">
+    <div class="callout c-wine">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      <div><b>Običajno naročilo je že vneseno.</b> Zadnjič 24. julija 2026. Spremeni samo, kar je drugače.</div>
+    </div>
+    <div class="callout c-danger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <div><b>Odprto 1.840 €, 47 dni v zamudi.</b> Naročilo bo shranjeno kot osnutek in ga mora potrditi pisarna.</div>
+    </div>
+    <div class="callout c-good">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+      <div>Račun izdan (št. 2026-1184) in poslan kupcu.</div>
+    </div>
+    <div class="callout c-warn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <div>Demo način — Supabase še ni nastavljen, zato vidiš vzorčne podatke.</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Zaslon v celoti</h2>
+  <p class="note">Tako izgleda <code class="k">/pisarna/novo</code> — obrazec za telefonsko naročilo. Cilj: 45 sekund od dviga slušalke do potrjenega naročila, brez tipkovnice razen za opombo.</p>
+
+  <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+    <div class="phone">
+      <div class="ph-top">
+        <div class="brand">Vinarna<span>.</span><span class="who">Marija · pisarna</span></div>
+        <h4>Novo naročilo</h4>
+        <p>Vnos med telefonskim klicem</p>
+      </div>
+      <div class="ph-body">
+        <div class="ph-card">
+          <div class="flabel">Kupec</div>
+          <button class="inp" style="text-align:left;display:flex;align-items:center;justify-content:space-between">
+            <span>Picerija Foculus</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9c8e91" stroke-width="2" stroke-linecap="round"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+          </button>
+        </div>
+
+        <div class="callout c-danger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          <div><b>Odprto 1.840 €, 47 dni v zamudi.</b> Naročilo bo shranjeno kot osnutek in ga mora potrditi pisarna.</div>
+        </div>
+
+        <div class="callout c-wine" style="align-items:flex-start">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/></svg>
+          <div style="flex:1"><b style="color:var(--wine)">Običajno naročilo je že vneseno.</b><br><span style="color:var(--ink-muted)">Zadnjič 24. julija 2026. Spremeni samo, kar je drugače.</span></div>
+          <span style="font-size:11.5px;font-weight:600;color:var(--wine)">Ponastavi</span>
+        </div>
+
+        <div class="ph-card" style="padding:2px 13px">
+          <div class="line">
+            <div class="nm"><b>Rebula 2023</b><span>0,75 l · 8,50 €</span></div>
+            <div class="stepper"><button>−</button><input class="q" value="0" style="color:var(--ink-subtle)"><button>+</button></div>
+          </div>
+          <div class="line">
+            <div class="nm"><b style="color:var(--wine)">Refošk 2022</b><span>0,75 l · 10,00 €</span></div>
+            <div class="stepper"><button>−</button><input class="q" value="18"><button>+</button></div>
+          </div>
+          <div class="line">
+            <div class="nm"><b style="color:var(--wine)">Merlot 2021</b><span>0,75 l · 12,50 €</span></div>
+            <div class="stepper"><button>−</button><input class="q" value="12"><button>+</button></div>
+          </div>
+          <div class="tot" style="padding-bottom:12px">
+            <div class="r"><span>Osnova</span><span class="tabular">330,00 €</span></div>
+            <div class="r"><span>DDV 22 %</span><span class="tabular">72,60 €</span></div>
+            <div class="r big"><span>Skupaj</span><span class="tabular">402,60 €</span></div>
+          </div>
+        </div>
+
+        <div class="ph-card">
+          <div class="flabel">Datum dostave</div>
+          <div class="row" style="gap:8px">
+            <button class="btn btn-secondary btn-sm" style="height:44px">sob, 15. avg</button>
+            <button class="btn btn-primary btn-sm" style="height:44px">pon, 17. avg</button>
+            <button class="btn btn-secondary btn-sm" style="height:44px">tor, 18. avg</button>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary btn-lg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          Shrani kot osnutek
+        </button>
+        <p style="margin:0;font-size:11.5px;color:var(--ink-subtle);text-align:center;padding:0 8px 4px">
+          Račun se <b>ne</b> izda zdaj. Nastane šele ob potrjeni dostavi.
+        </p>
+      </div>
+      <div class="ph-nav">
+        <a href="#" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Novo</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Naročila</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>Načrt</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 17h1l1-5 2-4h9l3 4 2 1v4h-2"/><circle cx="7.5" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/></svg>Voznik</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M3 12h18"/></svg>Komerciala</a>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:300px">
+      <h3 style="margin-top:0">Zakaj je videti tako</h3>
+      <ul class="rules" style="padding-left:20px;color:var(--ink-muted)">
+        <li><b style="color:var(--ink)">Navigacija spodaj, ne ob strani.</b> Uporablja se z eno roko, stoje. Palec doseže spodnji rob, ne zgornjega.</li>
+        <li><b style="color:var(--ink)">Ista lupina za vse vloge.</b> Pisarna, voznik in komercialist vidijo isti okvir — samo drugo vsebino.</li>
+        <li><b style="color:var(--ink)">Vsota je vedno vidna.</b> Operaterka jo prebere stranki po telefonu, ne da bi se premikala po zaslonu.</li>
+        <li><b style="color:var(--ink)">Zamuda je opozorilo, ne skrivnost.</b> Rdeče, z ikono, tik pod imenom kupca — preden se vnese ena sama steklenica.</li>
+        <li><b style="color:var(--ink)">Gumb pove, kaj se bo zgodilo.</b> Pri kupcu v zamudi ne piše »Potrdi«, ampak »Shrani kot osnutek«.</li>
+        <li><b style="color:var(--ink)">Števci po zaboju.</b> Šest naenkrat, ker se vino tako premika. Ponovno naročilo sta dva dotika.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Pravila, ki jih ne kršimo</h2>
+  <div class="panel">
+    <ol class="rules" style="padding-left:20px;margin:0">
+      <li><b>Nobene surove barve v komponenti.</b> Če barve ni med žetoni, jo najprej dodaj v <code class="k">globals.css</code>. To je edino, kar drži tri aplikacije skupaj.</li>
+      <li><b>Barva nikoli ne nosi pomena sama.</b> Vsako stanje ima ikono in besedo.</li>
+      <li><b>Najmanjši cilj za prst je 44 px.</b> Brez izjem na zaslonih, ki se uporabljajo na terenu.</li>
+      <li><b>Fokusni obroč se nikoli ne odstrani.</b> Definiran je enkrat, v barvi znamke.</li>
+      <li><b>Denar in količine so tabelarne števke.</b> Stolpci se poravnajo, oko primerja brez napora.</li>
+      <li><b>Poslovna pravila živijo v strežniških akcijah.</b> Pravilo, ki obstaja samo v Reactu, ni pravilo.</li>
+    </ol>
+  </div>
+
+  <footer>Oblikovni sistem · ujema se s <code class="k">src/app/globals.css</code> v repozitoriju</footer>
+</div>
+</body>
+</html>

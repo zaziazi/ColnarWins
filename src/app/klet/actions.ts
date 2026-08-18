@@ -7,40 +7,18 @@ import { isDemoMode } from "@/lib/demo";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-const AdjustVesselInput = z.object({
-  vesselId: z.string().min(1),
-  deltaL: z.number().refine((n) => n !== 0, "Vnesi količino, ki ni nič."),
-  note: z.string().max(300).optional().default(""),
-});
-
-export async function adjustVessel(input: z.infer<typeof AdjustVesselInput>): Promise<ActionResult> {
-  const parsed = AdjustVesselInput.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven popravek." };
-  }
-
-  if (isDemoMode) {
-    await new Promise((r) => setTimeout(r, 200));
-    return { ok: true };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("record_vessel_adjustment", {
-    p_vessel_id: parsed.data.vesselId,
-    p_delta_l: parsed.data.deltaL,
-    p_note: parsed.data.note || null,
-  });
-
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath("/klet");
-  revalidatePath(`/klet/${parsed.data.vesselId}`);
-  return { ok: true };
+async function currentStaffId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from("staff").select("id").eq("auth_user_id", user.id).single();
+  return data?.id ?? null;
 }
 
 const HarvestIntakeInput = z.object({
   vesselId: z.string().min(1),
-  productId: z.string().min(1),
+  name: z.string().min(1).max(120),
   volumeL: z.number().positive(),
   note: z.string().max(300).optional().default(""),
 });
@@ -61,7 +39,7 @@ export async function recordHarvestIntake(
   const supabase = await createClient();
   const { error } = await supabase.rpc("record_harvest_intake", {
     p_vessel_id: parsed.data.vesselId,
-    p_product_id: parsed.data.productId,
+    p_name: parsed.data.name,
     p_volume_l: parsed.data.volumeL,
     p_note: parsed.data.note || null,
   });
@@ -69,21 +47,122 @@ export async function recordHarvestIntake(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/klet");
-  revalidatePath(`/klet/${parsed.data.vesselId}`);
+  revalidatePath("/klet/rezervoarji");
   return { ok: true };
 }
 
-const BottlingRunInput = z.object({
-  vesselId: z.string().min(1),
+const TransferInput = z.object({
+  lotId: z.string().min(1),
+  toVesselId: z.string().min(1),
+  note: z.string().max(300).optional().default(""),
+});
+
+export async function transferWineLot(input: z.infer<typeof TransferInput>): Promise<ActionResult> {
+  const parsed = TransferInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven prenos." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("transfer_wine_lot", {
+    p_lot_id: parsed.data.lotId,
+    p_to_vessel_id: parsed.data.toVesselId,
+    p_note: parsed.data.note || null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/klet");
+  revalidatePath("/klet/rezervoarji");
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
+const ReadingInput = z
+  .object({
+    lotId: z.string().min(1),
+    brix: z.number().optional(),
+    ph: z.number().optional(),
+    so2: z.number().optional(),
+    note: z.string().max(300).optional().default(""),
+  })
+  .refine(
+    (v) => v.brix !== undefined || v.ph !== undefined || v.so2 !== undefined || v.note !== "",
+    { message: "Vnesi vsaj eno meritev ali opombo." },
+  );
+
+export async function recordLotReading(input: z.infer<typeof ReadingInput>): Promise<ActionResult> {
+  const parsed = ReadingInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna meritev." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_wine_lot_reading", {
+    p_lot_id: parsed.data.lotId,
+    p_brix: parsed.data.brix ?? null,
+    p_ph: parsed.data.ph ?? null,
+    p_so2: parsed.data.so2 ?? null,
+    p_note: parsed.data.note || null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
+const AdjustVolumeInput = z.object({
+  lotId: z.string().min(1),
+  deltaL: z.number().refine((n) => n !== 0, "Vnesi količino, ki ni nič."),
+  note: z.string().max(300).optional().default(""),
+});
+
+export async function adjustLotVolume(input: z.infer<typeof AdjustVolumeInput>): Promise<ActionResult> {
+  const parsed = AdjustVolumeInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven popravek." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("adjust_wine_lot_volume", {
+    p_lot_id: parsed.data.lotId,
+    p_delta_l: parsed.data.deltaL,
+    p_note: parsed.data.note || null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/klet");
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
+const BottlingInput = z.object({
+  lotId: z.string().min(1),
+  productId: z.string().min(1),
   litersConsumed: z.number().positive(),
   bottlesProduced: z.number().int().positive(),
   note: z.string().max(300).optional().default(""),
 });
 
-export async function recordBottlingRun(
-  input: z.infer<typeof BottlingRunInput>,
-): Promise<ActionResult> {
-  const parsed = BottlingRunInput.safeParse(input);
+export async function recordLotBottling(input: z.infer<typeof BottlingInput>): Promise<ActionResult> {
+  const parsed = BottlingInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavno stekleničenje." };
   }
@@ -94,8 +173,9 @@ export async function recordBottlingRun(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("record_bottling_run", {
-    p_vessel_id: parsed.data.vesselId,
+  const { error } = await supabase.rpc("record_lot_bottling_run", {
+    p_lot_id: parsed.data.lotId,
+    p_product_id: parsed.data.productId,
     p_liters_consumed: parsed.data.litersConsumed,
     p_bottles_produced: parsed.data.bottlesProduced,
     p_note: parsed.data.note || null,
@@ -104,7 +184,99 @@ export async function recordBottlingRun(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/klet");
-  revalidatePath(`/klet/${parsed.data.vesselId}`);
+  revalidatePath("/klet/rezervoarji");
+  revalidatePath("/zaloge");
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
+const UpdateLotNameInput = z.object({
+  lotId: z.string().min(1),
+  name: z.string().min(1).max(120),
+});
+
+export async function updateLotName(input: z.infer<typeof UpdateLotNameInput>): Promise<ActionResult> {
+  const parsed = UpdateLotNameInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavno ime." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("wine_lot")
+    .select("name, vessel_id")
+    .eq("id", parsed.data.lotId)
+    .single();
+  if (fetchError || !existing) return { ok: false, error: "Vino ne obstaja." };
+
+  const { error } = await supabase
+    .from("wine_lot")
+    .update({ name: parsed.data.name, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.lotId);
+  if (error) return { ok: false, error: error.message };
+
+  const createdBy = await currentStaffId(supabase);
+  await supabase.from("wine_lot_event").insert({
+    lot_id: parsed.data.lotId,
+    event_type: "name_change",
+    to_vessel_id: existing.vessel_id,
+    note: `Ime: "${existing.name}" → "${parsed.data.name}"`,
+    created_by: createdBy,
+  });
+
+  revalidatePath("/klet");
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
+const UpdateLotStageInput = z.object({
+  lotId: z.string().min(1),
+  stage: z.enum(["most", "vrenje", "vino"]),
+});
+
+const STAGE_LABEL: Record<string, string> = { most: "Mošt", vrenje: "Vrenje", vino: "Vino" };
+
+export async function updateLotStage(input: z.infer<typeof UpdateLotStageInput>): Promise<ActionResult> {
+  const parsed = UpdateLotStageInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna faza." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("wine_lot")
+    .select("stage, vessel_id")
+    .eq("id", parsed.data.lotId)
+    .single();
+  if (fetchError || !existing) return { ok: false, error: "Vino ne obstaja." };
+
+  const { error } = await supabase
+    .from("wine_lot")
+    .update({ stage: parsed.data.stage, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.lotId);
+  if (error) return { ok: false, error: error.message };
+
+  const createdBy = await currentStaffId(supabase);
+  await supabase.from("wine_lot_event").insert({
+    lot_id: parsed.data.lotId,
+    event_type: "stage_change",
+    to_vessel_id: existing.vessel_id,
+    note: `Faza: ${STAGE_LABEL[existing.stage]} → ${STAGE_LABEL[parsed.data.stage]}`,
+    created_by: createdBy,
+  });
+
+  revalidatePath("/klet");
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
   return { ok: true };
 }
 
@@ -126,37 +298,28 @@ export async function createVessel(input: z.infer<typeof CreateVesselInput>): Pr
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("vessel")
-    .insert({
-      name: parsed.data.name,
-      capacity_l: parsed.data.capacityL,
-      material: parsed.data.material,
-    });
+  const { error } = await supabase.from("vessel").insert({
+    name: parsed.data.name,
+    capacity_l: parsed.data.capacityL,
+    material: parsed.data.material,
+  });
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/klet");
+  revalidatePath("/klet/rezervoarji");
   return { ok: true };
 }
 
-const RecordReadingInput = z
-  .object({
-    vesselId: z.string().min(1),
-    brix: z.number().optional(),
-    ph: z.number().optional(),
-    so2: z.number().optional(),
-    note: z.string().max(300).optional().default(""),
-  })
-  .refine(
-    (v) => v.brix !== undefined || v.ph !== undefined || v.so2 !== undefined || v.note !== "",
-    { message: "Vnesi vsaj eno meritev ali opombo." },
-  );
+const UpdateVesselInput = z.object({
+  vesselId: z.string().min(1),
+  name: z.string().min(1).max(60),
+  capacityL: z.number().positive(),
+});
 
-export async function recordReading(input: z.infer<typeof RecordReadingInput>): Promise<ActionResult> {
-  const parsed = RecordReadingInput.safeParse(input);
+export async function updateVessel(input: z.infer<typeof UpdateVesselInput>): Promise<ActionResult> {
+  const parsed = UpdateVesselInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna meritev." };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven rezervoar." };
   }
 
   if (isDemoMode) {
@@ -165,32 +328,14 @@ export async function recordReading(input: z.infer<typeof RecordReadingInput>): 
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let createdBy: string | null = null;
-  if (user) {
-    const { data: staff } = await supabase
-      .from("staff")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
-    createdBy = staff?.id ?? null;
-  }
-
-  const { error } = await supabase.from("vessel_reading").insert({
-    vessel_id: parsed.data.vesselId,
-    brix: parsed.data.brix ?? null,
-    ph: parsed.data.ph ?? null,
-    so2: parsed.data.so2 ?? null,
-    note: parsed.data.note || null,
-    created_by: createdBy,
-  });
+  const { error } = await supabase
+    .from("vessel")
+    .update({ name: parsed.data.name, capacity_l: parsed.data.capacityL, updated_at: new Date().toISOString() })
+    .eq("id", parsed.data.vesselId);
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/klet");
-  revalidatePath(`/klet/${parsed.data.vesselId}`);
+  revalidatePath("/klet/rezervoarji");
+  revalidatePath(`/klet/rezervoarji/${parsed.data.vesselId}`);
   return { ok: true };
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getCurrentStaff, getProducts, getVessel, getVesselReadings } from "@/lib/data";
-import { VesselCard } from "../vessel-card";
+import { getCurrentStaff, getVessel } from "@/lib/data";
+import { VesselEditForm } from "../vessel-edit-form";
 import type { VesselMaterial } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +17,10 @@ const MATERIAL_LABEL: Record<VesselMaterial, string> = {
 function BackLink() {
   return (
     <Link
-      href="/klet"
+      href="/klet/rezervoarji"
       className="inline-flex items-center gap-1 text-[13px] font-medium text-ink-subtle hover:text-ink mb-4"
     >
-      <ChevronLeft className="size-4" /> Klet
+      <ChevronLeft className="size-4" /> Rezervoarji
     </Link>
   );
 }
@@ -40,11 +41,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
     );
   }
 
-  const [vessel, readings, products] = await Promise.all([
-    getVessel(id),
-    getVesselReadings(id),
-    getProducts(),
-  ]);
+  const vessel = await getVessel(id);
 
   if (!vessel) {
     return (
@@ -66,7 +63,35 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
       section="klet"
     >
       <BackLink />
-      <VesselCard vessel={vessel} products={products} readings={readings} />
+
+      <div className="mb-4">
+        <VesselEditForm vessel={vessel} />
+        <p className="text-[13px] text-ink-muted mt-1">Kapaciteta {vessel.capacityL.toLocaleString("sl-SI")} l</p>
+      </div>
+
+      {vessel.activeLotId ? (
+        <Link href={`/klet/vino/${vessel.activeLotId}`}>
+          <Card className="p-3.5 flex items-center justify-between gap-3 hover:border-line-strong transition-colors">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-ink-subtle tabular">{vessel.activeLotNumber}</p>
+              <h3 className="font-semibold text-[15px] truncate">{vessel.activeLotName}</h3>
+              <p className="text-[12px] text-ink-subtle mt-0.5">
+                {vessel.activeLotVolumeL?.toLocaleString("sl-SI")} l
+              </p>
+            </div>
+            <ChevronRight className="size-4 text-ink-subtle shrink-0" />
+          </Card>
+        </Link>
+      ) : (
+        <Card className="p-5 text-center">
+          <p className="text-[13px] text-ink-muted mb-3">Rezervoar je prazen.</p>
+          <Button asChild size="sm" variant="secondary">
+            <Link href="/klet">
+              <Plus /> Sprejem
+            </Link>
+          </Button>
+        </Card>
+      )}
     </AppShell>
   );
 }

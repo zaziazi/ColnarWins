@@ -162,30 +162,53 @@ export interface Vessel {
   name: string;
   material: VesselMaterial;
   capacityL: number;
-  currentProductId: string | null;
-  currentProductName: string | null;
-  currentVolumeL: number;
   active: boolean;
+  /** The active wine lot currently sitting in this vessel, if any. */
+  activeLotId: string | null;
+  activeLotNumber: string | null;
+  activeLotName: string | null;
+  activeLotVolumeL: number | null;
 }
 
-export interface BulkMovementEntry {
+export type WineStage = "most" | "vrenje" | "vino";
+export type WineLotStatus = "active" | "bottled" | "merged";
+
+export interface WineLot {
   id: string;
-  vesselName: string;
-  productName: string | null;
-  movementType: "harvest_intake" | "bottling_out" | "adjustment";
+  lotNumber: string;
+  name: string;
+  stage: WineStage;
+  status: WineLotStatus;
+  vesselId: string | null;
+  vesselName: string | null;
   volumeL: number;
-  note: string | null;
-  createdByName: string | null;
-  createdAt: string;
+  productId: string | null;
+  productName: string | null;
 }
 
-export interface VesselReading {
+export type WineLotEventType =
+  | "harvest_intake"
+  | "transfer"
+  | "blend_in"
+  | "blend_retired"
+  | "stage_change"
+  | "name_change"
+  | "reading"
+  | "note"
+  | "bottling"
+  | "adjustment";
+
+export interface WineLotEvent {
   id: string;
-  vesselId: string;
-  recordedAt: string;
+  eventType: WineLotEventType;
+  fromVesselName: string | null;
+  toVesselName: string | null;
+  volumeL: number | null;
   brix: number | null;
   ph: number | null;
   so2: number | null;
+  relatedLotNumber: string | null;
   note: string | null;
   createdByName: string | null;
+  createdAt: string;
 }

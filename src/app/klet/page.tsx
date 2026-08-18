@@ -1,20 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
-import { getBulkMovements, getCurrentStaff, getVessels } from "@/lib/data";
-import { dateShort } from "@/lib/format";
-import { NewVesselForm } from "./new-vessel-form";
-import { VesselSummaryCard } from "./vessel-summary-card";
-import type { Vessel } from "@/lib/types";
+import { getActiveLots, getCurrentStaff, getVessels } from "@/lib/data";
+import { HarvestIntakeForm } from "./harvest-intake-form";
+import { WineLotCard } from "./wine-lot-card";
 
 export const dynamic = "force-dynamic";
 
-const BULK_MOVEMENT_LABEL: Record<string, string> = {
-  harvest_intake: "Sprejem",
-  bottling_out: "Stekleničenje",
-  adjustment: "Popravek",
-};
-
-export default async function CellarPage() {
+export default async function WineLotsPage() {
   const staff = await getCurrentStaff();
   if (!staff || staff.role !== "manager") {
     return (
@@ -28,84 +20,30 @@ export default async function CellarPage() {
     );
   }
 
-  const [vessels, bulkMovements] = await Promise.all([getVessels(), getBulkMovements(10)]);
-
-  const stainless = vessels.filter((v) => v.material === "stainless");
-  const wood = vessels.filter((v) => v.material === "wood");
+  const [lots, vessels] = await Promise.all([getActiveLots(), getVessels()]);
+  const emptyVessels = vessels.filter((v) => !v.activeLotId && v.active);
 
   return (
     <AppShell
       title="Klet"
-      subtitle="Kletni rezervoarji"
+      subtitle="Vina v kleti"
       who={`${staff.fullName} · vodstvo`}
       role={staff.role}
       section="klet"
     >
-      <div className="flex items-center justify-between mb-2.5 px-0.5">
-        <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle">
-          Rezervoarji
-        </h2>
-        <NewVesselForm />
-      </div>
+      <HarvestIntakeForm emptyVessels={emptyVessels} />
 
-      {vessels.length === 0 ? (
-        <Card className="p-5 text-center mb-6">
-          <p className="text-[13px] text-ink-muted">Še ni rezervoarjev.</p>
+      {lots.length === 0 ? (
+        <Card className="p-5 text-center">
+          <p className="text-[13px] text-ink-muted">Trenutno ni aktivnega vina.</p>
         </Card>
       ) : (
-        <>
-          <VesselGroup label="Inox cisterne" vessels={stainless} />
-          <VesselGroup label="Leseni sodi" vessels={wood} />
-        </>
+        <div className="space-y-2.5">
+          {lots.map((lot) => (
+            <WineLotCard key={lot.id} lot={lot} />
+          ))}
+        </div>
       )}
-
-      <SectionHeading>Nedavno</SectionHeading>
-      <Card className="mb-2.5">
-        {bulkMovements.length === 0 ? (
-          <p className="p-3.5 text-[13px] text-ink-muted">Ni nedavnih sprememb.</p>
-        ) : (
-          bulkMovements.map((m) => (
-            <div
-              key={m.id}
-              className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-line last:border-b-0"
-            >
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium truncate">
-                  {BULK_MOVEMENT_LABEL[m.movementType] ?? m.movementType} · {m.vesselName}
-                  {m.productName && ` · ${m.productName}`}
-                </p>
-                <p className="text-[11px] text-ink-subtle mt-0.5">
-                  {dateShort(m.createdAt)}
-                  {m.createdByName && ` · ${m.createdByName}`}
-                </p>
-              </div>
-              <span className="text-[13px] font-semibold tabular shrink-0">
-                {m.volumeL > 0 ? "+" : ""}
-                {m.volumeL.toLocaleString("sl-SI")} l
-              </span>
-            </div>
-          ))
-        )}
-      </Card>
     </AppShell>
   );
-}
-
-function VesselGroup({ label, vessels }: { label: string; vessels: Vessel[] }) {
-  if (vessels.length === 0) return null;
-
-  return (
-    <>
-      <SectionHeading>{label}</SectionHeading>
-      <div className="space-y-2.5 mb-6">
-        {vessels.map((vessel) => (
-          <VesselSummaryCard key={vessel.id} vessel={vessel} />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">{children}</h2>;
 }

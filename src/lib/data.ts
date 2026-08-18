@@ -8,7 +8,6 @@ import {
   isDemoMode,
 } from "./demo";
 import type {
-  BulkMovementEntry,
   CurrentStaff,
   Customer,
   Driver,
@@ -22,7 +21,8 @@ import type {
   StockMovementEntry,
   UnroutedOrder,
   Vessel,
-  VesselReading,
+  WineLot,
+  WineLotEvent,
 } from "./types";
 
 /**
@@ -484,28 +484,33 @@ export async function getStockMovements(limit = 15): Promise<StockMovementEntry[
   }));
 }
 
-/** Cellar vessels with their current contents. RLS makes this manager-only. */
+/** Cellar vessels with whichever wine lot is currently active in them, if any. RLS makes this manager-only. */
 export async function getVessels(): Promise<Vessel[]> {
   if (isDemoMode) return [];
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vessel")
-    .select("id,name,material,capacity_l,current_product_id,current_volume_l,active,product(name)")
+    .select("id,name,material,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
+    .eq("wine_lot.status", "active")
     .order("name");
 
   if (error) throw error;
 
-  return (data ?? []).map((v) => ({
-    id: v.id,
-    name: v.name,
-    material: v.material,
-    capacityL: Number(v.capacity_l),
-    currentProductId: v.current_product_id,
-    currentProductName: (v.product as unknown as { name: string } | null)?.name ?? null,
-    currentVolumeL: Number(v.current_volume_l),
-    active: v.active,
-  }));
+  return (data ?? []).map((v) => {
+    const lot = (v.wine_lot as unknown as { id: string; lot_number: string; name: string; volume_l: string }[])[0];
+    return {
+      id: v.id,
+      name: v.name,
+      material: v.material,
+      capacityL: Number(v.capacity_l),
+      active: v.active,
+      activeLotId: lot?.id ?? null,
+      activeLotNumber: lot?.lot_number ?? null,
+      activeLotName: lot?.name ?? null,
+      activeLotVolumeL: lot ? Number(lot.volume_l) : null,
+    };
+  });
 }
 
 /** A single vessel by id, or null if it doesn't exist. RLS makes this manager-only. */
@@ -515,71 +520,114 @@ export async function getVessel(id: string): Promise<Vessel | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vessel")
-    .select("id,name,material,capacity_l,current_product_id,current_volume_l,active,product(name)")
+    .select("id,name,material,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
     .eq("id", id)
+    .eq("wine_lot.status", "active")
     .single();
 
   if (error || !data) return null;
 
+  const lot = (data.wine_lot as unknown as { id: string; lot_number: string; name: string; volume_l: string }[])[0];
   return {
     id: data.id,
     name: data.name,
     material: data.material,
     capacityL: Number(data.capacity_l),
-    currentProductId: data.current_product_id,
-    currentProductName: (data.product as unknown as { name: string } | null)?.name ?? null,
-    currentVolumeL: Number(data.current_volume_l),
     active: data.active,
+    activeLotId: lot?.id ?? null,
+    activeLotNumber: lot?.lot_number ?? null,
+    activeLotName: lot?.name ?? null,
+    activeLotVolumeL: lot ? Number(lot.volume_l) : null,
   };
 }
 
-/** Recent readings (Brix/pH/SO2/notes) for one vessel, newest first. */
-export async function getVesselReadings(vesselId: string, limit = 100): Promise<VesselReading[]> {
+/** Active wine lots, newest first. RLS makes this manager-only. */
+export async function getActiveLots(): Promise<WineLot[]> {
   if (isDemoMode) return [];
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("vessel_reading")
-    .select("id,vessel_id,recorded_at,brix,ph,so2,note,staff(full_name)")
-    .eq("vessel_id", vesselId)
-    .order("recorded_at", { ascending: false })
-    .limit(limit);
+    .from("wine_lot")
+    .select("id,lot_number,name,stage,status,vessel_id,volume_l,product_id,vessel(name),product(name)")
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
 
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    vesselId: r.vessel_id,
-    recordedAt: r.recorded_at,
-    brix: r.brix === null ? null : Number(r.brix),
-    ph: r.ph === null ? null : Number(r.ph),
-    so2: r.so2 === null ? null : Number(r.so2),
-    note: r.note,
-    createdByName: (r.staff as unknown as { full_name: string } | null)?.full_name ?? null,
-  }));
+  return (data ?? []).map(mapWineLot);
 }
 
-/** Recent bulk-wine movements (harvest intake, bottling out, adjustments), newest first. */
-export async function getBulkMovements(limit = 15): Promise<BulkMovementEntry[]> {
+/** A single wine lot by id, or null if it doesn't exist. RLS makes this manager-only. */
+export async function getWineLot(id: string): Promise<WineLot | null> {
+  if (isDemoMode) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("wine_lot")
+    .select("id,lot_number,name,stage,status,vessel_id,volume_l,product_id,vessel(name),product(name)")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return null;
+
+  return mapWineLot(data);
+}
+
+function mapWineLot(row: {
+  id: string;
+  lot_number: string;
+  name: string;
+  stage: WineLot["stage"];
+  status: WineLot["status"];
+  vessel_id: string | null;
+  volume_l: string;
+  product_id: string | null;
+  vessel: unknown;
+  product: unknown;
+}): WineLot {
+  const vessel = row.vessel as { name: string } | null;
+  const product = row.product as { name: string } | null;
+  return {
+    id: row.id,
+    lotNumber: row.lot_number,
+    name: row.name,
+    stage: row.stage,
+    status: row.status,
+    vesselId: row.vessel_id,
+    vesselName: vessel?.name ?? null,
+    volumeL: Number(row.volume_l),
+    productId: row.product_id,
+    productName: product?.name ?? null,
+  };
+}
+
+/** Full event history for one wine lot, oldest first — its life story. RLS makes this manager-only. */
+export async function getLotEvents(lotId: string): Promise<WineLotEvent[]> {
   if (isDemoMode) return [];
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("bulk_movement")
-    .select("id,movement_type,volume_l,note,created_at,vessel(name),product(name),staff(full_name)")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .from("wine_lot_event")
+    .select(
+      "id,event_type,volume_l,brix,ph,so2,note,created_at,from_vessel:vessel!wine_lot_event_from_vessel_id_fkey(name),to_vessel:vessel!wine_lot_event_to_vessel_id_fkey(name),related_lot:wine_lot!wine_lot_event_related_lot_id_fkey(lot_number),staff(full_name)",
+    )
+    .eq("lot_id", lotId)
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
 
-  return (data ?? []).map((m) => ({
-    id: m.id,
-    vesselName: (m.vessel as unknown as { name: string } | null)?.name ?? "—",
-    productName: (m.product as unknown as { name: string } | null)?.name ?? null,
-    movementType: m.movement_type,
-    volumeL: Number(m.volume_l),
-    note: m.note,
-    createdByName: (m.staff as unknown as { full_name: string } | null)?.full_name ?? null,
-    createdAt: m.created_at,
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    eventType: e.event_type,
+    fromVesselName: (e.from_vessel as unknown as { name: string } | null)?.name ?? null,
+    toVesselName: (e.to_vessel as unknown as { name: string } | null)?.name ?? null,
+    volumeL: e.volume_l === null ? null : Number(e.volume_l),
+    brix: e.brix === null ? null : Number(e.brix),
+    ph: e.ph === null ? null : Number(e.ph),
+    so2: e.so2 === null ? null : Number(e.so2),
+    relatedLotNumber: (e.related_lot as unknown as { lot_number: string } | null)?.lot_number ?? null,
+    note: e.note,
+    createdByName: (e.staff as unknown as { full_name: string } | null)?.full_name ?? null,
+    createdAt: e.created_at,
   }));
 }

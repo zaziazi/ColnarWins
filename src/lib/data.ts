@@ -492,26 +492,30 @@ export async function getVessels(): Promise<Vessel[]> {
   const { data, error } = await supabase
     .from("vessel")
     .select("id,name,material,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
-    .eq("wine_lot.status", "active")
-    .order("name");
+    .eq("wine_lot.status", "active");
 
   if (error) throw error;
 
-  return (data ?? []).map((v) => {
-    const lot = (v.wine_lot as unknown as { id: string; lot_number: string; name: string; volume_l: string }[])[0];
-    return {
-      id: v.id,
-      name: v.name,
-      material: v.material,
-      capacityL: Number(v.capacity_l),
-      active: v.active,
-      activeLotId: lot?.id ?? null,
-      activeLotNumber: lot?.lot_number ?? null,
-      activeLotName: lot?.name ?? null,
-      activeLotVolumeL: lot ? Number(lot.volume_l) : null,
-    };
-  });
+  return (data ?? [])
+    .map((v) => {
+      const lot = (v.wine_lot as unknown as { id: string; lot_number: string; name: string; volume_l: string }[])[0];
+      return {
+        id: v.id,
+        name: v.name,
+        material: v.material,
+        capacityL: Number(v.capacity_l),
+        active: v.active,
+        activeLotId: lot?.id ?? null,
+        activeLotNumber: lot?.lot_number ?? null,
+        activeLotName: lot?.name ?? null,
+        activeLotVolumeL: lot ? Number(lot.volume_l) : null,
+      };
+    })
+    .sort((a, b) => vesselNameCollator.compare(a.name, b.name));
 }
+
+/** "Cisterna 2" before "Cisterna 10" — plain string order gets this wrong. */
+const vesselNameCollator = new Intl.Collator("sl", { numeric: true, sensitivity: "base" });
 
 /** A single vessel by id, or null if it doesn't exist. RLS makes this manager-only. */
 export async function getVessel(id: string): Promise<Vessel | null> {

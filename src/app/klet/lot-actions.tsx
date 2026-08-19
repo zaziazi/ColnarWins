@@ -28,6 +28,7 @@ const STAGE_OPTIONS: { value: WineLot["stage"]; label: string }[] = [
 
 type ReadingField =
   | "sugarGl"
+  | "density"
   | "ph"
   | "so2"
   | "malicAcid"
@@ -40,6 +41,7 @@ type ReadingField =
 
 const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> = {
   sugarGl: { label: "Sladkor (g/l)", placeholder: "npr. 200" },
+  density: { label: "Gostota", placeholder: "npr. 1.090" },
   ph: { label: "pH", placeholder: "npr. 3.3" },
   so2: { label: "SO2 (mg/l)", placeholder: "npr. 30" },
   malicAcid: { label: "Jabolčna kislina (g/l)", placeholder: "npr. 3" },
@@ -52,8 +54,8 @@ const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> =
 };
 
 const STAGE_FIELDS: Record<WineLot["stage"], ReadingField[]> = {
-  grozdje: ["sugarGl", "ph", "malicAcid", "tartaricAcid", "totalAcid", "volatileAcid"],
-  vrenje: ["sugarGl", "ph", "alcohol", "co2", "malicAcid", "lacticAcid", "totalAcid", "volatileAcid"],
+  grozdje: ["sugarGl", "density", "ph", "malicAcid", "tartaricAcid", "totalAcid", "volatileAcid"],
+  vrenje: ["sugarGl", "density", "ph", "alcohol", "co2", "malicAcid", "lacticAcid", "totalAcid", "volatileAcid"],
   vino: ["ph", "alcohol", "sugarGl", "so2"],
 };
 
@@ -310,7 +312,7 @@ function ReadingForm({
 }) {
   const fields = STAGE_FIELDS[lot.stage];
   const [values, setValues] = React.useState<Record<ReadingField, string>>({
-    sugarGl: "", ph: "", so2: "", malicAcid: "", tartaricAcid: "",
+    sugarGl: "", density: "", ph: "", so2: "", malicAcid: "", tartaricAcid: "",
     lacticAcid: "", totalAcid: "", volatileAcid: "", co2: "", alcohol: "",
   });
   const [note, setNote] = React.useState("");
@@ -328,6 +330,7 @@ function ReadingForm({
       const result = await recordLotReading({
         lotId: lot.id,
         sugarGl: values.sugarGl ? parseFloat(values.sugarGl) : undefined,
+        density: values.density ? parseFloat(values.density) : undefined,
         ph: values.ph ? parseFloat(values.ph) : undefined,
         so2: values.so2 ? parseFloat(values.so2) : undefined,
         malicAcid: values.malicAcid ? parseFloat(values.malicAcid) : undefined,

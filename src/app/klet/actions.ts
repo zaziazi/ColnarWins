@@ -96,6 +96,7 @@ const ReadingInput = z
     volatileAcid: z.number().optional(),
     co2: z.number().optional(),
     alcohol: z.number().optional(),
+    density: z.number().optional(),
     note: z.string().max(300).optional().default(""),
   })
   .refine(
@@ -110,6 +111,7 @@ const ReadingInput = z
       v.volatileAcid !== undefined ||
       v.co2 !== undefined ||
       v.alcohol !== undefined ||
+      v.density !== undefined ||
       v.note !== "",
     { message: "Vnesi vsaj eno meritev ali opombo." },
   );
@@ -138,6 +140,7 @@ export async function recordLotReading(input: z.infer<typeof ReadingInput>): Pro
     p_volatile_acid: parsed.data.volatileAcid ?? null,
     p_co2: parsed.data.co2 ?? null,
     p_alcohol: parsed.data.alcohol ?? null,
+    p_density: parsed.data.density ?? null,
     p_note: parsed.data.note || null,
   });
 

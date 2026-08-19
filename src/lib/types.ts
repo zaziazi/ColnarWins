@@ -214,6 +214,7 @@ export interface WineLotEvent {
   volatileAcid: number | null;
   co2: number | null;
   alcohol: number | null;
+  density: number | null;
   relatedLotNumber: string | null;
   note: string | null;
   createdByName: string | null;

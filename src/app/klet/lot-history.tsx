@@ -38,6 +38,7 @@ function eventDetail(e: WineLotEvent): string | null {
       return (
         [
           e.sugarGl !== null && `sladkor ${e.sugarGl} g/l`,
+          e.density !== null && `gostota ${e.density}`,
           e.ph !== null && `pH ${e.ph}`,
           e.alcohol !== null && `alk. ${e.alcohol}%`,
           e.so2 !== null && `SO2 ${e.so2}`,

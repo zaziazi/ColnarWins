@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * Offers the next few delivery days, skipping Sundays.
  * Replace with the real delivery calendar per region once it exists.
  */
-function nextDeliveryDates(count = 4): string[] {
+function nextDeliveryDates(count = 7): string[] {
   const out: string[] = [];
   const d = new Date();
   d.setHours(12, 0, 0, 0);

@@ -70,11 +70,6 @@ export function OrderForm({
   const [pending, startTransition] = React.useTransition();
 
   const todayIso = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const weekAheadIso = React.useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
-  }, []);
 
   const customer = customers.find((c) => c.id === customerId) ?? null;
   const standing = standingOrders.find((s) => s.customerId === customerId) ?? null;
@@ -314,18 +309,6 @@ export function OrderForm({
                   }).format(new Date(d))}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() => setDeliveryDate(weekAheadIso)}
-                className={
-                  "h-11 px-3.5 rounded-[var(--radius-control)] border text-sm font-semibold transition-colors " +
-                  (deliveryDate === weekAheadIso
-                    ? "bg-wine text-white border-wine"
-                    : "bg-surface border-line text-ink-muted hover:border-line-strong")
-                }
-              >
-                Čez teden dni
-              </button>
             </div>
 
             <FieldLabel className="mt-3">ali izberi datum</FieldLabel>

@@ -62,9 +62,12 @@ export function LotHistory({ events }: { events: WineLotEvent[] }) {
     return <p className="p-3.5 text-[13px] text-ink-muted">Ni zgodovine.</p>;
   }
 
+  // Fetched oldest-first (SugarChart needs that order); shown newest-first.
+  const newestFirst = [...events].reverse();
+
   return (
     <div>
-      {events.map((e) => {
+      {newestFirst.map((e) => {
         const detail = eventDetail(e);
         return (
           <div key={e.id} className="px-3.5 py-2.5 border-b border-line last:border-b-0">

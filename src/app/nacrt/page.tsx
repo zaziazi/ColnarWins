@@ -11,6 +11,13 @@ import { StopControls } from "./stop-controls";
 
 export const dynamic = "force-dynamic";
 
+const ROLE_LABEL: Record<string, string> = {
+  office: "pisarna",
+  driver: "voznik",
+  sales: "prodaja",
+  manager: "vodstvo",
+};
+
 const ROUTE_STATUS_LABEL: Record<string, string> = {
   planned: "Načrtovano",
   in_progress: "V teku",
@@ -62,7 +69,7 @@ export default async function DeliveryPlanPage({
     <AppShell
       title="Načrt dostave"
       subtitle="Poti in nakladalni listi"
-      who="Marija · pisarna"
+      who={staff ? `${staff.fullName} · ${ROLE_LABEL[staff.role] ?? staff.role}` : "Prijava potrebna"}
       role={staff?.role}
       section="narocila"
     >

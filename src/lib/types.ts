@@ -114,6 +114,38 @@ export interface LoadingListLine {
   quantity: number;
 }
 
+export type StopStatus = "pending" | "arrived" | "completed" | "failed";
+
+export interface DriverStopLine {
+  productId: string;
+  productName: string;
+  quantityOrdered: number;
+  unitPriceNet: number;
+  vatRate: number;
+}
+
+export interface DriverStop {
+  id: string;
+  orderId: string;
+  orderNumber: number;
+  sequence: number;
+  customerName: string;
+  address: string | null;
+  city: string | null;
+  deliveryNotes: string | null;
+  totalGross: number;
+  status: StopStatus;
+  failReason: string | null;
+  lines: DriverStopLine[];
+}
+
+export interface DriverRoute {
+  id: string;
+  vehicle: string;
+  status: RouteStatus;
+  stops: DriverStop[];
+}
+
 export interface RouteWithStops {
   id: string;
   vehicle: string;

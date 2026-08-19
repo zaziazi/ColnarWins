@@ -11,6 +11,7 @@ import type {
   CurrentStaff,
   Customer,
   Driver,
+  DriverRoute,
   OrderForEdit,
   OrderListItem,
   Product,
@@ -361,6 +362,95 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
       status: r.status,
       stops,
       loadingList,
+    };
+  });
+}
+
+/**
+ * A driver's own route(s) for a date, with full order lines (not just
+ * totals) since the delivery-confirmation flow needs per-product quantities
+ * to adjust. Unlike getRoutesForDate (the office planning view, correctly
+ * unfiltered), this only returns routes assigned to the given driver.
+ */
+export async function getRouteForDriver(date: string, staffId: string): Promise<DriverRoute[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("route")
+    .select(
+      "id,vehicle,status,route_stop(id,sequence,order_id,status,fail_reason,sales_order(order_number,customer(name,address,city,delivery_notes),order_line(product_id,quantity_ordered,unit_price_net,vat_rate,product(name))))",
+    )
+    .eq("route_date", date)
+    .eq("driver_id", staffId)
+    .order("vehicle");
+
+  if (error) throw error;
+
+  type StopRow = {
+    id: string;
+    sequence: number;
+    order_id: string;
+    status: "pending" | "arrived" | "completed" | "failed";
+    fail_reason: string | null;
+    sales_order: {
+      order_number: number;
+      customer: {
+        name: string;
+        address: string | null;
+        city: string | null;
+        delivery_notes: string | null;
+      } | null;
+      order_line: {
+        product_id: string;
+        quantity_ordered: number;
+        unit_price_net: string;
+        vat_rate: string;
+        product: { name: string } | null;
+      }[];
+    } | null;
+  };
+
+  return (data ?? []).map((r) => {
+    const stopsRaw = (r.route_stop ?? []) as unknown as StopRow[];
+
+    const stops = stopsRaw
+      .slice()
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((s) => {
+        const so = s.sales_order;
+        const lines = so?.order_line ?? [];
+        const gross = lines.reduce(
+          (sum, l) => sum + l.quantity_ordered * Number(l.unit_price_net) * (1 + Number(l.vat_rate)),
+          0,
+        );
+        return {
+          id: s.id,
+          orderId: s.order_id,
+          orderNumber: so?.order_number ?? 0,
+          sequence: s.sequence,
+          customerName: so?.customer?.name ?? "—",
+          address: so?.customer?.address ?? null,
+          city: so?.customer?.city ?? null,
+          deliveryNotes: so?.customer?.delivery_notes ?? null,
+          totalGross: gross,
+          status: s.status,
+          failReason: s.fail_reason,
+          lines: lines.map((l) => ({
+            productId: l.product_id,
+            productName: l.product?.name ?? "—",
+            quantityOrdered: l.quantity_ordered,
+            unitPriceNet: Number(l.unit_price_net),
+            vatRate: Number(l.vat_rate),
+          })),
+        };
+      });
+
+    return {
+      id: r.id,
+      vehicle: r.vehicle,
+      status: r.status,
+      stops,
     };
   });
 }

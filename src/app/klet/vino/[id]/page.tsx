@@ -6,10 +6,17 @@ import { getCurrentStaff, getLotEvents, getProducts, getVessels, getWineLot } fr
 import { LotActions, LotName, StageSelector } from "../../lot-actions";
 import { LotHistory } from "../../lot-history";
 import { SugarChart } from "../../sugar-chart";
+import type { WineLot } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-function SugarChartSection({ events }: { events: Awaited<ReturnType<typeof getLotEvents>> }) {
+function SugarChartSection({
+  events,
+  stage,
+}: {
+  events: Awaited<ReturnType<typeof getLotEvents>>;
+  stage: WineLot["stage"];
+}) {
   const sugarReadings = events.filter((e) => e.sugarGl !== null).length;
   if (sugarReadings < 2) return null;
 
@@ -19,7 +26,7 @@ function SugarChartSection({ events }: { events: Awaited<ReturnType<typeof getLo
         Poraba sladkorja
       </h2>
       <Card className="p-3.5 mb-6">
-        <SugarChart events={events} />
+        <SugarChart events={events} stage={stage} />
       </Card>
     </>
   );
@@ -96,7 +103,7 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      <SugarChartSection events={events} />
+      <SugarChartSection events={events} stage={lot.stage} />
 
       <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">
         Zgodovina

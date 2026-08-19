@@ -9,6 +9,7 @@ import { getCurrentStaff, getDrivers, getOrders } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
 import { DriverAssign } from "./driver-assign";
+import { OrderActions } from "./order-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,10 @@ function OrderCard({
               </Button>
             )}
           </div>
+        </div>
+
+        <div className="mt-2">
+          <OrderActions orderId={order.id} status={order.status} />
         </div>
 
         <p className="text-[12.5px] text-ink-muted mt-2.5 leading-relaxed">{order.lineSummary}</p>

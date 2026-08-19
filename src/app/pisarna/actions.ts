@@ -43,6 +43,106 @@ export async function assignDriver(
   return { ok: true };
 }
 
+const OrderIdInput = z.object({ orderId: z.string().min(1) });
+
+/** Moves a draft to confirmed once the office has looked it over. */
+export async function confirmOrder(orderId: string): Promise<ActionResult> {
+  const parsed = OrderIdInput.safeParse({ orderId });
+  if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Seja je potekla. Prijavi se znova." };
+
+  const { data: staff } = await supabase
+    .from("staff")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("sales_order")
+    .select("status")
+    .eq("id", parsed.data.orderId)
+    .single();
+
+  if (fetchError || !existing) return { ok: false, error: "Naročilo ne obstaja." };
+  if (existing.status !== "draft") {
+    return { ok: false, error: "Naročilo ni več osnutek." };
+  }
+
+  const { error } = await supabase
+    .from("sales_order")
+    .update({
+      status: "confirmed",
+      confirmed_by: staff?.id ?? null,
+      confirmed_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.orderId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/pisarna");
+  return { ok: true };
+}
+
+const CANCELLABLE_STATUSES = ["draft", "confirmed", "planned"];
+
+const CancelOrderInput = z.object({
+  orderId: z.string().min(1),
+  reason: z.string().max(300).optional().default(""),
+});
+
+/**
+ * Cancels an order. Allowed up through "planned" — once a driver has
+ * actually delivered it (or it's invoiced), cancelling here would silently
+ * disagree with reality, so it's locked.
+ */
+export async function cancelOrder(orderId: string, reason?: string): Promise<ActionResult> {
+  const parsed = CancelOrderInput.safeParse({ orderId, reason });
+  if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("sales_order")
+    .select("status")
+    .eq("id", parsed.data.orderId)
+    .single();
+
+  if (fetchError || !existing) return { ok: false, error: "Naročilo ne obstaja." };
+  if (!CANCELLABLE_STATUSES.includes(existing.status)) {
+    return { ok: false, error: "Tega naročila ni več mogoče preklicati." };
+  }
+
+  const { error } = await supabase
+    .from("sales_order")
+    .update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: parsed.data.reason || null,
+    })
+    .eq("id", parsed.data.orderId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/pisarna");
+  return { ok: true };
+}
+
 const UpdateOrderInput = z.object({
   orderId: z.string().min(1),
   deliveryDate: z.string().min(1),

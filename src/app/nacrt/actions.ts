@@ -85,6 +85,11 @@ export async function addStopToRoute(
 
   if (error) return { ok: false, error: error.message };
 
+  await supabase
+    .from("sales_order")
+    .update({ status: "planned", planned_at: new Date().toISOString() })
+    .eq("id", orderId);
+
   revalidatePath("/nacrt");
   revalidatePath("/pisarna");
   return { ok: true };
@@ -103,9 +108,24 @@ export async function removeStop(stopId: string): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+
+  const { data: stop } = await supabase
+    .from("route_stop")
+    .select("order_id")
+    .eq("id", parsed.data.stopId)
+    .single();
+
   const { error } = await supabase.from("route_stop").delete().eq("id", parsed.data.stopId);
 
   if (error) return { ok: false, error: error.message };
+
+  if (stop?.order_id) {
+    await supabase
+      .from("sales_order")
+      .update({ status: "confirmed", planned_at: null })
+      .eq("id", stop.order_id)
+      .eq("status", "planned");
+  }
 
   revalidatePath("/nacrt");
   revalidatePath("/pisarna");

@@ -491,7 +491,7 @@ export async function getVessels(): Promise<Vessel[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vessel")
-    .select("id,name,material,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
+    .select("id,name,category,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
     .eq("wine_lot.status", "active");
 
   if (error) throw error;
@@ -502,7 +502,7 @@ export async function getVessels(): Promise<Vessel[]> {
       return {
         id: v.id,
         name: v.name,
-        material: v.material,
+        category: v.category,
         capacityL: Number(v.capacity_l),
         active: v.active,
         activeLotId: lot?.id ?? null,
@@ -524,7 +524,7 @@ export async function getVessel(id: string): Promise<Vessel | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vessel")
-    .select("id,name,material,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
+    .select("id,name,category,capacity_l,active,wine_lot(id,lot_number,name,volume_l)")
     .eq("id", id)
     .eq("wine_lot.status", "active")
     .single();
@@ -535,7 +535,7 @@ export async function getVessel(id: string): Promise<Vessel | null> {
   return {
     id: data.id,
     name: data.name,
-    material: data.material,
+    category: data.category,
     capacityL: Number(data.capacity_l),
     active: data.active,
     activeLotId: lot?.id ?? null,

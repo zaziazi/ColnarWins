@@ -345,7 +345,7 @@ export async function updateLotStage(input: z.infer<typeof UpdateLotStageInput>)
 const CreateVesselInput = z.object({
   name: z.string().min(1).max(60),
   capacityL: z.number().positive(),
-  material: z.enum(["stainless", "wood"]),
+  category: z.enum(["cisterne", "inox", "sodi_225", "sodi_500"]),
 });
 
 export async function createVessel(input: z.infer<typeof CreateVesselInput>): Promise<ActionResult> {
@@ -363,7 +363,7 @@ export async function createVessel(input: z.infer<typeof CreateVesselInput>): Pr
   const { error } = await supabase.from("vessel").insert({
     name: parsed.data.name,
     capacity_l: parsed.data.capacityL,
-    material: parsed.data.material,
+    category: parsed.data.category,
   });
 
   if (error) return { ok: false, error: error.message };

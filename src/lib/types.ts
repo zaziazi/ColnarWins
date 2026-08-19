@@ -155,12 +155,12 @@ export interface StockMovementEntry {
   createdAt: string;
 }
 
-export type VesselMaterial = "stainless" | "wood";
+export type VesselCategory = "cisterne" | "inox" | "sodi_225" | "sodi_500";
 
 export interface Vessel {
   id: string;
   name: string;
-  material: VesselMaterial;
+  category: VesselCategory;
   capacityL: number;
   active: boolean;
   /** The active wine lot currently sitting in this vessel, if any. */

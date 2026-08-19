@@ -5,14 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getVessel } from "@/lib/data";
 import { VesselEditForm } from "../vessel-edit-form";
-import type { VesselMaterial } from "@/lib/types";
+import { CATEGORY_LABEL } from "../../vessel-category";
 
 export const dynamic = "force-dynamic";
-
-const MATERIAL_LABEL: Record<VesselMaterial, string> = {
-  stainless: "Inox cisterna",
-  wood: "Leseni sod",
-};
 
 function BackLink() {
   return (
@@ -57,7 +52,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
   return (
     <AppShell
       title={vessel.name}
-      subtitle={MATERIAL_LABEL[vessel.material]}
+      subtitle={CATEGORY_LABEL[vessel.category]}
       who={`${staff.fullName} · vodstvo`}
       role={staff.role}
       section="klet"

@@ -9,14 +9,15 @@ import { Card, FieldLabel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { createVessel } from "./actions";
-import type { VesselMaterial } from "@/lib/types";
+import { CATEGORY_LABEL, CATEGORY_ORDER } from "./vessel-category";
+import type { VesselCategory } from "@/lib/types";
 
 export function NewVesselForm() {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [capacity, setCapacity] = React.useState("");
-  const [material, setMaterial] = React.useState<VesselMaterial>("stainless");
+  const [category, setCategory] = React.useState<VesselCategory>("cisterne");
   const [pending, startTransition] = React.useTransition();
 
   function submit() {
@@ -25,7 +26,7 @@ export function NewVesselForm() {
     if (!trimmed || !capacityL) return;
 
     startTransition(async () => {
-      const result = await createVessel({ name: trimmed, capacityL, material });
+      const result = await createVessel({ name: trimmed, capacityL, category });
       if (!result.ok) {
         toast.error(result.error ?? "Rezervoarja ni bilo mogoče ustvariti");
         return;
@@ -33,7 +34,7 @@ export function NewVesselForm() {
       toast.success(`Rezervoar "${trimmed}" ustvarjen`);
       setName("");
       setCapacity("");
-      setMaterial("stainless");
+      setCategory("cisterne");
       setOpen(false);
       router.refresh();
     });
@@ -66,28 +67,22 @@ export function NewVesselForm() {
         placeholder="npr. 2000"
       />
 
-      <FieldLabel className="mt-3.5">Vrsta</FieldLabel>
-      <div className="inline-flex rounded-[var(--radius-control)] border border-line overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setMaterial("stainless")}
-          className={cn(
-            "h-9 px-3.5 text-[13px] font-semibold transition-colors",
-            material === "stainless" ? "bg-wine text-white" : "bg-surface text-ink-muted hover:bg-surface-muted",
-          )}
-        >
-          Inox
-        </button>
-        <button
-          type="button"
-          onClick={() => setMaterial("wood")}
-          className={cn(
-            "h-9 px-3.5 text-[13px] font-semibold transition-colors border-l border-line",
-            material === "wood" ? "bg-wine text-white" : "bg-surface text-ink-muted hover:bg-surface-muted",
-          )}
-        >
-          Les
-        </button>
+      <FieldLabel className="mt-3.5">Kategorija</FieldLabel>
+      <div className="inline-flex rounded-[var(--radius-control)] border border-line overflow-hidden flex-wrap">
+        {CATEGORY_ORDER.map((value, i) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setCategory(value)}
+            className={cn(
+              "h-9 px-3.5 text-[13px] font-semibold transition-colors",
+              i > 0 && "border-l border-line",
+              category === value ? "bg-wine text-white" : "bg-surface text-ink-muted hover:bg-surface-muted",
+            )}
+          >
+            {CATEGORY_LABEL[value]}
+          </button>
+        ))}
       </div>
 
       <div className="flex gap-2 mt-3.5">

@@ -2,8 +2,8 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getVessels } from "@/lib/data";
 import { NewVesselForm } from "../new-vessel-form";
-import { VesselSummaryCard } from "../vessel-summary-card";
-import type { Vessel } from "@/lib/types";
+import { VesselGroup } from "../vessel-group";
+import { CATEGORY_LABEL, CATEGORY_ORDER } from "../vessel-category";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +22,11 @@ export default async function VesselsPage() {
   }
 
   const vessels = await getVessels();
-  const stainless = vessels.filter((v) => v.material === "stainless");
-  const wood = vessels.filter((v) => v.material === "wood");
 
   return (
     <AppShell
       title="Rezervoarji"
-      subtitle="Inox in leseni sodi"
+      subtitle="Cisterne, inox in sodi"
       who={`${staff.fullName} · vodstvo`}
       role={staff.role}
       section="klet"
@@ -42,26 +40,14 @@ export default async function VesselsPage() {
           <p className="text-[13px] text-ink-muted">Še ni rezervoarjev.</p>
         </Card>
       ) : (
-        <>
-          <VesselGroup label="Inox cisterne" vessels={stainless} />
-          <VesselGroup label="Leseni sodi" vessels={wood} />
-        </>
+        CATEGORY_ORDER.map((category) => (
+          <VesselGroup
+            key={category}
+            label={CATEGORY_LABEL[category]}
+            vessels={vessels.filter((v) => v.category === category)}
+          />
+        ))
       )}
     </AppShell>
-  );
-}
-
-function VesselGroup({ label, vessels }: { label: string; vessels: Vessel[] }) {
-  if (vessels.length === 0) return null;
-
-  return (
-    <>
-      <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">{label}</h2>
-      <div className="space-y-2.5 mb-6">
-        {vessels.map((vessel) => (
-          <VesselSummaryCard key={vessel.id} vessel={vessel} />
-        ))}
-      </div>
-    </>
   );
 }

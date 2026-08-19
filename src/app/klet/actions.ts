@@ -150,6 +150,40 @@ export async function recordLotReading(input: z.infer<typeof ReadingInput>): Pro
   return { ok: true };
 }
 
+const AdditionInput = z.object({
+  lotId: z.string().min(1),
+  additiveName: z.string().min(1, "Vnesi, kaj je bilo dodano."),
+  amount: z.number().optional(),
+  unit: z.string().max(20).optional(),
+  note: z.string().max(300).optional().default(""),
+});
+
+export async function recordLotAddition(input: z.infer<typeof AdditionInput>): Promise<ActionResult> {
+  const parsed = AdditionInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven dodatek." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_wine_lot_addition", {
+    p_lot_id: parsed.data.lotId,
+    p_additive_name: parsed.data.additiveName,
+    p_amount: parsed.data.amount ?? null,
+    p_unit: parsed.data.unit || null,
+    p_note: parsed.data.note || null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
 const AdjustVolumeInput = z.object({
   lotId: z.string().min(1),
   deltaL: z.number().refine((n) => n !== 0, "Vnesi količino, ki ni nič."),

@@ -12,6 +12,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import {
   adjustLotVolume,
+  recordLotAddition,
   recordLotBottling,
   recordLotReading,
   transferWineLot,
@@ -25,6 +26,8 @@ const STAGE_OPTIONS: { value: WineLot["stage"]; label: string }[] = [
   { value: "vrenje", label: "Vrenje" },
   { value: "vino", label: "Vino" },
 ];
+
+const ADDITIVE_PRESETS = ["Kvasovke", "Hranilo za kvasovke", "SO2", "Tanini", "Encimi", "Bentonit"];
 
 type ReadingField =
   | "sugarGl"
@@ -181,7 +184,7 @@ export function StageSelector({ lot }: { lot: WineLot }) {
   );
 }
 
-type Mode = null | "prenos" | "meritev" | "popravek" | "steklenicenje";
+type Mode = null | "prenos" | "meritev" | "dodatek" | "popravek" | "steklenicenje";
 
 export function LotActions({
   lot,
@@ -214,6 +217,9 @@ export function LotActions({
         <Button size="sm" variant={mode === "meritev" ? "primary" : "secondary"} onClick={() => toggle("meritev")}>
           Meritev
         </Button>
+        <Button size="sm" variant={mode === "dodatek" ? "primary" : "secondary"} onClick={() => toggle("dodatek")}>
+          Dodatek
+        </Button>
         <Button size="sm" variant={mode === "popravek" ? "primary" : "secondary"} onClick={() => toggle("popravek")}>
           Popravek
         </Button>
@@ -232,6 +238,9 @@ export function LotActions({
         <TransferForm lot={lot} vessels={vessels} onDone={afterSuccess} onCancel={() => setMode(null)} />
       )}
       {mode === "meritev" && <ReadingForm lot={lot} onDone={afterSuccess} onCancel={() => setMode(null)} />}
+      {mode === "dodatek" && (
+        <AdditionForm lotId={lot.id} onDone={afterSuccess} onCancel={() => setMode(null)} />
+      )}
       {mode === "popravek" && (
         <AdjustmentForm lotId={lot.id} onDone={afterSuccess} onCancel={() => setMode(null)} />
       )}
@@ -371,6 +380,96 @@ function ReadingForm({
       <div className="flex gap-2">
         <Button size="sm" onClick={submit} loading={pending} disabled={!hasValue}>
           Zabeleži meritev
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Prekliči
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function AdditionForm({
+  lotId,
+  onDone,
+  onCancel,
+}: {
+  lotId: string;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const [additiveName, setAdditiveName] = React.useState("");
+  const [amount, setAmount] = React.useState("");
+  const [unit, setUnit] = React.useState("");
+  const [note, setNote] = React.useState("");
+  const [pending, startTransition] = React.useTransition();
+
+  function submit() {
+    const name = additiveName.trim();
+    if (!name) return;
+    startTransition(async () => {
+      const result = await recordLotAddition({
+        lotId,
+        additiveName: name,
+        amount: amount ? parseFloat(amount) : undefined,
+        unit: unit.trim() || undefined,
+        note,
+      });
+      if (!result.ok) {
+        toast.error(result.error ?? "Dodatek ni uspel");
+        return;
+      }
+      onDone("Dodatek zabeležen");
+    });
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-line space-y-2.5">
+      <div className="flex gap-1.5 flex-wrap">
+        {ADDITIVE_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => setAdditiveName(preset)}
+            className={cn(
+              "h-8 px-3 rounded-full text-[12.5px] font-semibold border transition-colors",
+              additiveName === preset
+                ? "bg-wine text-white border-wine"
+                : "bg-surface text-ink-muted border-line hover:bg-surface-muted",
+            )}
+          >
+            {preset}
+          </button>
+        ))}
+      </div>
+      <div>
+        <FieldLabel>Kaj je bilo dodano</FieldLabel>
+        <Input
+          value={additiveName}
+          onChange={(e) => setAdditiveName(e.target.value)}
+          placeholder="npr. Kvasovke"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <FieldLabel>Količina</FieldLabel>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+            placeholder="npr. 20"
+          />
+        </div>
+        <div>
+          <FieldLabel>Enota</FieldLabel>
+          <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="npr. g, g/hl, ml" />
+        </div>
+      </div>
+      <Textarea placeholder="Opomba (neobvezno)" value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[52px]" />
+      <div className="flex gap-2">
+        <Button size="sm" onClick={submit} loading={pending} disabled={!additiveName.trim()}>
+          Zabeleži dodatek
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           Prekliči

@@ -12,6 +12,7 @@ export const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
   note: "Opomba",
   bottling: "Stekleničenje",
   adjustment: "Popravek",
+  addition: "Dodatek",
 };
 
 export function eventDetail(e: WineLotEvent): string | null {
@@ -34,6 +35,10 @@ export function eventDetail(e: WineLotEvent): string | null {
       return e.volumeL ? `−${e.volumeL} l` : null;
     case "adjustment":
       return e.volumeL ? `${e.volumeL > 0 ? "+" : ""}${e.volumeL} l` : null;
+    case "addition":
+      return [e.additiveName, e.amount !== null && `${e.amount}${e.unit ? ` ${e.unit}` : ""}`]
+        .filter(Boolean)
+        .join(" · ") || null;
     case "reading":
       return (
         [

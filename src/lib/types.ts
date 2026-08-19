@@ -196,7 +196,8 @@ export type WineLotEventType =
   | "reading"
   | "note"
   | "bottling"
-  | "adjustment";
+  | "adjustment"
+  | "addition";
 
 export interface WineLotEvent {
   id: string;
@@ -215,6 +216,9 @@ export interface WineLotEvent {
   co2: number | null;
   alcohol: number | null;
   density: number | null;
+  additiveName: string | null;
+  amount: number | null;
+  unit: string | null;
   relatedLotNumber: string | null;
   note: string | null;
   createdByName: string | null;

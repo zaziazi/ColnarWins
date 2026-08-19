@@ -86,13 +86,31 @@ export async function transferWineLot(input: z.infer<typeof TransferInput>): Pro
 const ReadingInput = z
   .object({
     lotId: z.string().min(1),
-    brix: z.number().optional(),
+    sugarGl: z.number().optional(),
     ph: z.number().optional(),
     so2: z.number().optional(),
+    malicAcid: z.number().optional(),
+    tartaricAcid: z.number().optional(),
+    lacticAcid: z.number().optional(),
+    totalAcid: z.number().optional(),
+    volatileAcid: z.number().optional(),
+    co2: z.number().optional(),
+    alcohol: z.number().optional(),
     note: z.string().max(300).optional().default(""),
   })
   .refine(
-    (v) => v.brix !== undefined || v.ph !== undefined || v.so2 !== undefined || v.note !== "",
+    (v) =>
+      v.sugarGl !== undefined ||
+      v.ph !== undefined ||
+      v.so2 !== undefined ||
+      v.malicAcid !== undefined ||
+      v.tartaricAcid !== undefined ||
+      v.lacticAcid !== undefined ||
+      v.totalAcid !== undefined ||
+      v.volatileAcid !== undefined ||
+      v.co2 !== undefined ||
+      v.alcohol !== undefined ||
+      v.note !== "",
     { message: "Vnesi vsaj eno meritev ali opombo." },
   );
 
@@ -110,9 +128,16 @@ export async function recordLotReading(input: z.infer<typeof ReadingInput>): Pro
   const supabase = await createClient();
   const { error } = await supabase.rpc("record_wine_lot_reading", {
     p_lot_id: parsed.data.lotId,
-    p_brix: parsed.data.brix ?? null,
+    p_sugar_gl: parsed.data.sugarGl ?? null,
     p_ph: parsed.data.ph ?? null,
     p_so2: parsed.data.so2 ?? null,
+    p_malic_acid: parsed.data.malicAcid ?? null,
+    p_tartaric_acid: parsed.data.tartaricAcid ?? null,
+    p_lactic_acid: parsed.data.lacticAcid ?? null,
+    p_total_acid: parsed.data.totalAcid ?? null,
+    p_volatile_acid: parsed.data.volatileAcid ?? null,
+    p_co2: parsed.data.co2 ?? null,
+    p_alcohol: parsed.data.alcohol ?? null,
     p_note: parsed.data.note || null,
   });
 
@@ -236,10 +261,10 @@ export async function updateLotName(input: z.infer<typeof UpdateLotNameInput>): 
 
 const UpdateLotStageInput = z.object({
   lotId: z.string().min(1),
-  stage: z.enum(["most", "vrenje", "vino"]),
+  stage: z.enum(["grozdje", "vrenje", "vino"]),
 });
 
-const STAGE_LABEL: Record<string, string> = { most: "Mošt", vrenje: "Vrenje", vino: "Vino" };
+const STAGE_LABEL: Record<string, string> = { grozdje: "Grozdje", vrenje: "Vrenje", vino: "Vino" };
 
 export async function updateLotStage(input: z.infer<typeof UpdateLotStageInput>): Promise<ActionResult> {
   const parsed = UpdateLotStageInput.safeParse(input);

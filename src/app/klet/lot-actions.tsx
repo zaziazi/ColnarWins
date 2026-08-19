@@ -20,10 +20,41 @@ import {
 import type { Product, Vessel, WineLot } from "@/lib/types";
 
 const STAGE_OPTIONS: { value: WineLot["stage"]; label: string }[] = [
-  { value: "most", label: "Mošt" },
+  { value: "grozdje", label: "Grozdje" },
   { value: "vrenje", label: "Vrenje" },
   { value: "vino", label: "Vino" },
 ];
+
+type ReadingField =
+  | "sugarGl"
+  | "ph"
+  | "so2"
+  | "malicAcid"
+  | "tartaricAcid"
+  | "lacticAcid"
+  | "totalAcid"
+  | "volatileAcid"
+  | "co2"
+  | "alcohol";
+
+const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> = {
+  sugarGl: { label: "Sladkor (g/l)", placeholder: "npr. 200" },
+  ph: { label: "pH", placeholder: "npr. 3.3" },
+  so2: { label: "SO2 (mg/l)", placeholder: "npr. 30" },
+  malicAcid: { label: "Jabolčna kislina (g/l)", placeholder: "npr. 3" },
+  tartaricAcid: { label: "Vinska kislina (g/l)", placeholder: "npr. 5" },
+  lacticAcid: { label: "Mlečna kislina (g/l)", placeholder: "npr. 1" },
+  totalAcid: { label: "Skupna kislina (g/l)", placeholder: "npr. 6" },
+  volatileAcid: { label: "Hlapna kislina (g/l)", placeholder: "npr. 0.5" },
+  co2: { label: "CO2 (g/l)", placeholder: "npr. 2" },
+  alcohol: { label: "Alkohol (%)", placeholder: "npr. 12" },
+};
+
+const STAGE_FIELDS: Record<WineLot["stage"], ReadingField[]> = {
+  grozdje: ["sugarGl", "ph", "malicAcid", "tartaricAcid", "totalAcid", "volatileAcid"],
+  vrenje: ["sugarGl", "ph", "alcohol", "co2", "malicAcid", "lacticAcid", "totalAcid", "volatileAcid"],
+  vino: ["ph", "alcohol", "sugarGl", "so2"],
+};
 
 export function LotName({ lot }: { lot: WineLot }) {
   const router = useRouter();
@@ -165,7 +196,7 @@ export function LotActions({
       {mode === "prenos" && (
         <TransferForm lot={lot} vessels={vessels} onDone={afterSuccess} onCancel={() => setMode(null)} />
       )}
-      {mode === "meritev" && <ReadingForm lotId={lot.id} onDone={afterSuccess} onCancel={() => setMode(null)} />}
+      {mode === "meritev" && <ReadingForm lot={lot} onDone={afterSuccess} onCancel={() => setMode(null)} />}
       {mode === "popravek" && (
         <AdjustmentForm lotId={lot.id} onDone={afterSuccess} onCancel={() => setMode(null)} />
       )}
@@ -236,30 +267,43 @@ function TransferForm({
 }
 
 function ReadingForm({
-  lotId,
+  lot,
   onDone,
   onCancel,
 }: {
-  lotId: string;
+  lot: WineLot;
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
-  const [brix, setBrix] = React.useState("");
-  const [ph, setPh] = React.useState("");
-  const [so2, setSo2] = React.useState("");
+  const fields = STAGE_FIELDS[lot.stage];
+  const [values, setValues] = React.useState<Record<ReadingField, string>>({
+    sugarGl: "", ph: "", so2: "", malicAcid: "", tartaricAcid: "",
+    lacticAcid: "", totalAcid: "", volatileAcid: "", co2: "", alcohol: "",
+  });
   const [note, setNote] = React.useState("");
   const [pending, startTransition] = React.useTransition();
 
-  const hasValue = brix || ph || so2 || note.trim();
+  const hasValue = fields.some((f) => values[f]) || note.trim();
+
+  function setField(field: ReadingField, raw: string) {
+    setValues((v) => ({ ...v, [field]: raw.replace(/[^\d.]/g, "") }));
+  }
 
   function submit() {
     if (!hasValue) return;
     startTransition(async () => {
       const result = await recordLotReading({
-        lotId,
-        brix: brix ? parseFloat(brix) : undefined,
-        ph: ph ? parseFloat(ph) : undefined,
-        so2: so2 ? parseFloat(so2) : undefined,
+        lotId: lot.id,
+        sugarGl: values.sugarGl ? parseFloat(values.sugarGl) : undefined,
+        ph: values.ph ? parseFloat(values.ph) : undefined,
+        so2: values.so2 ? parseFloat(values.so2) : undefined,
+        malicAcid: values.malicAcid ? parseFloat(values.malicAcid) : undefined,
+        tartaricAcid: values.tartaricAcid ? parseFloat(values.tartaricAcid) : undefined,
+        lacticAcid: values.lacticAcid ? parseFloat(values.lacticAcid) : undefined,
+        totalAcid: values.totalAcid ? parseFloat(values.totalAcid) : undefined,
+        volatileAcid: values.volatileAcid ? parseFloat(values.volatileAcid) : undefined,
+        co2: values.co2 ? parseFloat(values.co2) : undefined,
+        alcohol: values.alcohol ? parseFloat(values.alcohol) : undefined,
         note,
       });
       if (!result.ok) {
@@ -272,19 +316,20 @@ function ReadingForm({
 
   return (
     <div className="mt-3 pt-3 border-t border-line space-y-2.5">
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <FieldLabel>Sladkor (°Brix)</FieldLabel>
-          <Input type="text" inputMode="decimal" value={brix} onChange={(e) => setBrix(e.target.value.replace(/[^\d.]/g, ""))} placeholder="npr. 18" autoFocus />
-        </div>
-        <div>
-          <FieldLabel>pH</FieldLabel>
-          <Input type="text" inputMode="decimal" value={ph} onChange={(e) => setPh(e.target.value.replace(/[^\d.]/g, ""))} placeholder="npr. 3.3" />
-        </div>
-        <div>
-          <FieldLabel>SO2</FieldLabel>
-          <Input type="text" inputMode="decimal" value={so2} onChange={(e) => setSo2(e.target.value.replace(/[^\d.]/g, ""))} placeholder="npr. 30" />
-        </div>
+      <div className="grid grid-cols-2 gap-2">
+        {fields.map((f, i) => (
+          <div key={f}>
+            <FieldLabel>{FIELD_META[f].label}</FieldLabel>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={values[f]}
+              onChange={(e) => setField(f, e.target.value)}
+              placeholder={FIELD_META[f].placeholder}
+              autoFocus={i === 0}
+            />
+          </div>
+        ))}
       </div>
       <Textarea placeholder="Opomba (okus, vonj, videz…)" value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[52px]" />
       <div className="flex gap-2">

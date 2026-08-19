@@ -5,8 +5,25 @@ import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getLotEvents, getProducts, getVessels, getWineLot } from "@/lib/data";
 import { LotActions, LotName, StageSelector } from "../../lot-actions";
 import { LotHistory } from "../../lot-history";
+import { SugarChart } from "../../sugar-chart";
 
 export const dynamic = "force-dynamic";
+
+function SugarChartSection({ events }: { events: Awaited<ReturnType<typeof getLotEvents>> }) {
+  const sugarReadings = events.filter((e) => e.sugarGl !== null).length;
+  if (sugarReadings < 2) return null;
+
+  return (
+    <>
+      <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">
+        Poraba sladkorja
+      </h2>
+      <Card className="p-3.5 mb-6">
+        <SugarChart events={events} />
+      </Card>
+    </>
+  );
+}
 
 function BackLink() {
   return (
@@ -78,6 +95,8 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
           <LotActions lot={lot} vessels={vessels} products={products} />
         </div>
       )}
+
+      <SugarChartSection events={events} />
 
       <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">
         Zgodovina

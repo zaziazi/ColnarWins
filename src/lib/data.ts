@@ -613,22 +613,31 @@ export async function getLotEvents(lotId: string): Promise<WineLotEvent[]> {
   const { data, error } = await supabase
     .from("wine_lot_event")
     .select(
-      "id,event_type,volume_l,brix,ph,so2,note,created_at,from_vessel:vessel!wine_lot_event_from_vessel_id_fkey(name),to_vessel:vessel!wine_lot_event_to_vessel_id_fkey(name),related_lot:wine_lot!wine_lot_event_related_lot_id_fkey(lot_number),staff(full_name)",
+      "id,event_type,volume_l,sugar_gl,ph,so2,malic_acid,tartaric_acid,lactic_acid,total_acid,volatile_acid,co2,alcohol,note,created_at,from_vessel:vessel!wine_lot_event_from_vessel_id_fkey(name),to_vessel:vessel!wine_lot_event_to_vessel_id_fkey(name),related_lot:wine_lot!wine_lot_event_related_lot_id_fkey(lot_number),staff(full_name)",
     )
     .eq("lot_id", lotId)
     .order("created_at", { ascending: true });
 
   if (error) throw error;
 
+  const num = (v: string | null) => (v === null ? null : Number(v));
+
   return (data ?? []).map((e) => ({
     id: e.id,
     eventType: e.event_type,
     fromVesselName: (e.from_vessel as unknown as { name: string } | null)?.name ?? null,
     toVesselName: (e.to_vessel as unknown as { name: string } | null)?.name ?? null,
-    volumeL: e.volume_l === null ? null : Number(e.volume_l),
-    brix: e.brix === null ? null : Number(e.brix),
-    ph: e.ph === null ? null : Number(e.ph),
-    so2: e.so2 === null ? null : Number(e.so2),
+    volumeL: num(e.volume_l),
+    sugarGl: num(e.sugar_gl),
+    ph: num(e.ph),
+    so2: num(e.so2),
+    malicAcid: num(e.malic_acid),
+    tartaricAcid: num(e.tartaric_acid),
+    lacticAcid: num(e.lactic_acid),
+    totalAcid: num(e.total_acid),
+    volatileAcid: num(e.volatile_acid),
+    co2: num(e.co2),
+    alcohol: num(e.alcohol),
     relatedLotNumber: (e.related_lot as unknown as { lot_number: string } | null)?.lot_number ?? null,
     note: e.note,
     createdByName: (e.staff as unknown as { full_name: string } | null)?.full_name ?? null,

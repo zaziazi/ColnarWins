@@ -170,7 +170,7 @@ export interface Vessel {
   activeLotVolumeL: number | null;
 }
 
-export type WineStage = "most" | "vrenje" | "vino";
+export type WineStage = "grozdje" | "vrenje" | "vino";
 export type WineLotStatus = "active" | "bottled" | "merged";
 
 export interface WineLot {
@@ -204,9 +204,16 @@ export interface WineLotEvent {
   fromVesselName: string | null;
   toVesselName: string | null;
   volumeL: number | null;
-  brix: number | null;
+  sugarGl: number | null;
   ph: number | null;
   so2: number | null;
+  malicAcid: number | null;
+  tartaricAcid: number | null;
+  lacticAcid: number | null;
+  totalAcid: number | null;
+  volatileAcid: number | null;
+  co2: number | null;
+  alcohol: number | null;
   relatedLotNumber: string | null;
   note: string | null;
   createdByName: string | null;

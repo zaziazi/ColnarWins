@@ -5,13 +5,13 @@ import { Card } from "@/components/ui/card";
 import type { WineLot } from "@/lib/types";
 
 const STAGE_LABEL: Record<WineLot["stage"], string> = {
-  most: "Mošt",
+  grozdje: "Grozdje",
   vrenje: "Vrenje",
   vino: "Vino",
 };
 
 const STAGE_TONE: Record<WineLot["stage"], "warn" | "info" | "good"> = {
-  most: "warn",
+  grozdje: "warn",
   vrenje: "info",
   vino: "good",
 };

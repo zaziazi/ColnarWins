@@ -36,7 +36,18 @@ function eventDetail(e: WineLotEvent): string | null {
       return e.volumeL ? `${e.volumeL > 0 ? "+" : ""}${e.volumeL} l` : null;
     case "reading":
       return (
-        [e.brix !== null && `${e.brix}° Brix`, e.ph !== null && `pH ${e.ph}`, e.so2 !== null && `SO2 ${e.so2}`]
+        [
+          e.sugarGl !== null && `sladkor ${e.sugarGl} g/l`,
+          e.ph !== null && `pH ${e.ph}`,
+          e.alcohol !== null && `alk. ${e.alcohol}%`,
+          e.so2 !== null && `SO2 ${e.so2}`,
+          e.co2 !== null && `CO2 ${e.co2}`,
+          e.malicAcid !== null && `jabolčna ${e.malicAcid}`,
+          e.tartaricAcid !== null && `vinska ${e.tartaricAcid}`,
+          e.lacticAcid !== null && `mlečna ${e.lacticAcid}`,
+          e.totalAcid !== null && `skupna ${e.totalAcid}`,
+          e.volatileAcid !== null && `hlapna ${e.volatileAcid}`,
+        ]
           .filter(Boolean)
           .join(" · ") || null
       );

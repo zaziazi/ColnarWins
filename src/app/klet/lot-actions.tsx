@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 import { Card, FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
@@ -113,37 +114,67 @@ export function LotName({ lot }: { lot: WineLot }) {
 
 export function StageSelector({ lot }: { lot: WineLot }) {
   const router = useRouter();
+  const [pendingStage, setPendingStage] = React.useState<WineLot["stage"] | null>(null);
   const [pending, startTransition] = React.useTransition();
 
-  function select(stage: WineLot["stage"]) {
+  function requestChange(stage: WineLot["stage"]) {
     if (stage === lot.stage) return;
+    setPendingStage(stage);
+  }
+
+  function confirm() {
+    if (!pendingStage) return;
+    const stage = pendingStage;
     startTransition(async () => {
       const result = await updateLotStage({ lotId: lot.id, stage });
       if (!result.ok) {
         toast.error(result.error ?? "Sprememba faze ni uspela");
+        setPendingStage(null);
         return;
       }
+      setPendingStage(null);
       router.refresh();
     });
   }
 
+  const stageLabel = (s: WineLot["stage"]) => STAGE_OPTIONS.find((o) => o.value === s)?.label ?? s;
+
   return (
-    <div className="inline-flex rounded-[var(--radius-control)] border border-line overflow-hidden">
-      {STAGE_OPTIONS.map((opt, i) => (
-        <button
-          key={opt.value}
-          type="button"
-          disabled={pending}
-          onClick={() => select(opt.value)}
-          className={cn(
-            "h-9 px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-50",
-            i > 0 && "border-l border-line",
-            lot.stage === opt.value ? "bg-wine text-white" : "bg-surface text-ink-muted hover:bg-surface-muted",
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div>
+      <div className="inline-flex rounded-[var(--radius-control)] border border-line overflow-hidden">
+        {STAGE_OPTIONS.map((opt, i) => (
+          <button
+            key={opt.value}
+            type="button"
+            disabled={pending}
+            onClick={() => requestChange(opt.value)}
+            className={cn(
+              "h-9 px-3.5 text-[13px] font-semibold transition-colors disabled:opacity-50",
+              i > 0 && "border-l border-line",
+              lot.stage === opt.value ? "bg-wine text-white" : "bg-surface text-ink-muted hover:bg-surface-muted",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {pendingStage && (
+        <Callout tone="warn" className="mt-2.5">
+          <p>
+            Spremeni fazo iz <strong>{stageLabel(lot.stage)}</strong> v{" "}
+            <strong>{stageLabel(pendingStage)}</strong>? Tega dejanja ni mogoče razveljaviti.
+          </p>
+          <div className="flex gap-2 mt-2.5">
+            <Button size="sm" onClick={confirm} loading={pending}>
+              Potrdi spremembo
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPendingStage(null)} disabled={pending}>
+              Prekliči
+            </Button>
+          </div>
+        </Callout>
+      )}
     </div>
   );
 }

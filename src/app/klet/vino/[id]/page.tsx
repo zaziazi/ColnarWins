@@ -18,7 +18,7 @@ function SugarChartSection({
   stage: WineLot["stage"];
 }) {
   const sugarReadings = events.filter((e) => e.sugarGl !== null).length;
-  if (sugarReadings < 2) return null;
+  if (stage !== "vrenje" || sugarReadings < 2) return null;
 
   return (
     <>

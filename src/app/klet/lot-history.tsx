@@ -1,7 +1,7 @@
 import { dateShort } from "@/lib/format";
 import type { WineLotEvent } from "@/lib/types";
 
-const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
+export const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
   harvest_intake: "Sprejem",
   transfer: "Prenos",
   blend_in: "Zlitje (prejeto)",
@@ -14,7 +14,7 @@ const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
   adjustment: "Popravek",
 };
 
-function eventDetail(e: WineLotEvent): string | null {
+export function eventDetail(e: WineLotEvent): string | null {
   switch (e.eventType) {
     case "harvest_intake":
       return e.toVesselName ? `${e.toVesselName} · +${e.volumeL} l` : null;

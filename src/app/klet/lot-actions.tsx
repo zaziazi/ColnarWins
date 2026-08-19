@@ -59,7 +59,7 @@ const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> =
 const STAGE_FIELDS: Record<WineLot["stage"], ReadingField[]> = {
   grozdje: ["sugarGl", "density", "ph", "malicAcid", "tartaricAcid", "totalAcid", "volatileAcid"],
   vrenje: ["sugarGl", "density", "ph", "alcohol", "co2", "malicAcid", "lacticAcid", "totalAcid", "volatileAcid"],
-  vino: ["ph", "alcohol", "sugarGl", "so2"],
+  vino: ["ph", "alcohol", "sugarGl", "density", "so2"],
 };
 
 export function LotName({ lot }: { lot: WineLot }) {

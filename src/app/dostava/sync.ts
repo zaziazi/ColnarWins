@@ -8,7 +8,13 @@ import {
   type PendingAction,
 } from "./local-store";
 
-export type SyncResult = { syncedActions: number; syncedPings: number; failed: number };
+export type SyncedOrder = { orderId: string; type: "confirm" | "fail" };
+export type SyncResult = {
+  syncedActions: number;
+  syncedPings: number;
+  failed: number;
+  syncedOrders: SyncedOrder[];
+};
 
 async function syncOneAction(action: PendingAction): Promise<boolean> {
   if (action.type === "confirm") {
@@ -41,7 +47,7 @@ async function syncOneAction(action: PendingAction): Promise<boolean> {
 
 /** Drains the offline queue. Safe to call repeatedly — already-synced items are simply not in the queue anymore. */
 export async function drainQueue(): Promise<SyncResult> {
-  const result: SyncResult = { syncedActions: 0, syncedPings: 0, failed: 0 };
+  const result: SyncResult = { syncedActions: 0, syncedPings: 0, failed: 0, syncedOrders: [] };
   if (typeof navigator !== "undefined" && !navigator.onLine) return result;
 
   const actions = await listPendingActions();
@@ -50,6 +56,7 @@ export async function drainQueue(): Promise<SyncResult> {
     if (ok) {
       await removePendingAction(action.localId);
       result.syncedActions++;
+      result.syncedOrders.push({ orderId: action.orderId, type: action.type });
     } else {
       result.failed++;
     }

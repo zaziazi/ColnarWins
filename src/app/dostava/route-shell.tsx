@@ -73,12 +73,28 @@ export function RouteShell({
       const result = await drainQueue();
       if (result.syncedActions > 0) {
         toast.success(`Sinhronizirano: ${result.syncedActions}`);
+
+        // Reflect the real terminal status locally instead of leaving a
+        // synced stop showing its stale pre-sync status until the next
+        // full reload.
+        setRoutes((prev) => {
+          const next = prev.map((r) => ({
+            ...r,
+            stops: r.stops.map((s) => {
+              const synced = result.syncedOrders.find((o) => o.orderId === s.orderId);
+              if (!synced) return s;
+              return { ...s, status: synced.type === "confirm" ? ("completed" as const) : ("failed" as const) };
+            }),
+          }));
+          void saveRouteCache({ date, staffId: "", routes: next, cachedAt: new Date().toISOString() });
+          return next;
+        });
       }
       await refreshPendingSet();
     } finally {
       setSyncing(false);
     }
-  }, [refreshPendingSet]);
+  }, [refreshPendingSet, date]);
 
   // Load whatever's cached; only trust the fresh server copy when nothing is
   // queued locally — a mid-day dispatch refresh must not silently clobber an

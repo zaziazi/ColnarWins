@@ -215,13 +215,15 @@ export function LotActions({
         <Button size="sm" variant={mode === "popravek" ? "primary" : "secondary"} onClick={() => toggle("popravek")}>
           Popravek
         </Button>
-        <Button
-          size="sm"
-          variant={mode === "steklenicenje" ? "primary" : "secondary"}
-          onClick={() => toggle("steklenicenje")}
-        >
-          Stekleničenje
-        </Button>
+        {lot.stage === "vino" && (
+          <Button
+            size="sm"
+            variant={mode === "steklenicenje" ? "primary" : "secondary"}
+            onClick={() => toggle("steklenicenje")}
+          >
+            Stekleničenje
+          </Button>
+        )}
       </div>
 
       {mode === "prenos" && (
@@ -231,7 +233,7 @@ export function LotActions({
       {mode === "popravek" && (
         <AdjustmentForm lotId={lot.id} onDone={afterSuccess} onCancel={() => setMode(null)} />
       )}
-      {mode === "steklenicenje" && (
+      {mode === "steklenicenje" && lot.stage === "vino" && (
         <BottlingForm lot={lot} products={products} onDone={afterSuccess} onCancel={() => setMode(null)} />
       )}
     </Card>

@@ -221,7 +221,7 @@ export function LotActions({
           Dodatek
         </Button>
         <Button size="sm" variant={mode === "popravek" ? "primary" : "secondary"} onClick={() => toggle("popravek")}>
-          Popravek
+          Ostali komentarji
         </Button>
         {lot.stage === "vino" && (
           <Button
@@ -498,7 +498,7 @@ function AdjustmentForm({
     startTransition(async () => {
       const result = await adjustLotVolume({ lotId, deltaL: delta, note });
       if (!result.ok) {
-        toast.error(result.error ?? "Popravek ni uspel");
+        toast.error(result.error ?? "Zapis ni uspel");
         return;
       }
       onDone("Količina posodobljena");

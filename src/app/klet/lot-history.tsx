@@ -11,7 +11,7 @@ export const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
   reading: "Meritev",
   note: "Opomba",
   bottling: "Stekleničenje",
-  adjustment: "Popravek",
+  adjustment: "Ostali komentarji",
   addition: "Dodatek",
 };
 

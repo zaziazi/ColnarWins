@@ -27,7 +27,7 @@ const STAGE_OPTIONS: { value: WineLot["stage"]; label: string }[] = [
   { value: "vino", label: "Vino" },
 ];
 
-const ADDITIVE_PRESETS = ["Kvasovke", "Hranilo za kvasovke", "SO2", "Tanini", "Encimi", "Bentonit"];
+const ADDITIVE_PRESETS = ["Kvasovke", "Hranilo za kvasovke", "SO2", "Tanini", "Encimi", "Bentonit", "Razkis"];
 
 type ReadingField =
   | "sugarGl"

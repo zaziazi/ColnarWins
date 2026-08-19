@@ -69,7 +69,12 @@ export function OrderForm({
   const [note, setNote] = React.useState(editOrder?.note ?? "");
   const [pending, startTransition] = React.useTransition();
 
-  const todayIso = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayIso = React.useMemo(() => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const todayIsSunday = React.useMemo(() => new Date().getDay() === 0, []);
 
   const customer = customers.find((c) => c.id === customerId) ?? null;
   const standing = standingOrders.find((s) => s.customerId === customerId) ?? null;
@@ -290,6 +295,20 @@ export function OrderForm({
           <Card className="p-3.5">
             <FieldLabel>Datum dostave</FieldLabel>
             <div className="flex gap-2 flex-wrap">
+              {!todayIsSunday && (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryDate(todayIso)}
+                  className={
+                    "h-11 px-3.5 rounded-[var(--radius-control)] border text-sm font-semibold transition-colors " +
+                    (deliveryDate === todayIso
+                      ? "bg-wine text-white border-wine"
+                      : "bg-surface border-line text-ink-muted hover:border-line-strong")
+                  }
+                >
+                  Danes
+                </button>
+              )}
               {deliveryDates.map((d) => (
                 <button
                   key={d}

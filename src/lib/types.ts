@@ -248,6 +248,7 @@ export interface WineLotEvent {
   co2: number | null;
   alcohol: number | null;
   density: number | null;
+  yan: number | null;
   additiveName: string | null;
   amount: number | null;
   unit: string | null;
@@ -255,4 +256,5 @@ export interface WineLotEvent {
   note: string | null;
   createdByName: string | null;
   createdAt: string;
+  editedAt: string | null;
 }

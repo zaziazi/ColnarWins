@@ -703,7 +703,7 @@ export async function getLotEvents(lotId: string): Promise<WineLotEvent[]> {
   const { data, error } = await supabase
     .from("wine_lot_event")
     .select(
-      "id,event_type,volume_l,sugar_gl,ph,so2,malic_acid,tartaric_acid,lactic_acid,total_acid,volatile_acid,co2,alcohol,density,additive_name,amount,unit,note,created_at,from_vessel:vessel!wine_lot_event_from_vessel_id_fkey(name),to_vessel:vessel!wine_lot_event_to_vessel_id_fkey(name),related_lot:wine_lot!wine_lot_event_related_lot_id_fkey(lot_number),staff(full_name)",
+      "id,event_type,volume_l,sugar_gl,ph,so2,malic_acid,tartaric_acid,lactic_acid,total_acid,volatile_acid,co2,alcohol,density,yan,additive_name,amount,unit,note,created_at,edited_at,from_vessel:vessel!wine_lot_event_from_vessel_id_fkey(name),to_vessel:vessel!wine_lot_event_to_vessel_id_fkey(name),related_lot:wine_lot!wine_lot_event_related_lot_id_fkey(lot_number),staff(full_name)",
     )
     .eq("lot_id", lotId)
     .order("created_at", { ascending: true });
@@ -729,6 +729,7 @@ export async function getLotEvents(lotId: string): Promise<WineLotEvent[]> {
     co2: num(e.co2),
     alcohol: num(e.alcohol),
     density: num(e.density),
+    yan: num(e.yan),
     additiveName: e.additive_name,
     amount: num(e.amount),
     unit: e.unit,
@@ -736,5 +737,6 @@ export async function getLotEvents(lotId: string): Promise<WineLotEvent[]> {
     note: e.note,
     createdByName: (e.staff as unknown as { full_name: string } | null)?.full_name ?? null,
     createdAt: e.created_at,
+    editedAt: e.edited_at,
   }));
 }

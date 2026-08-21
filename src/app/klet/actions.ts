@@ -97,6 +97,7 @@ const ReadingInput = z
     co2: z.number().optional(),
     alcohol: z.number().optional(),
     density: z.number().optional(),
+    yan: z.number().optional(),
     note: z.string().max(300).optional().default(""),
   })
   .refine(
@@ -112,6 +113,7 @@ const ReadingInput = z
       v.co2 !== undefined ||
       v.alcohol !== undefined ||
       v.density !== undefined ||
+      v.yan !== undefined ||
       v.note !== "",
     { message: "Vnesi vsaj eno meritev ali opombo." },
   );
@@ -141,12 +143,101 @@ export async function recordLotReading(input: z.infer<typeof ReadingInput>): Pro
     p_co2: parsed.data.co2 ?? null,
     p_alcohol: parsed.data.alcohol ?? null,
     p_density: parsed.data.density ?? null,
+    p_yan: parsed.data.yan ?? null,
     p_note: parsed.data.note || null,
   });
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/klet/vino/${parsed.data.lotId}`);
+  return { ok: true };
+}
+
+const UpdateReadingInput = z
+  .object({
+    eventId: z.string().min(1),
+    sugarGl: z.number().optional(),
+    ph: z.number().optional(),
+    so2: z.number().optional(),
+    malicAcid: z.number().optional(),
+    tartaricAcid: z.number().optional(),
+    lacticAcid: z.number().optional(),
+    totalAcid: z.number().optional(),
+    volatileAcid: z.number().optional(),
+    co2: z.number().optional(),
+    alcohol: z.number().optional(),
+    density: z.number().optional(),
+    yan: z.number().optional(),
+    note: z.string().max(300).optional().default(""),
+  })
+  .refine(
+    (v) =>
+      v.sugarGl !== undefined ||
+      v.ph !== undefined ||
+      v.so2 !== undefined ||
+      v.malicAcid !== undefined ||
+      v.tartaricAcid !== undefined ||
+      v.lacticAcid !== undefined ||
+      v.totalAcid !== undefined ||
+      v.volatileAcid !== undefined ||
+      v.co2 !== undefined ||
+      v.alcohol !== undefined ||
+      v.density !== undefined ||
+      v.yan !== undefined ||
+      v.note !== "",
+    { message: "Vnesi vsaj eno meritev ali opombo." },
+  );
+
+/**
+ * Corrects a past reading in place — this is data-entry correction, not a
+ * new event, so unlike every other Klet action it mutates the existing
+ * wine_lot_event row instead of appending. Scoped to event_type='reading'
+ * only; every other event type stays append-only since those represent
+ * physical actions (transfers, blends, bottling) that already happened.
+ */
+export async function updateLotReading(input: z.infer<typeof UpdateReadingInput>): Promise<ActionResult> {
+  const parsed = UpdateReadingInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna meritev." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("wine_lot_event")
+    .select("id, event_type, lot_id")
+    .eq("id", parsed.data.eventId)
+    .single();
+  if (fetchError || !existing) return { ok: false, error: "Meritev ne obstaja." };
+  if (existing.event_type !== "reading") return { ok: false, error: "To ni meritev." };
+
+  const { error } = await supabase
+    .from("wine_lot_event")
+    .update({
+      sugar_gl: parsed.data.sugarGl ?? null,
+      ph: parsed.data.ph ?? null,
+      so2: parsed.data.so2 ?? null,
+      malic_acid: parsed.data.malicAcid ?? null,
+      tartaric_acid: parsed.data.tartaricAcid ?? null,
+      lactic_acid: parsed.data.lacticAcid ?? null,
+      total_acid: parsed.data.totalAcid ?? null,
+      volatile_acid: parsed.data.volatileAcid ?? null,
+      co2: parsed.data.co2 ?? null,
+      alcohol: parsed.data.alcohol ?? null,
+      density: parsed.data.density ?? null,
+      yan: parsed.data.yan ?? null,
+      note: parsed.data.note || null,
+      edited_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.eventId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/klet/vino/${existing.lot_id}`);
   return { ok: true };
 }
 

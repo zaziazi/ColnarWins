@@ -29,7 +29,7 @@ const STAGE_OPTIONS: { value: WineLot["stage"]; label: string }[] = [
 
 const ADDITIVE_PRESETS = ["Kvasovke", "Hranilo za kvasovke", "SO2", "Tanini", "Encimi", "Bentonit", "Razkis"];
 
-type ReadingField =
+export type ReadingField =
   | "sugarGl"
   | "density"
   | "ph"
@@ -40,9 +40,10 @@ type ReadingField =
   | "totalAcid"
   | "volatileAcid"
   | "co2"
-  | "alcohol";
+  | "alcohol"
+  | "yan";
 
-const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> = {
+export const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> = {
   sugarGl: { label: "Sladkor (g/l)", placeholder: "npr. 200" },
   density: { label: "Gostota", placeholder: "npr. 1.090" },
   ph: { label: "pH", placeholder: "npr. 3.3" },
@@ -54,11 +55,12 @@ const FIELD_META: Record<ReadingField, { label: string; placeholder: string }> =
   volatileAcid: { label: "Hlapna kislina (g/l)", placeholder: "npr. 0.5" },
   co2: { label: "CO2 (g/l)", placeholder: "npr. 2" },
   alcohol: { label: "Alkohol (%)", placeholder: "npr. 12" },
+  yan: { label: "YAN (mg/l)", placeholder: "npr. 150" },
 };
 
 const STAGE_FIELDS: Record<WineLot["stage"], ReadingField[]> = {
   grozdje: ["sugarGl", "density", "ph", "malicAcid", "tartaricAcid", "totalAcid", "volatileAcid"],
-  vrenje: ["sugarGl", "density", "ph", "alcohol", "co2", "malicAcid", "lacticAcid", "totalAcid", "volatileAcid"],
+  vrenje: ["sugarGl", "density", "ph", "alcohol", "co2", "yan", "malicAcid", "lacticAcid", "totalAcid", "volatileAcid"],
   vino: ["ph", "alcohol", "sugarGl", "density", "so2"],
 };
 
@@ -322,7 +324,7 @@ function ReadingForm({
   const fields = STAGE_FIELDS[lot.stage];
   const [values, setValues] = React.useState<Record<ReadingField, string>>({
     sugarGl: "", density: "", ph: "", so2: "", malicAcid: "", tartaricAcid: "",
-    lacticAcid: "", totalAcid: "", volatileAcid: "", co2: "", alcohol: "",
+    lacticAcid: "", totalAcid: "", volatileAcid: "", co2: "", alcohol: "", yan: "",
   });
   const [note, setNote] = React.useState("");
   const [pending, startTransition] = React.useTransition();
@@ -349,6 +351,7 @@ function ReadingForm({
         volatileAcid: values.volatileAcid ? parseFloat(values.volatileAcid) : undefined,
         co2: values.co2 ? parseFloat(values.co2) : undefined,
         alcohol: values.alcohol ? parseFloat(values.alcohol) : undefined,
+        yan: values.yan ? parseFloat(values.yan) : undefined,
         note,
       });
       if (!result.ok) {

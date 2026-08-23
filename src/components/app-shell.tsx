@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer } from "./drawer";
@@ -27,6 +27,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   klet: [
     { href: "/klet",             label: "Vina",         icon: FlaskConical, exact: true },
     { href: "/klet/rezervoarji", label: "Rezervoarji",  icon: Warehouse },
+    { href: "/klet/uvoz",        label: "Uvoz",         icon: Upload },
   ],
 };
 

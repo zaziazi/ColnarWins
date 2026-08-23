@@ -241,6 +241,73 @@ export async function updateLotReading(input: z.infer<typeof UpdateReadingInput>
   return { ok: true };
 }
 
+const BulkReadingRow = z.object({
+  lotId: z.string().min(1),
+  measuredAt: z.string().min(1),
+  sugarGl: z.number().optional(),
+  ph: z.number().optional(),
+  so2: z.number().optional(),
+  malicAcid: z.number().optional(),
+  tartaricAcid: z.number().optional(),
+  lacticAcid: z.number().optional(),
+  totalAcid: z.number().optional(),
+  volatileAcid: z.number().optional(),
+  co2: z.number().optional(),
+  alcohol: z.number().optional(),
+  density: z.number().optional(),
+  yan: z.number().optional(),
+});
+
+const BulkReadingsInput = z.object({ rows: z.array(BulkReadingRow).min(1) });
+
+/**
+ * Bulk-writes instrument-imported readings in one transaction (the RPC),
+ * not one action call per row — a batch this size failing halfway through
+ * would be a mess to untangle. Each row's measuredAt becomes the event's
+ * created_at, not the moment of import, since the sugar-consumption chart
+ * needs the real measurement time.
+ */
+export async function bulkRecordReadings(
+  input: z.infer<typeof BulkReadingsInput>,
+): Promise<ActionResult> {
+  const parsed = BulkReadingsInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavni podatki za uvoz." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 300));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_wine_lot_readings_batch", {
+    p_readings: parsed.data.rows.map((r) => ({
+      lot_id: r.lotId,
+      measured_at: r.measuredAt,
+      sugar_gl: r.sugarGl ?? null,
+      ph: r.ph ?? null,
+      so2: r.so2 ?? null,
+      malic_acid: r.malicAcid ?? null,
+      tartaric_acid: r.tartaricAcid ?? null,
+      lactic_acid: r.lacticAcid ?? null,
+      total_acid: r.totalAcid ?? null,
+      volatile_acid: r.volatileAcid ?? null,
+      co2: r.co2 ?? null,
+      alcohol: r.alcohol ?? null,
+      density: r.density ?? null,
+      yan: r.yan ?? null,
+      note: null,
+    })),
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/klet");
+  for (const r of parsed.data.rows) revalidatePath(`/klet/vino/${r.lotId}`);
+  return { ok: true };
+}
+
 const AdditionInput = z.object({
   lotId: z.string().min(1),
   additiveName: z.string().min(1, "Vnesi, kaj je bilo dodano."),

@@ -9,7 +9,7 @@ import { FieldLabel } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { dateShort } from "@/lib/format";
-import { updateEventNote, updateLotAddition, updateLotReading } from "./actions";
+import { updateEventNote, updateEventVolume, updateLotAddition, updateLotReading } from "./actions";
 import { FIELD_META, type ReadingField } from "./lot-actions";
 import type { WineLotEvent } from "@/lib/types";
 
@@ -27,16 +27,30 @@ export const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
   addition: "Dodatek",
 };
 
-/** The types whose "note" is real user text, not an auto-generated audit string — matches updateEventNote's server-side allow-list exactly. */
-const NOTE_EDITABLE_TYPES: WineLotEvent["eventType"][] = [
+/**
+ * harvest_intake/transfer/adjustment/bottling get full volume+note editing
+ * (updateEventVolume re-applies the change to the lot's current running
+ * volume — transfer is volume-neutral so it's really just a note+number
+ * correction with nothing to cascade). blend_in/blend_retired stay
+ * note-only: they involve two lots at once, so correcting their volume
+ * consistently on both sides is a separate, harder problem.
+ */
+const VOLUME_EDITABLE_TYPES: WineLotEvent["eventType"][] = [
   "harvest_intake",
   "transfer",
-  "blend_in",
-  "blend_retired",
-  "bottling",
   "adjustment",
-  "note",
+  "bottling",
 ];
+
+const VOLUME_FIELD_LABEL: Partial<Record<WineLotEvent["eventType"], string>> = {
+  harvest_intake: "Sprejeta količina (l)",
+  transfer: "Prenesena količina (l)",
+  adjustment: "Sprememba (l)",
+  bottling: "Porabljeno (l)",
+};
+
+/** The types whose "note" is real user text with no number to correct alongside it. */
+const NOTE_EDITABLE_TYPES: WineLotEvent["eventType"][] = ["blend_in", "blend_retired", "note"];
 
 export function eventDetail(e: WineLotEvent): string | null {
   switch (e.eventType) {
@@ -357,6 +371,65 @@ function EditNoteForm({
   );
 }
 
+function EditVolumeForm({
+  event,
+  onDone,
+  onCancel,
+}: {
+  event: WineLotEvent;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const allowNegative = event.eventType === "adjustment";
+  const [volume, setVolume] = React.useState(event.volumeL !== null ? String(event.volumeL) : "");
+  const [note, setNote] = React.useState(event.note ?? "");
+  const [pending, startTransition] = React.useTransition();
+
+  function setVolumeField(raw: string) {
+    setVolume(allowNegative ? raw.replace(/(?!^-)[^\d.]/g, "") : raw.replace(/[^\d.]/g, ""));
+  }
+
+  function submit() {
+    const n = parseFloat(volume);
+    if (!volume || Number.isNaN(n) || n === 0) return;
+    startTransition(async () => {
+      const result = await updateEventVolume({ eventId: event.id, volumeL: n, note });
+      if (!result.ok) {
+        toast.error(result.error ?? "Popravek ni uspel");
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div>
+      <FieldLabel>{VOLUME_FIELD_LABEL[event.eventType] ?? "Količina (l)"}</FieldLabel>
+      <Input
+        type="text"
+        inputMode="decimal"
+        value={volume}
+        onChange={(e) => setVolumeField(e.target.value)}
+        autoFocus
+      />
+      <Textarea
+        placeholder="Opomba"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="min-h-[52px] mt-3"
+      />
+      <div className="flex gap-2 mt-3">
+        <Button size="sm" onClick={submit} loading={pending} disabled={!volume}>
+          Shrani popravek
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={pending}>
+          Prekliči
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function EntryDetail({ event }: { event: WineLotEvent }) {
   const router = useRouter();
   const [editing, setEditing] = React.useState(false);
@@ -369,8 +442,9 @@ function EntryDetail({ event }: { event: WineLotEvent }) {
 
   const isReading = event.eventType === "reading";
   const isAddition = event.eventType === "addition";
+  const isVolumeEditable = VOLUME_EDITABLE_TYPES.includes(event.eventType);
   const isNoteEditable = NOTE_EDITABLE_TYPES.includes(event.eventType);
-  const canEdit = isReading || isAddition || isNoteEditable;
+  const canEdit = isReading || isAddition || isVolumeEditable || isNoteEditable;
 
   return (
     <div>
@@ -395,6 +469,12 @@ function EntryDetail({ event }: { event: WineLotEvent }) {
           <EditAdditionForm
             event={event}
             onDone={() => afterSave("Dodatek popravljen")}
+            onCancel={() => setEditing(false)}
+          />
+        ) : isVolumeEditable ? (
+          <EditVolumeForm
+            event={event}
+            onDone={() => afterSave("Količina popravljena")}
             onCancel={() => setEditing(false)}
           />
         ) : (

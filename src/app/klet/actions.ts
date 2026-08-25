@@ -390,15 +390,7 @@ export async function updateLotAddition(
   return { ok: true };
 }
 
-const NOTE_EDITABLE_TYPES = [
-  "harvest_intake",
-  "transfer",
-  "blend_in",
-  "blend_retired",
-  "bottling",
-  "adjustment",
-  "note",
-];
+const NOTE_EDITABLE_TYPES = ["blend_in", "blend_retired", "note"];
 
 const UpdateEventNoteInput = z.object({
   eventId: z.string().min(1),
@@ -406,13 +398,13 @@ const UpdateEventNoteInput = z.object({
 });
 
 /**
- * Note-only correction for the event types that carry a real volume/vessel
- * movement (transfer, harvest intake, blend, bottling, adjustment) — the
- * numbers themselves stay locked, because wine_lot.volume_l and vessel
- * occupancy were already updated from them at the time and editing the
- * event alone wouldn't re-run that. stage_change/name_change are excluded
- * entirely: their "note" is an auto-generated audit string ("Faza: X → Y"),
- * not something a person typed and might need to correct.
+ * Note-only correction for the event types left that still have no safe way
+ * to correct their number: blend_in/blend_retired involve two lots at once,
+ * so re-deriving both sides' current volume consistently is a bigger,
+ * separate problem. harvest_intake/transfer/adjustment/bottling moved to
+ * updateEventVolume below, which does handle their number correctly.
+ * stage_change/name_change are excluded entirely: their "note" is an
+ * auto-generated audit string ("Faza: X → Y"), not user-authored text.
  */
 export async function updateEventNote(
   input: z.infer<typeof UpdateEventNoteInput>,
@@ -446,6 +438,55 @@ export async function updateEventNote(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/klet/vino/${existing.lot_id}`);
+  return { ok: true };
+}
+
+const UpdateEventVolumeInput = z.object({
+  eventId: z.string().min(1),
+  volumeL: z.number().refine((n) => n !== 0, "Vnesi količino, ki ni nič."),
+  note: z.string().max(300).optional().default(""),
+});
+
+/**
+ * Corrects the volume on harvest_intake/transfer/adjustment/bottling —
+ * the RPC re-applies the CHANGE in that number to the lot's current running
+ * volume (except transfer, which never touched it in the first place — a
+ * plain relocation, not a delta). Locked once the lot is no longer active,
+ * since there'd be nothing consistent left to apply the delta to.
+ */
+export async function updateEventVolume(
+  input: z.infer<typeof UpdateEventVolumeInput>,
+): Promise<ActionResult> {
+  const parsed = UpdateEventVolumeInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna količina." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("wine_lot_event")
+    .select("lot_id")
+    .eq("id", parsed.data.eventId)
+    .single();
+
+  const { error } = await supabase.rpc("update_wine_lot_volume_event", {
+    p_event_id: parsed.data.eventId,
+    p_new_volume_l: parsed.data.volumeL,
+    p_note: parsed.data.note || null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  if (existing) {
+    revalidatePath(`/klet/vino/${existing.lot_id}`);
+    revalidatePath("/klet");
+    revalidatePath("/klet/rezervoarji");
+  }
   return { ok: true };
 }
 

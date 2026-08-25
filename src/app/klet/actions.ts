@@ -342,6 +342,113 @@ export async function recordLotAddition(input: z.infer<typeof AdditionInput>): P
   return { ok: true };
 }
 
+const UpdateAdditionInput = z.object({
+  eventId: z.string().min(1),
+  additiveName: z.string().min(1, "Vnesi, kaj je bilo dodano."),
+  amount: z.number().optional(),
+  unit: z.string().max(20).optional(),
+  note: z.string().max(300).optional().default(""),
+});
+
+/** Corrects a past addition in place — same reasoning as updateLotReading: no volume/vessel state depends on these values, so nothing else can drift out of sync. */
+export async function updateLotAddition(
+  input: z.infer<typeof UpdateAdditionInput>,
+): Promise<ActionResult> {
+  const parsed = UpdateAdditionInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven dodatek." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("wine_lot_event")
+    .select("id, event_type, lot_id")
+    .eq("id", parsed.data.eventId)
+    .single();
+  if (fetchError || !existing) return { ok: false, error: "Dodatek ne obstaja." };
+  if (existing.event_type !== "addition") return { ok: false, error: "To ni dodatek." };
+
+  const { error } = await supabase
+    .from("wine_lot_event")
+    .update({
+      additive_name: parsed.data.additiveName,
+      amount: parsed.data.amount ?? null,
+      unit: parsed.data.unit || null,
+      note: parsed.data.note || null,
+      edited_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.eventId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/klet/vino/${existing.lot_id}`);
+  return { ok: true };
+}
+
+const NOTE_EDITABLE_TYPES = [
+  "harvest_intake",
+  "transfer",
+  "blend_in",
+  "blend_retired",
+  "bottling",
+  "adjustment",
+  "note",
+];
+
+const UpdateEventNoteInput = z.object({
+  eventId: z.string().min(1),
+  note: z.string().max(300).optional().default(""),
+});
+
+/**
+ * Note-only correction for the event types that carry a real volume/vessel
+ * movement (transfer, harvest intake, blend, bottling, adjustment) — the
+ * numbers themselves stay locked, because wine_lot.volume_l and vessel
+ * occupancy were already updated from them at the time and editing the
+ * event alone wouldn't re-run that. stage_change/name_change are excluded
+ * entirely: their "note" is an auto-generated audit string ("Faza: X → Y"),
+ * not something a person typed and might need to correct.
+ */
+export async function updateEventNote(
+  input: z.infer<typeof UpdateEventNoteInput>,
+): Promise<ActionResult> {
+  const parsed = UpdateEventNoteInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavna opomba." };
+  }
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("wine_lot_event")
+    .select("id, event_type, lot_id")
+    .eq("id", parsed.data.eventId)
+    .single();
+  if (fetchError || !existing) return { ok: false, error: "Vnos ne obstaja." };
+  if (!NOTE_EDITABLE_TYPES.includes(existing.event_type)) {
+    return { ok: false, error: "Tega vnosa ni mogoče urejati." };
+  }
+
+  const { error } = await supabase
+    .from("wine_lot_event")
+    .update({ note: parsed.data.note || null, edited_at: new Date().toISOString() })
+    .eq("id", parsed.data.eventId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/klet/vino/${existing.lot_id}`);
+  return { ok: true };
+}
+
 const AdjustVolumeInput = z.object({
   lotId: z.string().min(1),
   deltaL: z.number().refine((n) => n !== 0, "Vnesi količino, ki ni nič."),

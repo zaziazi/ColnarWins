@@ -3,12 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pencil } from "lucide-react";
+import { Pencil, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, FieldLabel } from "@/components/ui/card";
+import { FieldLabel } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { dateShort } from "@/lib/format";
-import { updateLotReading } from "./actions";
+import { updateEventNote, updateLotAddition, updateLotReading } from "./actions";
 import { FIELD_META, type ReadingField } from "./lot-actions";
 import type { WineLotEvent } from "@/lib/types";
 
@@ -25,6 +26,17 @@ export const EVENT_LABEL: Record<WineLotEvent["eventType"], string> = {
   adjustment: "Ostali komentarji",
   addition: "Dodatek",
 };
+
+/** The types whose "note" is real user text, not an auto-generated audit string — matches updateEventNote's server-side allow-list exactly. */
+const NOTE_EDITABLE_TYPES: WineLotEvent["eventType"][] = [
+  "harvest_intake",
+  "transfer",
+  "blend_in",
+  "blend_retired",
+  "bottling",
+  "adjustment",
+  "note",
+];
 
 export function eventDetail(e: WineLotEvent): string | null {
   switch (e.eventType) {
@@ -79,6 +91,75 @@ function readingFields(e: WineLotEvent): ReadingField[] {
   return (Object.keys(FIELD_META) as ReadingField[]).filter((f) => e[f] !== null);
 }
 
+function ReadingDetailGrid({ event }: { event: WineLotEvent }) {
+  const fields = readingFields(event);
+  if (fields.length === 0) return null;
+  return (
+    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+      {fields.map((f) => (
+        <div key={f}>
+          <p className="text-[11px] text-ink-subtle">{FIELD_META[f].label}</p>
+          <p className="text-[16px] font-bold tabular">{event[f]}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function eventDetailRows(e: WineLotEvent): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+  switch (e.eventType) {
+    case "harvest_intake":
+      if (e.toVesselName) rows.push({ label: "V rezervoar", value: e.toVesselName });
+      if (e.volumeL !== null) rows.push({ label: "Količina", value: `${e.volumeL} l` });
+      break;
+    case "transfer":
+      if (e.fromVesselName) rows.push({ label: "Iz", value: e.fromVesselName });
+      if (e.toVesselName) rows.push({ label: "V", value: e.toVesselName });
+      if (e.volumeL !== null) rows.push({ label: "Količina", value: `${e.volumeL} l` });
+      break;
+    case "blend_in":
+      if (e.relatedLotNumber) rows.push({ label: "Od vina", value: e.relatedLotNumber });
+      if (e.volumeL !== null) rows.push({ label: "Količina", value: `+${e.volumeL} l` });
+      break;
+    case "blend_retired":
+      if (e.relatedLotNumber) rows.push({ label: "V vino", value: e.relatedLotNumber });
+      if (e.volumeL !== null) rows.push({ label: "Količina", value: `${e.volumeL} l` });
+      break;
+    case "bottling":
+      if (e.volumeL !== null) rows.push({ label: "Porabljeno", value: `${e.volumeL} l` });
+      break;
+    case "adjustment":
+      if (e.volumeL !== null) {
+        rows.push({ label: "Sprememba", value: `${e.volumeL > 0 ? "+" : ""}${e.volumeL} l` });
+      }
+      break;
+    case "addition":
+      if (e.additiveName) rows.push({ label: "Dodano", value: e.additiveName });
+      if (e.amount !== null) {
+        rows.push({ label: "Količina", value: `${e.amount}${e.unit ? ` ${e.unit}` : ""}` });
+      }
+      break;
+    default:
+      break;
+  }
+  return rows;
+}
+
+function GenericDetailRows({ rows }: { rows: { label: string; value: string }[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="space-y-2.5">
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-baseline justify-between gap-3">
+          <span className="text-[12.5px] text-ink-subtle">{r.label}</span>
+          <span className="text-[15px] font-bold text-right">{r.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EditReadingForm({
   event,
   onDone,
@@ -126,13 +207,12 @@ function EditReadingForm({
         toast.error(result.error ?? "Popravek ni uspel");
         return;
       }
-      toast.success("Meritev popravljena");
       onDone();
     });
   }
 
   return (
-    <Card className="p-3 mt-2 bg-surface-muted">
+    <div>
       <div className="grid grid-cols-2 gap-2">
         {fields.map((f, i) => (
           <div key={f}>
@@ -154,7 +234,7 @@ function EditReadingForm({
         onChange={(e) => setNote(e.target.value)}
         className="min-h-[52px] mt-2"
       />
-      <div className="flex gap-2 mt-2.5">
+      <div className="flex gap-2 mt-3">
         <Button size="sm" onClick={submit} loading={pending}>
           Shrani popravek
         </Button>
@@ -162,13 +242,189 @@ function EditReadingForm({
           Prekliči
         </Button>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+function EditAdditionForm({
+  event,
+  onDone,
+  onCancel,
+}: {
+  event: WineLotEvent;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [additiveName, setAdditiveName] = React.useState(event.additiveName ?? "");
+  const [amount, setAmount] = React.useState(event.amount !== null ? String(event.amount) : "");
+  const [unit, setUnit] = React.useState(event.unit ?? "");
+  const [note, setNote] = React.useState(event.note ?? "");
+  const [pending, startTransition] = React.useTransition();
+
+  function submit() {
+    const name = additiveName.trim();
+    if (!name) return;
+    startTransition(async () => {
+      const result = await updateLotAddition({
+        eventId: event.id,
+        additiveName: name,
+        amount: amount ? parseFloat(amount) : undefined,
+        unit: unit.trim() || undefined,
+        note,
+      });
+      if (!result.ok) {
+        toast.error(result.error ?? "Popravek ni uspel");
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div>
+      <FieldLabel>Kaj je bilo dodano</FieldLabel>
+      <Input value={additiveName} onChange={(e) => setAdditiveName(e.target.value)} autoFocus />
+
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <div>
+          <FieldLabel>Količina</FieldLabel>
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+          />
+        </div>
+        <div>
+          <FieldLabel>Enota</FieldLabel>
+          <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="npr. g, g/hl, ml" />
+        </div>
+      </div>
+      <Textarea
+        placeholder="Opomba (neobvezno)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="min-h-[52px] mt-3"
+      />
+      <div className="flex gap-2 mt-3">
+        <Button size="sm" onClick={submit} loading={pending} disabled={!additiveName.trim()}>
+          Shrani popravek
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={pending}>
+          Prekliči
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EditNoteForm({
+  event,
+  onDone,
+  onCancel,
+}: {
+  event: WineLotEvent;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [note, setNote] = React.useState(event.note ?? "");
+  const [pending, startTransition] = React.useTransition();
+
+  function submit() {
+    startTransition(async () => {
+      const result = await updateEventNote({ eventId: event.id, note });
+      if (!result.ok) {
+        toast.error(result.error ?? "Popravek ni uspel");
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div>
+      <FieldLabel>Opomba</FieldLabel>
+      <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[80px]" autoFocus />
+      <div className="flex gap-2 mt-3">
+        <Button size="sm" onClick={submit} loading={pending}>
+          Shrani popravek
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={pending}>
+          Prekliči
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EntryDetail({ event }: { event: WineLotEvent }) {
+  const router = useRouter();
+  const [editing, setEditing] = React.useState(false);
+
+  function afterSave(message: string) {
+    toast.success(message);
+    setEditing(false);
+    router.refresh();
+  }
+
+  const isReading = event.eventType === "reading";
+  const isAddition = event.eventType === "addition";
+  const isNoteEditable = NOTE_EDITABLE_TYPES.includes(event.eventType);
+  const canEdit = isReading || isAddition || isNoteEditable;
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 mb-4">
+        <span className="text-[12px] text-ink-subtle">
+          {dateShort(event.createdAt)}
+          {event.createdByName && ` · ${event.createdByName}`}
+        </span>
+        {event.editedAt && (
+          <span className="text-[11px] text-ink-subtle">urejeno {dateShort(event.editedAt)}</span>
+        )}
+      </div>
+
+      {editing ? (
+        isReading ? (
+          <EditReadingForm
+            event={event}
+            onDone={() => afterSave("Meritev popravljena")}
+            onCancel={() => setEditing(false)}
+          />
+        ) : isAddition ? (
+          <EditAdditionForm
+            event={event}
+            onDone={() => afterSave("Dodatek popravljen")}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <EditNoteForm
+            event={event}
+            onDone={() => afterSave("Opomba popravljena")}
+            onCancel={() => setEditing(false)}
+          />
+        )
+      ) : (
+        <>
+          {isReading ? (
+            <ReadingDetailGrid event={event} />
+          ) : (
+            <GenericDetailRows rows={eventDetailRows(event)} />
+          )}
+          {event.note && <p className="text-[14px] text-ink mt-4 leading-relaxed">{event.note}</p>}
+          {canEdit && (
+            <Button size="sm" variant="secondary" className="mt-4" onClick={() => setEditing(true)}>
+              <Pencil className="size-3.5" /> Uredi
+            </Button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
 export function LotHistory({ events }: { events: WineLotEvent[] }) {
-  const router = useRouter();
-  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   if (events.length === 0) {
     return <p className="p-3.5 text-[13px] text-ink-muted">Ni zgodovine.</p>;
@@ -176,52 +432,44 @@ export function LotHistory({ events }: { events: WineLotEvent[] }) {
 
   // Fetched oldest-first (SugarChart needs that order); shown newest-first.
   const newestFirst = [...events].reverse();
+  const selected = selectedId ? newestFirst.find((e) => e.id === selectedId) ?? null : null;
 
   return (
     <div>
       {newestFirst.map((e) => {
         const detail = eventDetail(e);
-        const editable = e.eventType === "reading";
         return (
-          <div key={e.id} className="px-3.5 py-2.5 border-b border-line last:border-b-0">
+          <button
+            key={e.id}
+            type="button"
+            onClick={() => setSelectedId(e.id)}
+            className="w-full text-left px-3.5 py-2.5 border-b border-line last:border-b-0 hover:bg-surface-muted transition-colors"
+          >
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[13px] font-semibold inline-flex items-center gap-1.5">
-                {EVENT_LABEL[e.eventType]}
-                {editable && editingId !== e.id && (
-                  <button
-                    type="button"
-                    aria-label="Uredi meritev"
-                    onClick={() => setEditingId(e.id)}
-                    className="text-ink-subtle hover:text-ink"
-                  >
-                    <Pencil className="size-3" />
-                  </button>
-                )}
-              </span>
-              <span className="text-[11px] text-ink-subtle shrink-0">
+              <span className="text-[13px] font-semibold">{EVENT_LABEL[e.eventType]}</span>
+              <span className="text-[11px] text-ink-subtle shrink-0 inline-flex items-center gap-1">
                 {dateShort(e.createdAt)}
                 {e.createdByName && ` · ${e.createdByName}`}
+                <ChevronRight className="size-3.5 text-ink-subtle" />
               </span>
             </div>
-            {detail && <p className="text-[12.5px] text-ink-muted mt-0.5">{detail}</p>}
-            {e.note && <p className="text-[12.5px] text-ink-muted mt-0.5">{e.note}</p>}
-            {e.editedAt && (
+            {detail && (
+              <p className="text-[12.5px] text-ink-muted mt-0.5 truncate">{detail}</p>
+            )}
+            {e.editedAt && !detail && (
               <p className="text-[11px] text-ink-subtle mt-0.5">urejeno {dateShort(e.editedAt)}</p>
             )}
-
-            {editingId === e.id && (
-              <EditReadingForm
-                event={e}
-                onDone={() => {
-                  setEditingId(null);
-                  router.refresh();
-                }}
-                onCancel={() => setEditingId(null)}
-              />
-            )}
-          </div>
+          </button>
         );
       })}
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelectedId(null)}>
+        {selected && (
+          <DialogContent title={EVENT_LABEL[selected.eventType]}>
+            <EntryDetail key={selected.id} event={selected} />
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }

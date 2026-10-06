@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isDemoMode } from "@/lib/demo";
+import { finalizeDelivery } from "@/lib/documents/finalize";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -58,6 +59,11 @@ export async function confirmDelivery(input: z.infer<typeof ConfirmDeliveryInput
   });
 
   if (error) return { ok: false, error: error.message };
+
+  // Receipt + documents + e-mail. Awaited so the work finishes inside the
+  // request, but it swallows its own errors: a document problem must never
+  // make a confirmed delivery look failed (and trigger a re-sync).
+  await finalizeDelivery(parsed.data.orderId, parsed.data.recipientEmail ?? "");
 
   revalidatePath("/dostava");
   revalidatePath("/pisarna");

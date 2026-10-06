@@ -133,7 +133,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name)))",
+        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
       );
 
   // Open work, soonest delivery first (no delivery date sinks to the bottom).
@@ -184,6 +184,13 @@ export async function getOrders(): Promise<OrderListItem[]> {
             route: { driver: { full_name: string } | null } | null;
           } | null
         )?.route?.driver?.full_name ?? null,
+      mail: (() => {
+        const m = o.outbound_email as unknown as
+          | OrderListItem["mail"]
+          | NonNullable<OrderListItem["mail"]>[]
+          | null;
+        return (Array.isArray(m) ? m[0] : m) ?? null;
+      })(),
     };
   });
 }

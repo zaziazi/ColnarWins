@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoMode } from "@/lib/demo";
+import { sendStoredDocuments } from "@/lib/documents/finalize";
 
 const AssignDriverInput = z.object({
   orderId: z.string().min(1),
@@ -248,4 +249,37 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
   revalidatePath("/pisarna");
   revalidatePath(`/pisarna/${orderId}/uredi`);
   return { ok: true };
+}
+
+const SendDocsInput = z.object({
+  orderId: z.string().min(1),
+  recipient: z.union([z.literal(""), z.string().email()]),
+});
+
+/**
+ * Office (re)sends the stored dobavnica + račun — used when the customer had
+ * no e-mail on file, the first send failed, or sending wasn't configured yet.
+ * A typed recipient replaces the one on the outbox row.
+ */
+export async function sendDeliveryDocuments(
+  orderId: string,
+  recipient: string,
+): Promise<ActionResult> {
+  const parsed = SendDocsInput.safeParse({ orderId, recipient: recipient.trim() });
+  if (!parsed.success) return { ok: false, error: "Neveljaven e-naslov." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const { status, error } = await sendStoredDocuments(
+    parsed.data.orderId,
+    parsed.data.recipient || undefined,
+  );
+  revalidatePath("/pisarna");
+
+  if (status === "sent") return { ok: true };
+  if (status === "no_recipient") return { ok: false, error: "Vnesi e-naslov prejemnika." };
+  return { ok: false, error: error ?? "Pošiljanje ni uspelo." };
 }

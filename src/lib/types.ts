@@ -68,6 +68,8 @@ export interface OrderListItem {
   assignedDriverId: string | null;
   /** Set once this order is a stop on a route — the route's driver, read-only. */
   routedDriverName: string | null;
+  /** Delivery documents e-mail for this order, once the delivery was signed. */
+  mail: { status: "queued" | "sent" | "failed" | "no_recipient"; recipient: string | null; error: string | null } | null;
 }
 
 export interface Driver {

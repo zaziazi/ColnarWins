@@ -8,6 +8,7 @@ import { Card, FieldLabel } from "@/components/ui/card";
 import { getCurrentStaff, getDrivers, getOrders } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
+import { DeliveryDocs } from "./delivery-docs";
 import { DriverAssign } from "./driver-assign";
 import { OrderActions } from "./order-actions";
 
@@ -213,6 +214,7 @@ function OrderCard({
             )}
           </div>
         </div>
+        {order.mail && <DeliveryDocs orderId={order.id} mail={order.mail} />}
       </div>
     </Card>
   );

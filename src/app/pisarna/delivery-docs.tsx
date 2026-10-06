@@ -23,6 +23,7 @@ const STATUS: Record<Mail["status"], { label: string; tone: "good" | "warn" | "d
 export function DeliveryDocs({ orderId, mail }: { orderId: string; mail: Mail }) {
   const router = useRouter();
   const [recipient, setRecipient] = React.useState(mail.recipient ?? "");
+  const [resending, setResending] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   const s = STATUS[mail.status];
 
@@ -35,6 +36,7 @@ export function DeliveryDocs({ orderId, mail }: { orderId: string; mail: Mail })
         return;
       }
       toast.success("Dokumenta poslana");
+      setResending(false);
       router.refresh();
     });
   }
@@ -72,7 +74,17 @@ export function DeliveryDocs({ orderId, mail }: { orderId: string; mail: Mail })
         <p className="text-[11.5px] text-ink-muted mt-1.5">{mail.error}</p>
       )}
 
-      {mail.status !== "sent" && (
+      {mail.status === "sent" && !resending && (
+        <button
+          type="button"
+          onClick={() => setResending(true)}
+          className="mt-1.5 text-[12px] font-medium text-ink-subtle hover:text-ink"
+        >
+          Pošlji znova…
+        </button>
+      )}
+
+      {(mail.status !== "sent" || resending) && (
         <div className="flex gap-2 mt-2">
           <Input
             type="email"

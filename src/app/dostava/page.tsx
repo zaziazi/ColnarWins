@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getRouteForDriver } from "@/lib/data";
+import { PushToggle } from "./push-toggle";
 import { RouteShell } from "./route-shell";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export default async function DostavaPage() {
       role={staff.role}
       section="narocila"
     >
+      <PushToggle />
       <RouteShell initialRoutes={routes} date={date} />
     </AppShell>
   );

@@ -46,6 +46,44 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Sent by the "Vklopi obvestila" button so a driver turning on notifications
+// gets the push-capable worker immediately, not after the next full close.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+});
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Colnix", {
+      body: data.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: data.tag || "driver-plan",
+      data: { url: data.url || "/dostava" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/dostava";
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const c of clients) {
+        if (c.url.includes("/dostava") && "focus" in c) return c.focus();
+      }
+      return self.clients.openWindow(url);
+    })(),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || !url.pathname.startsWith(SCOPE_PATH)) return;

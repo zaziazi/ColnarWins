@@ -5,6 +5,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Colnix",
   description: "Naro\u010dila, dostava in ra\u010duni",
+  icons: { apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Colnix", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

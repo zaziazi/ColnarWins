@@ -34,7 +34,9 @@ export async function updateSession(request: NextRequest) {
 
   const isPublic =
     request.nextUrl.pathname.startsWith("/prijava") ||
-    request.nextUrl.pathname.startsWith("/dostava/"); // driver signed links
+    request.nextUrl.pathname.startsWith("/dostava/") || // driver signed links
+    request.nextUrl.pathname === "/manifest.webmanifest" ||
+    request.nextUrl.pathname.startsWith("/api/cron/"); // guarded by CRON_SECRET, not a session
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

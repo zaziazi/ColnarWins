@@ -99,9 +99,9 @@ export default async function DeliveryPlanPage({
       </div>
 
       {/* ------------------------------------------------------------ routes */}
-      <div className="flex items-center justify-between mb-2.5 px-0.5">
+      <div className="flex flex-wrap items-center justify-between mb-2.5 px-0.5">
         <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle">Poti</h2>
-        {staff?.role !== "driver" && <RouteCreator date={date} drivers={drivers} />}
+        {staff?.role !== "driver" && <RouteCreator date={date} drivers={drivers} orders={forDay} />}
       </div>
 
       {routes.length === 0 && (

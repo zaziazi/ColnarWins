@@ -338,3 +338,67 @@ export async function deleteRoute(routeId: string): Promise<ActionResult> {
   revalidatePath("/pisarna");
   return { ok: true };
 }
+
+const CreateRouteWithOrdersInput = z.object({
+  date: z.string().min(1),
+  vehicle: z.string().trim().max(120),
+  driverId: z.string().min(1).nullable(),
+  orderIds: z.array(z.string().min(1)).min(1, "Izberi vsaj eno naročilo."),
+});
+
+/**
+ * "Nova pot" in one step: creates the route and puts the ticked orders on it
+ * in the order given. If the stops can't be saved the empty route is removed
+ * again, so a failed attempt leaves nothing half-made.
+ */
+export async function createRouteWithOrders(
+  input: z.infer<typeof CreateRouteWithOrdersInput>,
+): Promise<ActionResult> {
+  const parsed = CreateRouteWithOrdersInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljavni podatki." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 300));
+    return { ok: true };
+  }
+
+  const { date, driverId, orderIds } = parsed.data;
+  const supabase = await createClient();
+
+  let vehicle = parsed.data.vehicle;
+  if (!vehicle) {
+    if (driverId) {
+      const { data: driver } = await supabase.from("staff").select("full_name").eq("id", driverId).single();
+      vehicle = driver?.full_name ?? "Pot";
+    } else {
+      vehicle = "Pot";
+    }
+  }
+
+  const { data: route, error: routeError } = await supabase
+    .from("route")
+    .insert({ route_date: date, vehicle, driver_id: driverId })
+    .select("id")
+    .single();
+  if (routeError || !route) {
+    return { ok: false, error: routeError?.message ?? "Poti ni bilo mogoče ustvariti." };
+  }
+
+  const { error: stopsError } = await supabase
+    .from("route_stop")
+    .insert(orderIds.map((orderId, i) => ({ route_id: route.id, order_id: orderId, sequence: i + 1 })));
+  if (stopsError) {
+    await supabase.from("route").delete().eq("id", route.id);
+    return { ok: false, error: stopsError.message };
+  }
+
+  await supabase
+    .from("sales_order")
+    .update({ status: "planned", planned_at: new Date().toISOString() })
+    .in("id", orderIds)
+    .eq("status", "confirmed");
+
+  revalidatePath("/nacrt");
+  revalidatePath("/pisarna");
+  return { ok: true };
+}

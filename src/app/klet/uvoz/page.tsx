@@ -26,7 +26,7 @@ export default async function ImportReadingsPage() {
     <AppShell
       title="Uvoz meritev"
       subtitle="Datoteke iz FOSS naprave"
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="klet"
     >

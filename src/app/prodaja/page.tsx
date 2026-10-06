@@ -23,7 +23,7 @@ export default async function SalesPage() {
     <AppShell
       title="Prodaja"
       subtitle="Obiski, vzorci, novi kupci"
-      who={`${staff.fullName} · ${staff.role === "manager" ? "vodstvo" : "prodaja"}`}
+      who={staff.fullName}
       role={staff.role}
       section="prodaja"
     >

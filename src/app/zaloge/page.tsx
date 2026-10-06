@@ -34,7 +34,7 @@ export default async function InventoryPage() {
     <AppShell
       title="Zaloge"
       subtitle="Stanje steklenic"
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="zaloge"
     >

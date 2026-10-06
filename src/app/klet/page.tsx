@@ -27,7 +27,7 @@ export default async function WineLotsPage() {
     <AppShell
       title="Klet"
       subtitle="Vina v kleti"
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="klet"
     >

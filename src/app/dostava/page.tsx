@@ -6,12 +6,6 @@ import { RouteShell } from "./route-shell";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_LABEL: Record<string, string> = {
-  office: "pisarna",
-  driver: "voznik",
-  sales: "prodaja",
-  manager: "vodstvo",
-};
 
 /** Local-noon anchor avoids a UTC-rollover off-by-one — same technique nextDeliveryDates uses. */
 function todayIso(): string {
@@ -40,7 +34,7 @@ export default async function DostavaPage() {
     <AppShell
       title="Dostava"
       subtitle="Tvoja pot za danes"
-      who={`${staff.fullName} · ${ROLE_LABEL[staff.role] ?? staff.role}`}
+      who={staff.fullName}
       role={staff.role}
       section="narocila"
     >

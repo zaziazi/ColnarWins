@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     <AppShell
       title="Pregled"
       subtitle="Splošni pregled"
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="dashboard"
     >

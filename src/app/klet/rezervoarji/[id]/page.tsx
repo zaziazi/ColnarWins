@@ -40,7 +40,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
 
   if (!vessel) {
     return (
-      <AppShell title="Klet" who={`${staff.fullName} · vodstvo`} role={staff.role} section="klet">
+      <AppShell title="Klet" who={staff.fullName} role={staff.role} section="klet">
         <BackLink />
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">Rezervoar ne obstaja.</p>
@@ -53,7 +53,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
     <AppShell
       title={vessel.name}
       subtitle={CATEGORY_LABEL[vessel.category]}
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="klet"
     >

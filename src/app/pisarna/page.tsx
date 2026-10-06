@@ -39,7 +39,7 @@ export default async function OrdersPage() {
     <AppShell
       title="Naročila"
       subtitle={`${narocila(drafts.length + open.length)} v obdelavi`}
-      who="Marija · pisarna"
+      who={staff?.fullName ?? "Prijava potrebna"}
       role={staff?.role}
       section="narocila"
     >

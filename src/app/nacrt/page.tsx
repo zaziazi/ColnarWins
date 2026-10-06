@@ -14,12 +14,6 @@ import { StopControls } from "./stop-controls";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_LABEL: Record<string, string> = {
-  office: "pisarna",
-  driver: "voznik",
-  sales: "prodaja",
-  manager: "vodstvo",
-};
 
 const ROUTE_STATUS_LABEL: Record<string, string> = {
   planned: "Načrtovano",
@@ -75,7 +69,7 @@ export default async function DeliveryPlanPage({
     <AppShell
       title="Načrt dostave"
       subtitle="Poti in nakladalni listi"
-      who={staff ? `${staff.fullName} · ${ROLE_LABEL[staff.role] ?? staff.role}` : "Prijava potrebna"}
+      who={staff?.fullName ?? "Prijava potrebna"}
       role={staff?.role}
       section="narocila"
     >
@@ -101,7 +95,7 @@ export default async function DeliveryPlanPage({
       {/* ------------------------------------------------------------ routes */}
       <div className="flex flex-wrap items-center justify-between mb-2.5 px-0.5">
         <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle">Poti</h2>
-        {staff?.role !== "driver" && <RouteCreator date={date} drivers={drivers} orders={forDay} />}
+        <RouteCreator date={date} drivers={drivers} orders={forDay} />
       </div>
 
       {routes.length === 0 && (
@@ -126,9 +120,7 @@ export default async function DeliveryPlanPage({
             </div>
 
 
-            {staff?.role !== "driver" && route.status !== "completed" && (
-              <RouteEditor route={route} drivers={drivers} />
-            )}
+            {route.status !== "completed" && <RouteEditor route={route} drivers={drivers} />}
 
             {route.stops.length === 0 ? (
               <p className="text-[12.5px] text-ink-subtle mt-3">
@@ -223,11 +215,10 @@ export default async function DeliveryPlanPage({
                 {order.lineSummary}
               </p>
               <div className="mt-2.5">
-                {staff?.role === "driver" ? (
+                <div className="flex flex-wrap items-center gap-2">
                   <AddToMyRoute orderId={order.id} date={date} />
-                ) : (
-                  <AddToRoute orderId={order.id} routes={routes} />
-                )}
+                  {routes.length > 0 && <AddToRoute orderId={order.id} routes={routes} />}
+                </div>
               </div>
             </Card>
           ))}

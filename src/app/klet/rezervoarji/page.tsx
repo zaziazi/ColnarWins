@@ -27,7 +27,7 @@ export default async function VesselsPage() {
     <AppShell
       title="Rezervoarji"
       subtitle="Cisterne, inox in sodi"
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="klet"
     >

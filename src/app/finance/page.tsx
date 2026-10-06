@@ -38,7 +38,7 @@ export default async function FinancePage() {
     <AppShell
       title="Finance"
       subtitle="Terjatve"
-      who={`${staff.fullName} · vodstvo`}
+      who={staff.fullName}
       role={staff.role}
       section="finance"
     >

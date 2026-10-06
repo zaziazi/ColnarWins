@@ -38,7 +38,7 @@ export async function buildDriverPlan(
       .eq("route_date", forDate)
       .not("driver_id", "is", null),
     admin.from("sales_order").select("id,route_stop(id)").eq("delivery_date", forDate).eq("status", "confirmed"),
-    admin.from("staff").select("id,full_name").eq("active", true).eq("role", "driver"),
+    admin.from("staff").select("id,full_name").eq("active", true),
   ]);
   if (routesRes.error) throw routesRes.error;
   if (unroutedRes.error) throw unroutedRes.error;

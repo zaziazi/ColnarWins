@@ -31,7 +31,7 @@ export default async function NewOrderPage() {
     <AppShell
       title="Novo naročilo"
       subtitle="Vnos med telefonskim klicem"
-      who="Marija · pisarna"
+      who={staff?.fullName ?? "Prijava potrebna"}
       role={staff?.role}
       section="narocila"
     >

@@ -195,6 +195,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
   });
 }
 
+/** No roles yet: every active staff member can be put on a route. */
 export async function getDrivers(): Promise<Driver[]> {
   if (isDemoMode) return [];
 
@@ -202,7 +203,6 @@ export async function getDrivers(): Promise<Driver[]> {
   const { data, error } = await supabase
     .from("staff")
     .select("id,full_name")
-    .eq("role", "driver")
     .eq("active", true)
     .order("full_name");
 

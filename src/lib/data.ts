@@ -245,7 +245,8 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
  * An order can only ever have one route_stop (order_id is unique there), so
  * "not yet routed" just means no matching route_stop row exists.
  */
-export async function getUnroutedOrders(date: string): Promise<UnroutedOrder[]> {
+/** Every confirmed order not yet on a route, soonest delivery first — the page splits it by day. */
+export async function getUnroutedOrders(): Promise<UnroutedOrder[]> {
   if (isDemoMode) return [];
 
   const supabase = await createClient();
@@ -259,16 +260,17 @@ export async function getUnroutedOrders(date: string): Promise<UnroutedOrder[]> 
   let query = supabase
     .from("sales_order")
     .select(
-      "id,order_number,customer(name,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
+      "id,order_number,delivery_date,customer(name,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
     )
-    .eq("status", "confirmed")
-    .eq("delivery_date", date);
+    .eq("status", "confirmed");
 
   if (routedIds.length > 0) {
     query = query.not("id", "in", `(${routedIds.join(",")})`);
   }
 
-  const { data, error } = await query.order("order_number");
+  const { data, error } = await query
+    .order("delivery_date", { ascending: true, nullsFirst: false })
+    .order("order_number");
   if (error) throw error;
 
   return (data ?? []).map((o) => {
@@ -286,6 +288,7 @@ export async function getUnroutedOrders(date: string): Promise<UnroutedOrder[]> 
     return {
       id: o.id,
       orderNumber: o.order_number,
+      deliveryDate: o.delivery_date,
       customerName: customer?.name ?? "—",
       city: customer?.city ?? null,
       deliveryNotes: customer?.delivery_notes ?? null,

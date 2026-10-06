@@ -62,10 +62,13 @@ export default async function DeliveryPlanPage({
 
   const [routes, unrouted, drivers, staff] = await Promise.all([
     getRoutesForDate(date),
-    getUnroutedOrders(date),
+    getUnroutedOrders(),
     getDrivers(),
     getCurrentStaff(),
   ]);
+
+  const forDay = unrouted.filter((o) => o.deliveryDate === date);
+  const otherDays = unrouted.filter((o) => o.deliveryDate !== date);
 
   return (
     <AppShell
@@ -187,7 +190,7 @@ export default async function DeliveryPlanPage({
         Nerazporejena naročila
       </h2>
 
-      {unrouted.length === 0 ? (
+      {forDay.length === 0 ? (
         <Card className="p-5 text-center">
           <p className="text-[13px] text-ink-muted">
             Vsa potrjena naročila za ta dan so že na poti.
@@ -195,7 +198,7 @@ export default async function DeliveryPlanPage({
         </Card>
       ) : (
         <div className="space-y-2.5">
-          {unrouted.map((order) => (
+          {forDay.map((order) => (
             <Card key={order.id} className="p-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -223,6 +226,42 @@ export default async function DeliveryPlanPage({
             </Card>
           ))}
         </div>
+      )}
+
+      {/* ----------------------------------- unrouted orders on other days */}
+      {otherDays.length > 0 && (
+        <>
+          <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mt-7 mb-2.5 px-0.5">
+            Nerazporejena naročila za druge dni
+          </h2>
+          <div className="space-y-2.5">
+            {otherDays.map((order) => (
+              <Card key={order.id} className="p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-[15px] truncate">{order.customerName}</h3>
+                    <p className="text-[11.5px] text-ink-subtle mt-0.5">
+                      #{order.orderNumber}
+                      {order.city && ` · ${order.city}`}
+                    </p>
+                  </div>
+                  <p className="text-[13px] font-semibold tabular shrink-0">{eur(order.totalGross)}</p>
+                </div>
+                <p className="text-[12.5px] text-ink-muted mt-2 leading-relaxed">{order.lineSummary}</p>
+                {order.deliveryDate ? (
+                  <Link
+                    href={`/nacrt?date=${order.deliveryDate}`}
+                    className="inline-block mt-2.5 text-[12.5px] font-semibold text-wine hover:underline"
+                  >
+                    Dostava {dateSl(order.deliveryDate)} — odpri ta dan →
+                  </Link>
+                ) : (
+                  <p className="mt-2.5 text-[12px] text-ink-subtle">Brez datuma dostave — uredi naročilo.</p>
+                )}
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </AppShell>
   );

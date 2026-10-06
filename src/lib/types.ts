@@ -92,6 +92,7 @@ export type RouteStatus = "planned" | "in_progress" | "completed";
 export interface UnroutedOrder {
   id: string;
   orderNumber: number;
+  deliveryDate: string | null;
   customerName: string;
   city: string | null;
   deliveryNotes: string | null;

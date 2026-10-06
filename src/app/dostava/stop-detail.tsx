@@ -19,6 +19,7 @@ interface Props {
   onConfirm: (args: {
     lines: { productId: string; quantityDelivered: number }[];
     signerName: string;
+    recipientEmail: string;
     note: string;
     signatureBlob: Blob;
   }) => void;
@@ -32,6 +33,7 @@ export function StopDetail({ stop, pending, onBack, onConfirm, onFail }: Props) 
     return q;
   });
   const [signerName, setSignerName] = React.useState("");
+  const [recipientEmail, setRecipientEmail] = React.useState(stop.customerEmail ?? "");
   const [note, setNote] = React.useState("");
   const [failing, setFailing] = React.useState(false);
   const [failReason, setFailReason] = React.useState("");
@@ -53,6 +55,7 @@ export function StopDetail({ stop, pending, onBack, onConfirm, onFail }: Props) 
     onConfirm({
       lines: stop.lines.map((l) => ({ productId: l.productId, quantityDelivered: quantities[l.productId] ?? 0 })),
       signerName: signerName.trim(),
+      recipientEmail: recipientEmail.trim(),
       note,
       signatureBlob: blob,
     });
@@ -143,6 +146,20 @@ export function StopDetail({ stop, pending, onBack, onConfirm, onFail }: Props) 
           <Card className="p-3.5 mb-4">
             <FieldLabel>Prevzel/a (ime)</FieldLabel>
             <Input value={signerName} onChange={(e) => setSignerName(e.target.value)} placeholder="Ime in priimek" />
+
+            <FieldLabel className="mt-3.5">E-naslov za dobavnico in račun</FieldLabel>
+            <Input
+              type="email"
+              inputMode="email"
+              value={recipientEmail}
+              onChange={(e) => setRecipientEmail(e.target.value)}
+              placeholder={stop.customerEmail ? stop.customerEmail : "npr. racuni@gostilna.si"}
+            />
+            {!recipientEmail.trim() && (
+              <p className="text-[11.5px] text-warn mt-1">
+                Brez e-naslova dokumentov ni mogoče poslati samodejno.
+              </p>
+            )}
 
             <FieldLabel className="mt-3.5">Opomba</FieldLabel>
             <Textarea

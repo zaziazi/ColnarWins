@@ -2,9 +2,11 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
+import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getDrivers, getRoutesForDate, getUnroutedOrders } from "@/lib/data";
 import { eur, dateSl } from "@/lib/format";
+import { AddToMyRoute } from "./add-to-my-route";
 import { AddToRoute } from "./add-to-route";
 import { RouteCreator } from "./route-creator";
 import { StopControls } from "./stop-controls";
@@ -95,7 +97,7 @@ export default async function DeliveryPlanPage({
       {/* ------------------------------------------------------------ routes */}
       <div className="flex items-center justify-between mb-2.5 px-0.5">
         <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle">Poti</h2>
-        <RouteCreator date={date} drivers={drivers} />
+        {staff?.role !== "driver" && <RouteCreator date={date} drivers={drivers} />}
       </div>
 
       {routes.length === 0 && (
@@ -158,6 +160,14 @@ export default async function DeliveryPlanPage({
                 <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle mb-1.5">
                   Nakladalni list
                 </p>
+                {route.shortages.length > 0 && (
+                  <Callout tone="warn" className="mb-2.5">
+                    <strong>Ni dovolj zaloge:</strong>{" "}
+                    {route.shortages
+                      .map((x) => `${x.productName} (potrebno ${x.needed}, na zalogi ${x.onHand})`)
+                      .join(" · ")}
+                  </Callout>
+                )}
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {route.loadingList.map((line) => (
                     <p key={line.productName} className="text-[12.5px] text-ink-muted">
@@ -204,7 +214,11 @@ export default async function DeliveryPlanPage({
                 {order.lineSummary}
               </p>
               <div className="mt-2.5">
-                <AddToRoute orderId={order.id} routes={routes} />
+                {staff?.role === "driver" ? (
+                  <AddToMyRoute orderId={order.id} date={date} />
+                ) : (
+                  <AddToRoute orderId={order.id} routes={routes} />
+                )}
               </div>
             </Card>
           ))}

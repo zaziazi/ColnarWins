@@ -126,18 +126,33 @@ export async function getOrders(): Promise<OrderListItem[]> {
   if (isDemoMode) return demoOrders;
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("sales_order")
-    .select(
-      "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name)))",
-    )
-    .neq("status", "cancelled")
-    .order("created_at", { ascending: false })
-    .limit(50);
 
-  if (error) throw error;
+  // One select string, reused for both queries below — kept as a single
+  // unbroken literal so the Supabase client can still infer row types.
+  const base = () =>
+    supabase
+      .from("sales_order")
+      .select(
+        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name)))",
+      );
 
-  return (data ?? []).map((o) => {
+  // Open work, soonest delivery first (no delivery date sinks to the bottom).
+  // Delivered/invoiced orders are history: newest few only.
+  const [open, done] = await Promise.all([
+    base()
+      .in("status", ["draft", "confirmed", "planned"])
+      .order("delivery_date", { ascending: true, nullsFirst: false })
+      .order("order_number", { ascending: true }),
+    base()
+      .in("status", ["delivered", "invoiced"])
+      .order("delivered_at", { ascending: false, nullsFirst: false })
+      .limit(30),
+  ]);
+
+  if (open.error) throw open.error;
+  if (done.error) throw done.error;
+
+  return [...(open.data ?? []), ...(done.data ?? [])].map((o) => {
     const lines = o.order_line ?? [];
     const gross = lines.reduce((s, l) => {
       const q = l.quantity_delivered ?? l.quantity_ordered;
@@ -316,7 +331,7 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
     } | null;
   };
 
-  return (data ?? []).map((r) => {
+  const routes = (data ?? []).map((r) => {
     const stopsRaw = (r.route_stop ?? []) as unknown as StopRow[];
 
     const stops = stopsRaw
@@ -362,8 +377,28 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
       status: r.status,
       stops,
       loadingList,
+      shortages: [] as RouteWithStops["shortages"],
     };
   });
+
+  // Stock is manager-only under RLS, so the comparison goes through a
+  // security-definer RPC that returns just needed vs on-hand per product.
+  await Promise.all(
+    routes.map(async (route) => {
+      if (route.stops.length === 0) return;
+      const { data } = await supabase.rpc("route_stock_check", { p_route_id: route.id });
+      const rows = (data ?? []) as { product_name: string; needed: number | string; on_hand: number | string }[];
+      route.shortages = rows
+        .filter((row) => Number(row.needed) > Number(row.on_hand))
+        .map((row) => ({
+          productName: row.product_name,
+          needed: Number(row.needed),
+          onHand: Number(row.on_hand),
+        }));
+    }),
+  );
+
+  return routes;
 }
 
 /**
@@ -379,7 +414,7 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
   const { data, error } = await supabase
     .from("route")
     .select(
-      "id,vehicle,status,route_stop(id,sequence,order_id,status,fail_reason,sales_order(order_number,customer(name,address,city,delivery_notes),order_line(product_id,quantity_ordered,unit_price_net,vat_rate,product(name))))",
+      "id,vehicle,status,route_stop(id,sequence,order_id,status,fail_reason,sales_order(order_number,customer(name,address,city,delivery_notes,email),order_line(product_id,quantity_ordered,unit_price_net,vat_rate,product(name))))",
     )
     .eq("route_date", date)
     .eq("driver_id", staffId)
@@ -400,6 +435,7 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
         address: string | null;
         city: string | null;
         delivery_notes: string | null;
+        email: string | null;
       } | null;
       order_line: {
         product_id: string;
@@ -433,6 +469,7 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
           address: so?.customer?.address ?? null,
           city: so?.customer?.city ?? null,
           deliveryNotes: so?.customer?.delivery_notes ?? null,
+          customerEmail: so?.customer?.email ?? null,
           totalGross: gross,
           status: s.status,
           failReason: s.fail_reason,

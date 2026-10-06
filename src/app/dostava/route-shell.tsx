@@ -192,6 +192,7 @@ export function RouteShell({
     args: {
       lines: { productId: string; quantityDelivered: number }[];
       signerName: string;
+      recipientEmail: string;
       note: string;
       signatureBlob: Blob;
     },
@@ -204,6 +205,7 @@ export function RouteShell({
       lines: args.lines,
       signatureBlob: args.signatureBlob,
       signerName: args.signerName,
+      recipientEmail: args.recipientEmail,
       note: args.note,
       gpsLat: pos?.coords.latitude ?? null,
       gpsLng: pos?.coords.longitude ?? null,

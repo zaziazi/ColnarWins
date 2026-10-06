@@ -22,6 +22,8 @@ export type PendingAction =
       lines: PendingLine[];
       signatureBlob: Blob;
       signerName: string;
+      /** Optional so confirmations queued before this field existed still sync. */
+      recipientEmail?: string;
       note: string;
       gpsLat: number | null;
       gpsLng: number | null;

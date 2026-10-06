@@ -32,6 +32,7 @@ async function syncOneAction(action: PendingAction): Promise<boolean> {
       lines: action.lines.map((l) => ({ productId: l.productId, quantityDelivered: l.quantityDelivered })),
       signaturePath: upload.path,
       signerName: action.signerName,
+      recipientEmail: action.recipientEmail ?? "",
       note: action.note,
       gpsLat: action.gpsLat,
       gpsLng: action.gpsLng,

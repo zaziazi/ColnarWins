@@ -29,12 +29,15 @@ export default async function OrdersPage() {
     getCurrentStaff(),
   ]);
   const drafts = orders.filter((o) => o.status === "draft");
-  const rest = orders.filter((o) => o.status !== "draft");
+  const open = orders.filter((o) => o.status === "confirmed" || o.status === "planned");
+  const done = orders.filter((o) => o.status === "delivered" || o.status === "invoiced");
+  const days = groupByDay(open);
+  const today = todayIso();
 
   return (
     <AppShell
       title="Naročila"
-      subtitle={`${narocila(orders.length)} · zadnjih 50`}
+      subtitle={`${narocila(drafts.length + open.length)} v obdelavi`}
       who="Marija · pisarna"
       role={staff?.role}
       section="narocila"
@@ -63,13 +66,82 @@ export default async function OrdersPage() {
         </>
       )}
 
-      <SectionHeading>Vsa naročila</SectionHeading>
-      <div className="space-y-2.5">
-        {rest.map((o) => (
-          <OrderCard key={o.id} order={o} drivers={drivers} />
-        ))}
-      </div>
+      {days.length === 0 && drafts.length === 0 && (
+        <Card className="p-5 text-center mb-6">
+          <p className="text-[13px] text-ink-muted">Ni odprtih naročil.</p>
+        </Card>
+      )}
+
+      {days.map((day) => (
+        <div key={day.date ?? "brez"} className="mb-6">
+          <DayHeading date={day.date} today={today} count={day.orders.length} />
+          <div className="space-y-2.5">
+            {day.orders.map((o) => (
+              <OrderCard key={o.id} order={o} drivers={drivers} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {done.length > 0 && (
+        <details className="mb-6">
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">
+            Dostavljena ({done.length})
+          </summary>
+          <div className="space-y-2.5 mt-2.5">
+            {done.map((o) => (
+              <OrderCard key={o.id} order={o} drivers={drivers} />
+            ))}
+          </div>
+        </details>
+      )}
     </AppShell>
+  );
+}
+
+/** Local-noon anchor avoids a UTC-rollover off-by-one — same technique the order form uses. */
+function todayIso(): string {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
+type Order = Awaited<ReturnType<typeof getOrders>>[number];
+
+/** Orders arrive sorted by delivery date ascending; this just buckets consecutive days. */
+function groupByDay(orders: Order[]): { date: string | null; orders: Order[] }[] {
+  const out: { date: string | null; orders: Order[] }[] = [];
+  for (const o of orders) {
+    const last = out[out.length - 1];
+    if (last && last.date === o.deliveryDate) last.orders.push(o);
+    else out.push({ date: o.deliveryDate, orders: [o] });
+  }
+  return out;
+}
+
+function DayHeading({ date, today, count }: { date: string | null; today: string; count: number }) {
+  if (!date) {
+    return <SectionHeading>Brez datuma dostave · {count}</SectionHeading>;
+  }
+  const tomorrow = new Date(`${today}T12:00:00`);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowIso = tomorrow.toISOString().slice(0, 10);
+
+  const label = dateShort(new Date(`${date}T12:00:00`));
+  const prefix = date === today ? "Danes · " : date === tomorrowIso ? "Jutri · " : "";
+  const overdue = date < today;
+
+  return (
+    <h2
+      className={
+        "text-xs font-bold uppercase tracking-[0.06em] mb-2.5 px-0.5 " +
+        (overdue ? "text-danger" : "text-ink-subtle")
+      }
+    >
+      {prefix}
+      {label}
+      {overdue && " · zamuja"} · {count}
+    </h2>
   );
 }
 

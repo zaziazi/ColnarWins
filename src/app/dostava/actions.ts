@@ -15,6 +15,7 @@ const ConfirmDeliveryInput = z.object({
     .min(1),
   signaturePath: z.string().min(1),
   signerName: z.string().min(1).max(120),
+  recipientEmail: z.union([z.literal(""), z.string().email()]).optional().default(""),
   note: z.string().max(500).optional().default(""),
   gpsLat: z.number().nullable(),
   gpsLng: z.number().nullable(),

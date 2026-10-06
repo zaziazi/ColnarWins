@@ -133,6 +133,7 @@ export interface DriverStop {
   address: string | null;
   city: string | null;
   deliveryNotes: string | null;
+  customerEmail: string | null;
   totalGross: number;
   status: StopStatus;
   failReason: string | null;
@@ -154,6 +155,8 @@ export interface RouteWithStops {
   status: RouteStatus;
   stops: RouteStop[];
   loadingList: LoadingListLine[];
+  /** Products this route needs more of than is in stock. */
+  shortages: { productName: string; needed: number; onHand: number }[];
 }
 
 export type StaffRole = "office" | "driver" | "sales" | "manager";

@@ -95,6 +95,65 @@ export async function addStopToRoute(
   return { ok: true };
 }
 
+const AddToMyRouteInput = z.object({
+  orderId: z.string().min(1),
+  date: z.string().min(1),
+});
+
+/**
+ * One tap for a driver: put this order on MY load for that day. The day's
+ * route is created silently on first use (vehicle = the driver's own name),
+ * so there's no separate "create a route" step before picking orders.
+ */
+export async function addOrderToMyRoute(
+  input: z.infer<typeof AddToMyRouteInput>,
+): Promise<ActionResult> {
+  const parsed = AddToMyRouteInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Neveljavni podatki." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 300));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Seja je potekla. Prijavi se znova." };
+
+  const { data: staff } = await supabase
+    .from("staff")
+    .select("id,full_name")
+    .eq("auth_user_id", user.id)
+    .single();
+  if (!staff) return { ok: false, error: "Uporabnik ni zaposleni." };
+
+  const { date, orderId } = parsed.data;
+
+  const { data: existing } = await supabase
+    .from("route")
+    .select("id")
+    .eq("route_date", date)
+    .eq("driver_id", staff.id)
+    .limit(1);
+
+  let routeId = existing?.[0]?.id as string | undefined;
+  if (!routeId) {
+    const { data: created, error: createError } = await supabase
+      .from("route")
+      .insert({ route_date: date, vehicle: staff.full_name, driver_id: staff.id })
+      .select("id")
+      .single();
+    if (createError || !created) {
+      return { ok: false, error: createError?.message ?? "Poti ni bilo mogoče ustvariti." };
+    }
+    routeId = created.id;
+  }
+
+  return addStopToRoute({ routeId: routeId as string, orderId });
+}
+
 const StopIdInput = z.object({ stopId: z.string().min(1) });
 
 /** Removes a stop — the order returns to the unrouted pool. */

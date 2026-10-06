@@ -13,6 +13,15 @@ const BUCKET = "delivery-documents";
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
+/**
+ * Safe test mode: when MAIL_ONLY_TO is set, every mail goes to that one
+ * address no matter who the customer is, and the placeholder company
+ * details don't block sending. Remove the variable to go live.
+ */
+function testRecipient(): string | null {
+  return process.env.MAIL_ONLY_TO?.trim() || null;
+}
+
 type OutboxStatus = "queued" | "sent" | "failed" | "no_recipient";
 
 export interface RenderedDocuments {
@@ -204,7 +213,7 @@ export async function finalizeDelivery(orderId: string, recipientHint: string): 
       { onConflict: "order_id" },
     );
 
-    if (recipient) await sendStoredDocuments(orderId);
+    if (recipient || testRecipient()) await sendStoredDocuments(orderId);
   } catch (e) {
     console.error("finalizeDelivery failed", orderId, e);
     try {
@@ -259,8 +268,9 @@ export async function sendStoredDocuments(
     return { status, error };
   };
 
-  if (!recipient) return finish("no_recipient", null);
-  if (!isCompanyConfigured()) {
+  const testTo = testRecipient();
+  if (!recipient && !testTo) return finish("no_recipient", null);
+  if (!testTo && !isCompanyConfigured()) {
     return finish("queued", "Podatki podjetja še niso izpolnjeni — dokumenta sta pripravljena, a nista poslana.");
   }
   if (!mailConfigured()) {
@@ -275,9 +285,12 @@ export async function sendStoredDocuments(
   }
 
   const result = await sendMail({
-    to: recipient,
-    subject: mailSubject(doc),
-    text: mailBody(doc),
+    to: testTo ?? recipient,
+    subject: (testTo ? "[TEST] " : "") + mailSubject(doc),
+    text:
+      (testTo
+        ? `TESTNO SPOROČILO — običajno bi šlo na: ${recipient || "(stranka nima e-naslova)"}\n\n`
+        : "") + mailBody(doc),
     attachments: [
       { filename: `dobavnica-${doc.orderNumber}.pdf`, content: doc.dobavnica },
       { filename: `racun-${doc.invoiceNumber}.pdf`, content: doc.racun },
@@ -285,5 +298,6 @@ export async function sendStoredDocuments(
   });
 
   const extra = { subject: mailSubject(doc), dobavnica_path: doc.dobavnicaPath, racun_path: doc.racunPath };
-  return result.ok ? finish("sent", null, extra) : finish("failed", result.error, extra);
+  const note = testTo ? `Testni način: poslano samo na ${testTo}, ne stranki.` : null;
+  return result.ok ? finish("sent", note, extra) : finish("failed", result.error, extra);
 }

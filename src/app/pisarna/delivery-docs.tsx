@@ -70,7 +70,7 @@ export function DeliveryDocs({ orderId, mail }: { orderId: string; mail: Mail })
         </div>
       </div>
 
-      {mail.error && mail.status !== "sent" && (
+      {mail.error && (
         <p className="text-[11.5px] text-ink-muted mt-1.5">{mail.error}</p>
       )}
 

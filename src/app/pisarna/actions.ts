@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isDemoMode } from "@/lib/demo";
 import { sendStoredDocuments } from "@/lib/documents/finalize";
 
@@ -282,4 +283,40 @@ export async function sendDeliveryDocuments(
   if (status === "sent") return { ok: true };
   if (status === "no_recipient") return { ok: false, error: "Vnesi e-naslov prejemnika." };
   return { ok: false, error: error ?? "Pošiljanje ni uspelo." };
+}
+
+/**
+ * Hard-deletes a delivered/invoiced order with everything it produced: the
+ * signature record, receipt, mail record, stop — and the stored signature and
+ * PDFs. For cleaning up test deliveries; refuses if a payment was recorded.
+ */
+export async function deleteDeliveredOrder(orderId: string): Promise<ActionResult> {
+  const parsed = OrderIdInput.safeParse({ orderId });
+  if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 200));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("delete_delivered_order", { p_order_id: parsed.data.orderId });
+  if (error) return { ok: false, error: error.message };
+
+  // The database rows are gone; remove the files too. A leftover file is
+  // harmless clutter, so a failure here doesn't fail the delete.
+  try {
+    const paths = data as { signature_paths: string[]; document_paths: string[] };
+    const admin = createAdminClient();
+    if (paths.signature_paths.length) await admin.storage.from("delivery-signatures").remove(paths.signature_paths);
+    if (paths.document_paths.length) await admin.storage.from("delivery-documents").remove(paths.document_paths);
+  } catch (e) {
+    console.error("deleteDeliveredOrder: storage cleanup failed", e);
+  }
+
+  revalidatePath("/pisarna");
+  revalidatePath("/nacrt");
+  revalidatePath("/dostava");
+  revalidatePath("/finance");
+  return { ok: true };
 }

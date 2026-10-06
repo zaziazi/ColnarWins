@@ -8,6 +8,7 @@ import { Card, FieldLabel } from "@/components/ui/card";
 import { getCurrentStaff, getDrivers, getOrders } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
+import { DeleteDelivered } from "./delete-delivered";
 import { DeliveryDocs } from "./delivery-docs";
 import { DriverAssign } from "./driver-assign";
 import { OrderActions } from "./order-actions";
@@ -215,6 +216,9 @@ function OrderCard({
           </div>
         </div>
         {order.mail && <DeliveryDocs orderId={order.id} mail={order.mail} />}
+        {(order.status === "delivered" || order.status === "invoiced") && (
+          <DeleteDelivered orderId={order.id} hasReceipt={order.status === "invoiced"} />
+        )}
       </div>
     </Card>
   );

@@ -263,3 +263,78 @@ export async function moveStop(
   revalidatePath("/nacrt");
   return { ok: true };
 }
+
+const UpdateRouteInput = z.object({
+  routeId: z.string().min(1),
+  vehicle: z.string().trim().min(1).max(120),
+  driverId: z.string().min(1).nullable(),
+});
+
+/** Rename a route / change its driver. Stops and the loading list stay as they are. */
+export async function updateRoute(input: z.infer<typeof UpdateRouteInput>): Promise<ActionResult> {
+  const parsed = UpdateRouteInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Neveljavni podatki poti." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 300));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("route")
+    .update({ vehicle: parsed.data.vehicle, driver_id: parsed.data.driverId })
+    .eq("id", parsed.data.routeId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nacrt");
+  revalidatePath("/pisarna");
+  revalidatePath("/dostava");
+  return { ok: true };
+}
+
+/**
+ * Deletes a route that hasn't started. Its orders go back to "confirmed"
+ * and reappear as unrouted — nothing is lost, only the grouping.
+ */
+export async function deleteRoute(routeId: string): Promise<ActionResult> {
+  const parsed = z.string().min(1).safeParse(routeId);
+  if (!parsed.success) return { ok: false, error: "Neveljavna pot." };
+
+  if (isDemoMode) {
+    await new Promise((r) => setTimeout(r, 300));
+    return { ok: true };
+  }
+
+  const supabase = await createClient();
+
+  const { data: route } = await supabase.from("route").select("status").eq("id", parsed.data).single();
+  if (!route) return { ok: false, error: "Pot ne obstaja." };
+  if (route.status !== "planned") {
+    return { ok: false, error: "Pot, ki je že v teku ali zaključena, ni mogoče izbrisati." };
+  }
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("route_stop")
+    .select("order_id")
+    .eq("route_id", parsed.data);
+  if (stopsError) return { ok: false, error: stopsError.message };
+
+  const orderIds = (stops ?? []).map((s) => s.order_id);
+  if (orderIds.length > 0) {
+    const { error: delStops } = await supabase.from("route_stop").delete().eq("route_id", parsed.data);
+    if (delStops) return { ok: false, error: delStops.message };
+    await supabase
+      .from("sales_order")
+      .update({ status: "confirmed", planned_at: null })
+      .in("id", orderIds)
+      .eq("status", "planned");
+  }
+
+  const { error } = await supabase.from("route").delete().eq("id", parsed.data);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nacrt");
+  revalidatePath("/pisarna");
+  return { ok: true };
+}

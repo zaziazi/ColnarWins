@@ -9,6 +9,7 @@ import { eur, dateSl } from "@/lib/format";
 import { AddToMyRoute } from "./add-to-my-route";
 import { AddToRoute } from "./add-to-route";
 import { RouteCreator } from "./route-creator";
+import { RouteEditor } from "./route-editor";
 import { StopControls } from "./stop-controls";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +124,11 @@ export default async function DeliveryPlanPage({
                 {ROUTE_STATUS_LABEL[route.status] ?? route.status}
               </Badge>
             </div>
+
+
+            {staff?.role !== "driver" && route.status !== "completed" && (
+              <RouteEditor route={route} drivers={drivers} />
+            )}
 
             {route.stops.length === 0 ? (
               <p className="text-[12.5px] text-ink-subtle mt-3">

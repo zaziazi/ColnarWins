@@ -264,3 +264,77 @@ export interface WineLotEvent {
   createdAt: string;
   editedAt: string | null;
 }
+
+// ---------------------------------------------------------------- Prodaja map
+
+export type VenueKind =
+  | "restaurant"
+  | "bar"
+  | "pub"
+  | "cafe"
+  | "fast_food"
+  | "hotel"
+  | "guest_house"
+  | "wine_shop"
+  | "other";
+
+export type MapStatus = "client" | "prospect" | "open";
+
+/** One dot on the sales map: a venue, or a customer that no venue is linked to. */
+export interface SalesMapPoint {
+  source: "venue" | "customer";
+  id: string;
+  name: string;
+  kind: VenueKind;
+  lat: number;
+  lng: number;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
+  status: MapStatus;
+  needsReview: boolean;
+}
+
+export interface VenueDetail {
+  id: string;
+  name: string;
+  kind: VenueKind;
+  lat: number;
+  lng: number;
+  address: string | null;
+  city: string | null;
+  postCode: string | null;
+  website: string | null;
+  openingHours: string | null;
+  phone: string | null;
+  email: string | null;
+  contactName: string | null;
+  note: string | null;
+  cuisine: string | null;
+  ignored: boolean;
+  prospectId: string | null;
+  /** The customer this venue is linked to, if any. */
+  customer: { id: string; name: string; address: string | null; city: string | null } | null;
+  matchStatus: "auto" | "confirmed" | null;
+  matchScore: number | null;
+  matchDistanceM: number | null;
+  /** A possible customer match awaiting a decision. */
+  suggested: {
+    id: string;
+    name: string;
+    address: string | null;
+    city: string | null;
+    score: number | null;
+    distanceM: number | null;
+  } | null;
+  osmUrl: string;
+}
+
+export interface CustomerPointDetail {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
+}

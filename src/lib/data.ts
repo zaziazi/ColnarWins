@@ -14,6 +14,8 @@ import type {
   DriverRoute,
   OrderForEdit,
   OrderListItem,
+  SalesMapPoint,
+  VenueKind,
   Product,
   ReceivablesAgeingBucket,
   RouteWithStops,
@@ -785,5 +787,39 @@ export async function getLotEvents(lotId: string): Promise<WineLotEvent[]> {
     createdByName: (e.staff as unknown as { full_name: string } | null)?.full_name ?? null,
     createdAt: e.created_at,
     editedAt: e.edited_at,
+  }));
+}
+
+// ---------------------------------------------------------------- Prodaja map
+
+/** Every point for the sales map. PostgREST caps a response at 1000 rows, so page through. */
+export async function getSalesMap(): Promise<SalesMapPoint[]> {
+  if (isDemoMode) return [];
+
+  const supabase = await createClient();
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("v_sales_map")
+      .select("source,id,name,kind,lat,lng,city,phone,email,status,needs_review")
+      .order("id")
+      .range(from, from + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+
+  return rows.map((r) => ({
+    source: r.source as SalesMapPoint["source"],
+    id: r.id as string,
+    name: r.name as string,
+    kind: r.kind as VenueKind,
+    lat: Number(r.lat),
+    lng: Number(r.lng),
+    city: (r.city as string | null) ?? null,
+    phone: (r.phone as string | null) ?? null,
+    email: (r.email as string | null) ?? null,
+    status: r.status as SalesMapPoint["status"],
+    needsReview: Boolean(r.needs_review),
   }));
 }

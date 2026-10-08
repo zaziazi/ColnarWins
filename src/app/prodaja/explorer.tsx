@@ -1,0 +1,137 @@
+"use client";
+
+import * as React from "react";
+import dynamic from "next/dynamic";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { SalesMapPoint, VenueKind } from "@/lib/types";
+import { FILTER_KINDS, KIND_LABEL, fold } from "./constants";
+import { PointSheet } from "./point-sheet";
+import { VenueList } from "./venue-list";
+
+// MapLibre needs a browser; load it client-side only.
+const SalesMap = dynamic(() => import("./sales-map"), {
+  ssr: false,
+  loading: () => <div className="h-full grid place-items-center text-[13px] text-ink-subtle">Nalaganje zemljevida…</div>,
+});
+
+type StatusFilter = "all" | "client" | "nonclient" | "prospect" | "review";
+
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "h-8 px-3 rounded-full text-[12px] font-semibold border whitespace-nowrap transition-colors",
+        active ? "bg-wine text-white border-wine" : "bg-surface text-ink-muted border-line hover:border-line-strong",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Filters + map or list + the detail sheet. One component so both tabs behave the same. */
+export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view: "map" | "list" }) {
+  const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [kinds, setKinds] = React.useState<Set<VenueKind>>(new Set());
+  const [query, setQuery] = React.useState("");
+  const [others, setOthers] = React.useState(false);
+  const [selected, setSelected] = React.useState<SalesMapPoint | null>(null);
+
+  const counts = React.useMemo(() => {
+    const venues = points.filter((p) => p.source === "venue");
+    return {
+      venues: venues.length,
+      client: venues.filter((p) => p.status === "client").length,
+      nonclient: venues.filter((p) => p.status !== "client").length,
+      prospect: venues.filter((p) => p.status === "prospect").length,
+      review: venues.filter((p) => p.needsReview).length,
+      others: points.length - venues.length,
+    };
+  }, [points]);
+
+  const filtered = React.useMemo(() => {
+    const q = fold(query.trim());
+    return points.filter((p) => {
+      if (p.source === "customer" && !others) return false;
+      if (status === "client" && p.status !== "client") return false;
+      if (status === "nonclient" && p.status === "client") return false;
+      if (status === "prospect" && p.status !== "prospect") return false;
+      if (status === "review" && !p.needsReview) return false;
+      if (kinds.size > 0 && p.source === "venue" && !kinds.has(p.kind)) return false;
+      if (kinds.size > 0 && p.source === "customer") return false;
+      if (q && !fold(p.name).includes(q) && !fold(p.city ?? "").includes(q)) return false;
+      return true;
+    });
+  }, [points, status, kinds, query, others]);
+
+  // Keep the open sheet pointing at fresh data after a refresh.
+  const selectedPoint = selected ? (points.find((p) => p.id === selected.id) ?? selected) : null;
+
+  function toggleKind(k: VenueKind) {
+    setKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+
+  return (
+    <div>
+      <div className="relative mb-3">
+        <Search className="size-4 text-ink-subtle absolute left-3 top-1/2 -translate-y-1/2" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Išči po imenu ali kraju…"
+          className="pl-9"
+        />
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4">
+        <Chip active={status === "all"} onClick={() => setStatus("all")}>Vsi ({counts.venues})</Chip>
+        <Chip active={status === "client"} onClick={() => setStatus("client")}>Stranke ({counts.client})</Chip>
+        <Chip active={status === "nonclient"} onClick={() => setStatus("nonclient")}>Ni stranke ({counts.nonclient})</Chip>
+        <Chip active={status === "prospect"} onClick={() => setStatus("prospect")}>Potencialne ({counts.prospect})</Chip>
+        <Chip active={status === "review"} onClick={() => setStatus("review")}>Za pregled ({counts.review})</Chip>
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4">
+        {FILTER_KINDS.map((k) => (
+          <Chip key={k} active={kinds.has(k)} onClick={() => toggleKind(k)}>
+            {KIND_LABEL[k]}
+          </Chip>
+        ))}
+        <Chip active={others} onClick={() => setOthers((v) => !v)}>
+          Ostale stranke ({counts.others})
+        </Chip>
+      </div>
+
+      <p className="text-[12px] text-ink-subtle mb-2.5">
+        {filtered.length} {filtered.length === 1 ? "zadetek" : "zadetkov"}
+      </p>
+
+      {view === "map" ? (
+        <div className="relative h-[58vh] min-h-[360px] rounded-[var(--radius-card)] overflow-hidden border border-line bg-surface-muted">
+          <SalesMap points={filtered} onSelect={setSelected} />
+        </div>
+      ) : (
+        <VenueList points={filtered} onSelect={setSelected} />
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-ink-subtle">
+        <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-good" /> naša stranka</span>
+        <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-wine" /> potencialna</span>
+        <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-ink-muted" /> ni stranka</span>
+        <span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full border-2 border-warn" /> za pregled</span>
+      </div>
+
+      <PointSheet point={selectedPoint} onClose={() => setSelected(null)} />
+    </div>
+  );
+}

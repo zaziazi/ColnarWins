@@ -1,11 +1,11 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getSalesMap } from "@/lib/data";
-import { SalesExplorer } from "./explorer";
+import { SalesExplorer } from "../explorer";
 
 export const dynamic = "force-dynamic";
 
-export default async function SalesPage() {
+export default async function SalesListPage() {
   const staff = await getCurrentStaff();
 
   if (!staff || (staff.role !== "sales" && staff.role !== "manager")) {
@@ -25,12 +25,12 @@ export default async function SalesPage() {
   return (
     <AppShell
       title="Prodaja"
-      subtitle="Lokali na zemljevidu in naše stranke"
+      subtitle="Seznam lokalov"
       who={staff.fullName}
       role={staff.role}
       section="prodaja"
     >
-      <SalesExplorer points={points} view="map" />
+      <SalesExplorer points={points} view="list" />
     </AppShell>
   );
 }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, Phone, Search } from "lucide-react";
+import { ChevronLeft, Phone, Search, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -12,6 +12,8 @@ import { dayMonth, weekdayName } from "@/lib/sales/dates";
 import { suggest, towns, WINE_KINDS } from "@/lib/sales/suggest";
 import type { SalesMapPoint, VenueKind } from "@/lib/types";
 import { FILTER_KINDS, fold, KIND_LABEL } from "./constants";
+import { useGoogleRatings } from "./google-cache";
+import { GoogleLine } from "./google-line";
 import { planVisits } from "./teren-actions";
 
 type Status = "nonclient" | "all" | "client" | "prospect";
@@ -140,6 +142,13 @@ export function AddToDayDialog({
       .sort((a, b) => (scores.get(`${b.source}:${b.id}`)?.score ?? 0) - (scores.get(`${a.source}:${a.id}`)?.score ?? 0));
   }, [inTown, prefs, venueQuery, scores]);
 
+  // Ratings for the best-ranked venues, on request only (15 calls at most).
+  const top15 = React.useMemo(
+    () => venues.filter((p) => p.source === "venue").slice(0, 15).map((p) => p.id),
+    [venues],
+  );
+  const google = useGoogleRatings(top15, false);
+
   const selectable = venues.filter((p) => !plannedKeys.has(`${p.source}:${p.id}`));
   const hiddenByFilter = inTown.length - venues.length;
 
@@ -241,6 +250,16 @@ export function AddToDayDialog({
                 {venues.length} lokalov
                 {hiddenByFilter > 0 && ` · ${hiddenByFilter} skritih s filtrom`}
               </span>
+              {google.configured && google.missing > 0 && (
+                <button
+                  type="button"
+                  className="font-semibold text-wine inline-flex items-center gap-1 disabled:opacity-50"
+                  disabled={google.loading}
+                  onClick={() => void google.load()}
+                >
+                  <Star className="size-3" /> {google.loading ? "Nalagam…" : `Google ocene (${google.missing})`}
+                </button>
+              )}
               {selectable.length > 0 && (
                 <button
                   type="button"
@@ -283,6 +302,7 @@ export function AddToDayDialog({
                         {s && s.reasons.length > 0 && ` · ${s.reasons.join(" · ")}`}
                         {already && " · že na seznamu"}
                       </span>
+                      {p.source === "venue" && <GoogleLine lookup={google.lookups.get(p.id)} loading={google.loading} />}
                     </span>
                   </label>
                 );

@@ -313,7 +313,7 @@ export interface VenueDetail {
   contactName: string | null;
   note: string | null;
   cuisine: string | null;
-  source: "osm" | "ajpes" | "manual";
+  source: "osm" | "ajpes" | "overture" | "manual";
   /** "unverified": the position was worked out from a register address and still needs a human look. */
   locationStatus: "ok" | "unverified";
   /** Registered company data (AJPES), when known. */

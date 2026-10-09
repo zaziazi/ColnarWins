@@ -23,6 +23,14 @@ from public.venue;
 
 Data © OpenStreetMap contributors (ODbL) — attribution stays on the map.
 
+## overture-import.py
+
+Adds hospitality places from Overture Maps (DuckDB over the public S3
+release; the same sources eMENI shows: OSM + Meta + Foursquare + others) that
+are not yet in `venue`, filtered by category/confidence/operating status.
+Emits `overture-N.sql` upserts keyed on `overture_id`. Data © Overture Maps
+Foundation, CDLA-Permissive-2.0 — keep the attribution.
+
 ## 2. Customer positions — `geocode-customers.sql`
 
 Customers have addresses but no coordinates. `geocode-customers.sql` is a

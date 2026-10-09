@@ -128,6 +128,7 @@ export default function SalesMap({
       ref={mapRef}
       mapLib={mapLib}
       mapStyle={STYLE_URL}
+      attributionControl={{ customAttribution: "Lokali © OpenStreetMap, Overture Maps, AJPES" }}
       initialViewState={{ bounds: START_BOUNDS, fitBoundsOptions: { padding: 24 } }}
       interactiveLayerIds={["clusters", "points"]}
       onClick={onClick}

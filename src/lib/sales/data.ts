@@ -24,7 +24,7 @@ export async function getPlannedVisits(staffId: string, from: string, to: string
     .order("created_at");
   if (error) throw error;
 
-  return (data ?? []).map((r) => {
+  const visits = (data ?? []).map((r) => {
     const v = r.venue as unknown as Row | null;
     const c = r.customer as unknown as Row | null;
     const src = v ?? c ?? {};
@@ -60,6 +60,17 @@ export async function getPlannedVisits(staffId: string, from: string, to: string
       orderId: r.order_id as string | null,
     };
   });
+  return sortVisits(visits);
+}
+
+/** Plan order: by date, then by time of day (stops without a time after the timed ones, in manual order). */
+export function sortVisits<T extends { plannedFor: string; plannedTime: string | null; sortOrder: number }>(visits: T[]): T[] {
+  return [...visits].sort(
+    (a, b) =>
+      a.plannedFor.localeCompare(b.plannedFor) ||
+      (a.plannedTime ?? "99:99").localeCompare(b.plannedTime ?? "99:99") ||
+      a.sortOrder - b.sortOrder,
+  );
 }
 
 export async function getDayLabels(staffId: string, from: string, to: string): Promise<Record<string, string>> {

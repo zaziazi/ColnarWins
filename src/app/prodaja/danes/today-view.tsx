@@ -12,6 +12,7 @@ import { dayMonth, weekdayName } from "@/lib/sales/dates";
 import type { CarStockRow, PlannedVisit, SalesMapPoint, SalesProduct } from "@/lib/types";
 import { AddToDayDialog } from "../add-to-day";
 import { KIND_LABEL } from "../constants";
+import { RouteButton } from "../route-button";
 import { OUTCOME_LABEL, OUTCOME_TONE } from "../outcome";
 import { markAnnounced } from "../teren-actions";
 import { VisitDialog } from "./visit-dialog";
@@ -80,6 +81,8 @@ export function TodayView({
           </div>
         </Card>
       )}
+
+      {open.length > 0 && <RouteButton stops={open} />}
 
       {open.map((v) => (
         <StopCard key={v.id} v={v} origin={origin} repName={repName} onVisit={() => setActive({ visit: v, mode: "visit" })} />

@@ -15,8 +15,15 @@ import { routeOrder } from "@/lib/sales/suggest";
 import type { FollowUp, PlannedVisit, SalesMapPoint } from "@/lib/types";
 import { AddToDayDialog } from "../add-to-day";
 import { KIND_LABEL } from "../constants";
+import { RouteButton } from "../route-button";
 import { OUTCOME_LABEL, OUTCOME_TONE } from "../outcome";
 import { planVisits, removeVisit, reorderVisits, setDayLabel, setVisitTime } from "../teren-actions";
+
+/** Half-hour steps through the working day — a dropdown avoids half-typed times. */
+const TIMES = Array.from({ length: 33 }, (_, i) => {
+  const mins = 6 * 60 + i * 30;
+  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+});
 
 interface DayData {
   date: string;
@@ -190,12 +197,13 @@ function DayCard({
   today: string;
   onAdd: () => void;
   onRemove: (id: string) => void;
-  onMove: (open: PlannedVisit[], i: number, dir: -1 | 1) => void;
+  onMove: (untimed: PlannedVisit[], i: number, dir: -1 | 1) => void;
   onOptimize: (open: PlannedVisit[]) => void;
   onTime: (id: string, time: string | null) => void;
   onLabel: (label: string) => void;
 }) {
-  const open = day.visits.filter((v) => !v.visitedAt);
+  const open = day.visits.filter((v) => !v.visitedAt); // already in visit-time order
+  const untimed = open.filter((v) => !v.plannedTime);
   const done = day.visits.filter((v) => v.visitedAt);
   const isToday = day.date === today;
   const past = day.date < today;
@@ -234,15 +242,21 @@ function DayCard({
       {day.visits.length === 0 && <p className="text-[12.5px] text-ink-subtle mt-2.5">Ni načrtovanih obiskov.</p>}
 
       <div className="mt-2 divide-y divide-line">
-        {open.map((v, i) => (
+        {open.map((v) => {
+          const ui = untimed.findIndex((u) => u.id === v.id); // position among stops without a time
+          return (
           <div key={v.id} className="py-2.5 flex items-start gap-2">
-            <div className="flex flex-col gap-0.5 pt-0.5">
-              <button type="button" aria-label="Više" disabled={i === 0} onClick={() => onMove(open, i, -1)} className="text-ink-subtle disabled:opacity-25 hover:text-ink">
-                <ArrowUp className="size-3.5" />
-              </button>
-              <button type="button" aria-label="Niže" disabled={i === open.length - 1} onClick={() => onMove(open, i, 1)} className="text-ink-subtle disabled:opacity-25 hover:text-ink">
-                <ArrowDown className="size-3.5" />
-              </button>
+            <div className="flex flex-col gap-0.5 pt-0.5 w-3.5">
+              {ui >= 0 && untimed.length > 1 && (
+                <>
+                  <button type="button" aria-label="Više" disabled={ui === 0} onClick={() => onMove(untimed, ui, -1)} className="text-ink-subtle disabled:opacity-25 hover:text-ink">
+                    <ArrowUp className="size-3.5" />
+                  </button>
+                  <button type="button" aria-label="Niže" disabled={ui === untimed.length - 1} onClick={() => onMove(untimed, ui, 1)} className="text-ink-subtle disabled:opacity-25 hover:text-ink">
+                    <ArrowDown className="size-3.5" />
+                  </button>
+                </>
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -258,18 +272,27 @@ function DayCard({
                 </a>
               )}
             </div>
-            <input
-              type="time"
+            <select
               value={v.plannedTime ?? ""}
               onChange={(e) => onTime(v.id, e.target.value || null)}
-              className="h-8 w-[86px] rounded-[8px] border border-line bg-surface px-1.5 text-[12px] shrink-0"
-              aria-label="Ura"
-            />
+              className={`h-8 w-[84px] rounded-[8px] border border-line bg-surface px-1.5 text-[12.5px] shrink-0 ${
+                v.plannedTime ? "font-bold text-ink" : "text-ink-subtle"
+              }`}
+              aria-label="Ura obiska"
+            >
+              <option value="">ura</option>
+              {TIMES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
             <button type="button" aria-label="Odstrani" onClick={() => onRemove(v.id)} className="text-ink-subtle hover:text-danger pt-1.5">
               <X className="size-4" />
             </button>
           </div>
-        ))}
+          );
+        })}
         {done.map((v) => (
           <div key={v.id} className="py-2.5 flex items-center justify-between gap-2">
             <div className="min-w-0 flex items-center gap-2">
@@ -281,11 +304,15 @@ function DayCard({
         ))}
       </div>
 
-      {open.length >= 3 && (
-        <button type="button" onClick={() => onOptimize(open)} className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-wine">
-          <Route className="size-3.5" /> Razporedi po poti
+      {untimed.length >= 3 && (
+        <button type="button" onClick={() => onOptimize(untimed)} className="mt-1.5 inline-flex items-center gap-1.5 text-[12px] font-semibold text-wine">
+          <Route className="size-3.5" /> Razporedi stopnje brez ure po poti
         </button>
       )}
+      {open.length > 0 && open.some((v) => v.plannedTime) && untimed.length > 0 && (
+        <p className="text-[11.5px] text-ink-subtle mt-1.5">Najprej lokali z uro, nato ostali.</p>
+      )}
+      {open.length > 0 && <RouteButton stops={open} className="mt-3" />}
     </Card>
   );
 }

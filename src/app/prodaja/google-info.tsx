@@ -34,9 +34,11 @@ export function GoogleInfo({ venueId }: { venueId: string }) {
 
   if (!res) {
     return (
-      <Button size="sm" variant="secondary" onClick={() => void load()} loading={busy}>
-        <Star className="size-4" /> Google ocena
-      </Button>
+      <div>
+        <Button size="sm" variant="secondary" onClick={() => void load()} loading={busy}>
+          <Star className="size-4" /> Google ocena
+        </Button>
+      </div>
     );
   }
 

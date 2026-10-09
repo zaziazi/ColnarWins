@@ -41,7 +41,7 @@ export const ADD_KINDS: VenueKind[] = [
   "camping",
 ];
 
-export const SOURCE_LABEL = { osm: "OpenStreetMap", ajpes: "Register AJPES", overture: "Overture Maps", manual: "Dodano ročno" } as const;
+export const SOURCE_LABEL = { osm: "OpenStreetMap", ajpes: "Register AJPES", overture: "Overture Maps", itis: "Telefonski imenik (iTIS)", manual: "Dodano ročno" } as const;
 
 export const STATUS_LABEL: Record<MapStatus, string> = {
   client: "Naša stranka",

@@ -81,3 +81,14 @@ manual edits survive a re-run; automatic links are recomputed.
 `public/maplibre-gl-worker.mjs` is copied from
 `node_modules/maplibre-gl/dist/` and must match the pinned `maplibre-gl`
 version. Copy it again whenever that package is upgraded.
+
+## itis-scrape.py / itis-locate.py
+
+iTIS (Telefonski imenik Slovenije, TSmedia) category "Gostilne in restavracije":
+`itis-scrape.py` reads the public listing pages (never the robots.txt-disallowed
+company cards; ~1.5 s/page, identifying User-Agent) and `itis-locate.py`
+geocodes the Dolenjska rows via Nominatim, drops ones already on the map and
+emits the import payload. Used with TSmedia's permission (confirmed by the
+owner, 2026-10-09) — do not run it for other purposes without asking them again.
+Rows matched to an existing venue only add a phone number; new ones get
+`source = 'itis'` and `location_status = 'unverified'` when only the town was found.

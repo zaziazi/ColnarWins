@@ -46,9 +46,14 @@ function readColors() {
 export default function SalesMap({
   points,
   onSelect,
+  pickMode = false,
+  onPick,
 }: {
   points: SalesMapPoint[];
   onSelect: (p: SalesMapPoint) => void;
+  /** While true, a tap places a new venue instead of opening one. */
+  pickMode?: boolean;
+  onPick?: (lat: number, lng: number) => void;
 }) {
   const mapRef = React.useRef<MapRef>(null);
   const mapLib = React.useMemo(() => loadMapLib(), []);
@@ -96,6 +101,10 @@ export default function SalesMap({
 
   const onClick = React.useCallback(
     async (e: MapLayerMouseEvent) => {
+      if (pickMode) {
+        onPick?.(e.lngLat.lat, e.lngLat.lng);
+        return;
+      }
       const f = e.features?.[0];
       const map = mapRef.current?.getMap();
       if (!f || !map) return;
@@ -109,7 +118,7 @@ export default function SalesMap({
       const p = byId.get(f.properties.id as string);
       if (p) onSelect(p);
     },
-    [byId, onSelect],
+    [byId, onSelect, pickMode, onPick],
   );
 
   if (!colors) return null;
@@ -122,7 +131,8 @@ export default function SalesMap({
       initialViewState={{ bounds: START_BOUNDS, fitBoundsOptions: { padding: 24 } }}
       interactiveLayerIds={["clusters", "points"]}
       onClick={onClick}
-      onMouseEnter={(e) => e.target.getCanvas().style.setProperty("cursor", "pointer")}
+      cursor={pickMode ? "crosshair" : undefined}
+      onMouseEnter={(e) => !pickMode && e.target.getCanvas().style.setProperty("cursor", "pointer")}
       onMouseLeave={(e) => e.target.getCanvas().style.removeProperty("cursor")}
       style={{ width: "100%", height: "100%" }}
     >

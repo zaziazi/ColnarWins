@@ -43,7 +43,26 @@ Only customers with a 4-digit (Slovenian) post code are geocoded. Each result
 records its precision (`house` / `street` / `city`); only house/street results
 are used for matching and shown on the map.
 
-## 3. Matching
+## 3. Company register (AJPES) — `ajpes-import.py`
+
+The AJPES/Bisnode export (`2025-03-10 AJPES Register.xlsx`) lists companies
+with VAT number, phone, e-mail, representative, revenue and activity code, but
+**no town or post code**. The script therefore:
+
+1. `extract` — keeps hospitality businesses (SKD 55.x accommodation, 56.x food & drink; 481 nationwide);
+2. `locate` — geocodes each street address *inside the region's box only* and
+   records evidence that it really is in the region: the best match anywhere in
+   Slovenia is the same place (`unique`), a regional phone prefix (`phone`), a
+   customer with the same VAT number in a regional post code (`customer-vat`),
+   or a regional town in the name/address (`town-name`). Businesses with a
+   result but no evidence are skipped (generic street names exist everywhere);
+3. `sql` — writes upserts: a business that is already on the map (close + similar
+   name) gets its company data merged in; otherwise it is added as a new venue.
+
+Exact VAT matching then links venues to customers with certainty
+(`match_venues_to_customers`).
+
+## 4. Matching
 
 `select public.match_venues_to_customers('dolenjska');` links venues to
 customers by distance plus name similarity. Confirmed links, rejections and

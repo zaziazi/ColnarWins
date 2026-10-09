@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ExternalLink, Globe, Mail, MapPin, Navigation, Pencil, Phone } from "lucide-react";
+import { Building2, ExternalLink, Globe, Mail, MapPin, Navigation, Pencil, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -13,6 +13,7 @@ import { FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import type { CustomerPointDetail, SalesMapPoint, VenueDetail } from "@/lib/types";
 import {
+  confirmLocation,
   confirmMatch,
   getCustomerPointDetail,
   getVenueDetail,
@@ -25,7 +26,7 @@ import {
   updateVenueContact,
   type ActionResult,
 } from "./actions";
-import { KIND_LABEL, STATUS_LABEL, STATUS_TONE } from "./constants";
+import { KIND_LABEL, SOURCE_LABEL, STATUS_LABEL, STATUS_TONE } from "./constants";
 
 function Row({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
   return (
@@ -142,8 +143,27 @@ function VenueBody({ id }: { id: string }) {
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge tone="neutral">{KIND_LABEL[d.kind]}</Badge>
         <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+        {d.source !== "osm" && <Badge tone="info">{SOURCE_LABEL[d.source]}</Badge>}
         {d.ignored && <Badge tone="warn">Skrito (ni cilj)</Badge>}
       </div>
+
+      {d.locationStatus === "unverified" && (
+        <Callout tone="warn">
+          <p className="font-semibold">Lokacija ni potrjena</p>
+          <p className="mt-0.5">
+            Podjetje je v poslovnem registru brez kraja; položaj je ugotovljen iz naslova in je lahko napačen
+            (isti naslov obstaja tudi drugje). Ali je lokal res tukaj?
+          </p>
+          <div className="flex gap-2 mt-2.5">
+            <Button size="sm" onClick={() => run(() => confirmLocation(d.id), "Lokacija potrjena")} loading={pending}>
+              Da, lokacija je prava
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => run(() => setVenueIgnored(d.id, true), "Skrito")} disabled={pending}>
+              Ne, skrij
+            </Button>
+          </div>
+        </Callout>
+      )}
 
       {/* ------------------------------------------------ customer match */}
       {d.customer && d.matchStatus === "auto" && (
@@ -258,6 +278,17 @@ function VenueBody({ id }: { id: string }) {
             </a>
           </Row>
         )}
+        {(d.legalName || d.vatId) && (
+          <Row icon={Building2}>
+            <span className="text-[12.5px] text-ink-muted">
+              {d.legalName}
+              {d.vatId && ` · davčna št. ${d.vatId}`}
+              {d.representative && ` · zastopnik: ${d.representative}`}
+              {d.revenueEur != null && ` · prihodki ${(d.revenueEur / 1_000_000).toLocaleString("sl-SI", { maximumFractionDigits: 1 })} M€`}
+              {d.employees != null && ` · ${d.employees} zaposlenih`}
+            </span>
+          </Row>
+        )}
         {d.openingHours && <p className="text-[12.5px] text-ink-muted pl-6.5">Odprto: {d.openingHours}</p>}
         {d.cuisine && <p className="text-[12.5px] text-ink-muted pl-6.5">Ponudba: {d.cuisine}</p>}
         {d.contactName && <p className="text-[12.5px] text-ink-muted pl-6.5">Kontakt: {d.contactName}</p>}
@@ -341,9 +372,11 @@ function VenueBody({ id }: { id: string }) {
         <a className="inline-flex items-center gap-1 hover:text-ink" href={`https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`} target="_blank" rel="noreferrer">
           <Navigation className="size-3" /> Navigacija
         </a>
-        <a className="inline-flex items-center gap-1 hover:text-ink" href={d.osmUrl} target="_blank" rel="noreferrer">
-          <ExternalLink className="size-3" /> OpenStreetMap
-        </a>
+        {d.osmUrl && (
+          <a className="inline-flex items-center gap-1 hover:text-ink" href={d.osmUrl} target="_blank" rel="noreferrer">
+            <ExternalLink className="size-3" /> OpenStreetMap
+          </a>
+        )}
       </div>
     </div>
   );

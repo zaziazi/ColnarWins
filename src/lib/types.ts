@@ -276,6 +276,8 @@ export type VenueKind =
   | "hotel"
   | "guest_house"
   | "wine_shop"
+  | "catering"
+  | "camping"
   | "other";
 
 export type MapStatus = "client" | "prospect" | "open";
@@ -311,6 +313,15 @@ export interface VenueDetail {
   contactName: string | null;
   note: string | null;
   cuisine: string | null;
+  source: "osm" | "ajpes" | "manual";
+  /** "unverified": the position was worked out from a register address and still needs a human look. */
+  locationStatus: "ok" | "unverified";
+  /** Registered company data (AJPES), when known. */
+  legalName: string | null;
+  vatId: string | null;
+  representative: string | null;
+  revenueEur: number | null;
+  employees: number | null;
   ignored: boolean;
   prospectId: string | null;
   /** The customer this venue is linked to, if any. */
@@ -327,7 +338,7 @@ export interface VenueDetail {
     score: number | null;
     distanceM: number | null;
   } | null;
-  osmUrl: string;
+  osmUrl: string | null;
 }
 
 export interface CustomerPointDetail {

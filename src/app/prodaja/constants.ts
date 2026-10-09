@@ -9,6 +9,8 @@ export const KIND_LABEL: Record<VenueKind, string> = {
   hotel: "Hotel",
   guest_house: "Prenočišče",
   wine_shop: "Vinoteka",
+  catering: "Catering",
+  camping: "Kamp",
   other: "Stranka (drugo)",
 };
 
@@ -22,7 +24,24 @@ export const FILTER_KINDS: VenueKind[] = [
   "guest_house",
   "wine_shop",
   "fast_food",
+  "catering",
 ];
+
+/** Types a user can pick when adding a venue by hand. */
+export const ADD_KINDS: VenueKind[] = [
+  "restaurant",
+  "bar",
+  "pub",
+  "cafe",
+  "hotel",
+  "guest_house",
+  "wine_shop",
+  "fast_food",
+  "catering",
+  "camping",
+];
+
+export const SOURCE_LABEL = { osm: "OpenStreetMap", ajpes: "Register AJPES", manual: "Dodano ročno" } as const;
 
 export const STATUS_LABEL: Record<MapStatus, string> = {
   client: "Naša stranka",

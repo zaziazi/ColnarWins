@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { SalesMapPoint, VenueKind } from "@/lib/types";
 import { FILTER_KINDS, KIND_LABEL, fold } from "./constants";
+import { AddVenueDialog, EMPTY_DRAFT, type VenueDraft } from "./add-venue";
 import { PointSheet } from "./point-sheet";
 import { VenueList } from "./venue-list";
 
@@ -41,6 +43,9 @@ export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view:
   const [query, setQuery] = React.useState("");
   const [others, setOthers] = React.useState(false);
   const [selected, setSelected] = React.useState<SalesMapPoint | null>(null);
+  const [adding, setAdding] = React.useState(false);
+  const [draft, setDraft] = React.useState<VenueDraft>(EMPTY_DRAFT);
+  const [picking, setPicking] = React.useState(false);
 
   const counts = React.useMemo(() => {
     const venues = points.filter((p) => p.source === "venue");
@@ -83,14 +88,19 @@ export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view:
 
   return (
     <div>
-      <div className="relative mb-3">
-        <Search className="size-4 text-ink-subtle absolute left-3 top-1/2 -translate-y-1/2" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Išči po imenu ali kraju…"
-          className="pl-9"
-        />
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1">
+          <Search className="size-4 text-ink-subtle absolute left-3 top-1/2 -translate-y-1/2" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Išči po imenu ali kraju…"
+            className="pl-9"
+          />
+        </div>
+        <Button className="h-11 shrink-0" onClick={() => setAdding(true)}>
+          <Plus className="size-4" /> Dodaj lokal
+        </Button>
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4">
@@ -118,7 +128,31 @@ export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view:
 
       {view === "map" ? (
         <div className="relative h-[58vh] min-h-[360px] rounded-[var(--radius-card)] overflow-hidden border border-line bg-surface-muted">
-          <SalesMap points={filtered} onSelect={setSelected} />
+          <SalesMap
+            points={filtered}
+            onSelect={setSelected}
+            pickMode={picking}
+            onPick={(lat, lng) => {
+              setDraft((d) => ({ ...d, lat, lng }));
+              setPicking(false);
+              setAdding(true);
+            }}
+          />
+          {picking && (
+            <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2 rounded-[var(--radius-control)] bg-ink text-white px-3 py-2 text-[12.5px]">
+              <span>Tapni na zemljevid, kjer je lokal.</span>
+              <button
+                type="button"
+                className="font-semibold underline underline-offset-2"
+                onClick={() => {
+                  setPicking(false);
+                  setAdding(true);
+                }}
+              >
+                Prekliči
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <VenueList points={filtered} onSelect={setSelected} />
@@ -132,6 +166,34 @@ export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view:
       </div>
 
       <PointSheet point={selectedPoint} onClose={() => setSelected(null)} />
+
+      <AddVenueDialog
+        open={adding}
+        onOpenChange={setAdding}
+        draft={draft}
+        setDraft={setDraft}
+        canPickOnMap={view === "map"}
+        onPickOnMap={() => {
+          setAdding(false);
+          setPicking(true);
+        }}
+        onCreated={(r) => {
+          // Open the new venue straight away; the refreshed data catches up behind it.
+          setSelected({
+            source: "venue",
+            id: r.id,
+            name: r.name,
+            kind: draft.kind,
+            lat: r.lat,
+            lng: r.lng,
+            city: draft.city || null,
+            phone: draft.phone || null,
+            email: draft.email || null,
+            status: "open",
+            needsReview: false,
+          });
+        }}
+      />
     </div>
   );
 }

@@ -210,7 +210,7 @@ export function VisitDialog({
                 );
               })}
               {car.length === 0 ? (
-                <p className="text-[12.5px] text-ink-subtle">V avtu ni vzorcev. Naloži jih v zavihku Zaloga.</p>
+                <p className="text-[12.5px] text-ink-subtle">V avtu ni vzorcev. Naloži jih v zavihku Vino v avtu.</p>
               ) : samples.length >= car.length ? null : (
                 <select
                   className={selectCls}

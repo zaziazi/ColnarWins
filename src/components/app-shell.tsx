@@ -28,7 +28,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/prodaja",        label: "Zemljevid",   icon: MapIcon, exact: true },
     { href: "/prodaja/teden",  label: "Načrt",       icon: CalendarDays },
     { href: "/prodaja/danes",  label: "Na terenu",    icon: Footprints },
-    { href: "/prodaja/zaloga", label: "Zaloga",      icon: Wine },
+    { href: "/prodaja/zaloga", label: "Vino v avtu", icon: Wine },
   ],
   klet: [
     { href: "/klet",             label: "Vina",         icon: FlaskConical, exact: true },

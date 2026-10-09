@@ -13,7 +13,7 @@ export default async function StockPage() {
   const [stock, movements] = await Promise.all([getCarStock(), getRepMovements(staff.id)]);
 
   return (
-    <AppShell title="Zaloga" subtitle="Vzorci v avtu" who={staff.fullName} role={staff.role} section="prodaja">
+    <AppShell title="Vino v avtu" subtitle="Vzorci za na pot" who={staff.fullName} role={staff.role} section="prodaja">
       <CarStock stock={stock} movements={movements} />
     </AppShell>
   );

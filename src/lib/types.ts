@@ -478,6 +478,7 @@ export interface DrustvoMessage {
 
 export interface ReplyTask {
   id: string;
+  kind: "reply" | "call" | "reminder" | "thank_you";
   status: DrustvoTaskStatus;
   intent: DrustvoIntent | null;
   recommendedAction: "email" | "call" | "none" | null;

@@ -82,6 +82,8 @@ export function DrustvaList({ drustva }: { drustva: Drustvo[] }) {
         </select>
       </div>
 
+      <WaveExport drustva={drustva} />
+
       <p className="text-[12px] text-ink-subtle mb-2">{filtered.length} zadetkov</p>
       <div className="space-y-2">
         {filtered.slice(0, shown).map((d) => (
@@ -113,6 +115,31 @@ export function DrustvaList({ drustva }: { drustva: Drustvo[] }) {
       )}
 
       {open && <DrustvoDialog key={open.id} d={open} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}
+
+/** Download the Instantly import file for one wave. */
+function WaveExport({ drustva }: { drustva: Drustvo[] }) {
+  const [wave, setWave] = React.useState("1");
+  const eligible = drustva.filter(
+    (d) => String(d.wave) === wave && d.stage !== "unsubscribed" && d.stage !== "bounced" && d.emailCheck !== "probably_wrong",
+  ).length;
+  return (
+    <div className="flex items-center gap-2 mb-3 rounded-[12px] border border-line bg-surface p-2.5">
+      <div className="text-[12.5px] text-ink-muted shrink-0">Izvoz za Instantly</div>
+      <select className={selectCls} value={wave} onChange={(e) => setWave(e.target.value)} aria-label="Val za izvoz">
+        {[0, 1, 2, 3, 4].map((w) => (
+          <option key={w} value={String(w)}>
+            Val {w}
+          </option>
+        ))}
+      </select>
+      <Button asChild size="sm" variant="secondary" className={eligible === 0 ? "pointer-events-none opacity-40" : ""}>
+        <a href={`/api/drustva/export?wave=${wave}`} download>
+          CSV ({eligible})
+        </a>
+      </Button>
     </div>
   );
 }

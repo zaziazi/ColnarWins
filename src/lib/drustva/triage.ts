@@ -115,7 +115,7 @@ interface AnthropicResponse {
   error?: { message?: string };
 }
 
-async function callClaude(system: string, user: string): Promise<{ input: unknown; model: string }> {
+async function callClaude(system: string, user: string, tool: { name: string } = TOOL): Promise<{ input: unknown; model: string }> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
@@ -127,15 +127,15 @@ async function callClaude(system: string, user: string): Promise<{ input: unknow
       max_tokens: 1200,
       system,
       messages: [{ role: "user", content: user }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: "triage" },
+      tools: [tool],
+      tool_choice: { type: "tool", name: tool.name },
     }),
     cache: "no-store",
   });
   const json = (await res.json().catch(() => ({}))) as AnthropicResponse;
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${json.error?.message ?? "napaka"}`);
-  const block = json.content?.find((b) => b.type === "tool_use" && b.name === "triage");
-  if (!block) throw new Error("Model did not return the triage tool call");
+  const block = json.content?.find((b) => b.type === "tool_use" && b.name === tool.name);
+  if (!block) throw new Error(`Model did not return the ${tool.name} tool call`);
   return { input: block.input, model };
 }
 
@@ -257,4 +257,64 @@ export async function triageTask(
 
   await db.from("drustvo_reply_task").update({ status: "ai_failed", attempts, error: lastError.slice(0, 500) }).eq("id", taskId);
   return { status: "ai_failed", error: lastError };
+}
+
+// ------------------------------------------------------------------- reminders and thank-yous
+
+const DRAFT_TOOL = {
+  name: "draft",
+  description: "Return the e-mail to send.",
+  input_schema: {
+    type: "object",
+    required: ["subject", "body"],
+    properties: {
+      subject: { type: "string" },
+      body: { type: "string", description: "Slovenian e-mail text, at most 120 words." },
+    },
+  },
+} as const;
+
+const DraftOutput = z.object({ subject: z.string().min(1).max(200), body: z.string().min(1).max(4000) });
+
+/**
+ * A reminder (a week before a confirmed visit) or a thank-you (the day after).
+ * Returns null when the AI is not configured or fails — the task is then
+ * created without a draft and the person writes it.
+ */
+export async function draftFollowUp(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<any, any, any>,
+  input: {
+    kind: "reminder" | "thank_you";
+    drustvo: { name: string; type: string | null; town: string | null };
+    booking: { visit_date: string; arrival_time: string | null; people_planned: number | null; package: string | null; food_notes: string | null };
+  },
+): Promise<{ subject: string; body: string } | null> {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  const { data: st } = await db.from("drustvo_settings").select("info_sheet,rules").eq("id", 1).single();
+  const task =
+    input.kind === "reminder"
+      ? "Write a short reminder to the club for their visit next week: the date and arrival time, the number of people and package as booked, the practical details from the information sheet (parking, accessibility, what to bring), and a request to tell us if anything changes."
+      : "Write a short thank-you to the club after their visit: thank them, ask them to send a group photo, and ask for a recommendation or review. Do not mention prices.";
+  const system = [
+    "You write e-mails for a winery to Slovenian clubs and associations (društva). A person reads and approves everything before it is sent.",
+    task,
+    "RULES (written by the winery):",
+    ((st?.rules as string) ?? "").trim() || "(none)",
+    "INFORMATION SHEET — the only source of facts you may state:",
+    ((st?.info_sheet as string) ?? "").trim() || "(empty: state no facts beyond the booking details)",
+    "Write in Slovenian, formal (vikanje), warm and short: at most 120 words. Never invent facts. Call the `draft` tool exactly once.",
+  ].join("\n");
+  const user = JSON.stringify(input, null, 1);
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { input: out } = await callClaude(system, user, DRAFT_TOOL);
+      const parsed = DraftOutput.safeParse(out);
+      if (parsed.success && wordCount(parsed.data.body) <= MAX_WORDS) return parsed.data;
+    } catch {
+      // try once more, then give up quietly
+    }
+  }
+  return null;
 }

@@ -86,7 +86,7 @@ export async function getOpenReplyTasks(): Promise<ReplyTask[]> {
   const { data, error } = await supabase
     .from("drustvo_reply_task")
     .select(
-      "id,status,intent,recommended_action,summary,reason,urgency,proposed_dates,draft_subject,draft_body,error,created_at,drustvo_id,drustvo(name,type,town,distance_km,phone),drustvo_message(from_email,subject,body_text,unibox_url)",
+      "id,kind,status,intent,recommended_action,summary,reason,urgency,proposed_dates,draft_subject,draft_body,error,created_at,drustvo_id,drustvo(name,type,town,distance_km,phone),drustvo_message(from_email,subject,body_text,unibox_url)",
     )
     .in("status", ["new", "ai_failed", "awaiting_decision", "calling"])
     .order("created_at", { ascending: false })
@@ -100,6 +100,7 @@ export async function getOpenReplyTasks(): Promise<ReplyTask[]> {
       const m = t.drustvo_message as unknown as Row | null;
       return {
         id: t.id as string,
+        kind: ((t.kind as string) ?? "reply") as ReplyTask["kind"],
         status: t.status as ReplyTask["status"],
         intent: (t.intent as ReplyTask["intent"]) ?? null,
         recommendedAction: (t.recommended_action as ReplyTask["recommendedAction"]) ?? null,

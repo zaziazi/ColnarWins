@@ -277,7 +277,21 @@ export async function sendReply(input: z.infer<typeof SendInput>): Promise<Actio
     .maybeSingle();
   if (!task) return { ok: false, error: "Naloga ne obstaja." };
   if (["sent", "done", "dismissed"].includes(task.status as string)) return { ok: false, error: "To je že obdelano." };
-  const m = task.drustvo_message as unknown as { instantly_email_id: string | null; email_account: string | null; subject: string | null } | null;
+  type Target = { instantly_email_id: string | null; email_account: string | null; subject: string | null };
+  let m = task.drustvo_message as unknown as Target | null;
+  if (!m && task.drustvo_id) {
+    // reminders and thank-yous continue the društvo's latest incoming thread
+    const { data: last } = await supabase
+      .from("drustvo_message")
+      .select("instantly_email_id,email_account,subject")
+      .eq("drustvo_id", task.drustvo_id)
+      .eq("direction", "in")
+      .not("email_account", "is", null)
+      .order("occurred_at", { ascending: false })
+      .limit(1);
+    m = (last?.[0] as Target | undefined) ?? null;
+    if (!m) return { ok: false, error: "Za to društvo ni prejšnje e-pošte v Instantly — pošlji ročno (besedilo lahko kopiraš)." };
+  }
   if (!m?.instantly_email_id || !m.email_account) return { ok: false, error: "Manjka podatek o izvirni e-pošti; odgovori v Instantly." };
 
   // claim the task so a double tap cannot send twice

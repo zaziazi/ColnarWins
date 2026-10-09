@@ -78,7 +78,10 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {t.intent && <Badge tone={INTENT_TONE[t.intent]}>{INTENT_LABEL[t.intent]}</Badge>}
+          {t.kind === "call" && <Badge tone="wine">Klic danes</Badge>}
+          {t.kind === "reminder" && <Badge tone="info">Opomnik</Badge>}
+          {t.kind === "thank_you" && <Badge tone="good">Zahvala</Badge>}
+          {t.kind === "reply" && t.intent && <Badge tone={INTENT_TONE[t.intent]}>{INTENT_LABEL[t.intent]}</Badge>}
           {t.urgency === "today" && <Badge tone="danger">{URGENCY.today}</Badge>}
           {t.status === "ai_failed" && <Badge tone="warn">Brez povzetka</Badge>}
         </div>
@@ -92,10 +95,12 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
         </p>
       )}
 
-      <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 text-[12px] font-semibold text-wine">
-        {open ? "Skrij e-pošto" : "Pokaži celotno e-pošto"}
-      </button>
-      {open && (
+      {t.kind === "reply" && (
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 text-[12px] font-semibold text-wine">
+          {open ? "Skrij e-pošto" : "Pokaži celotno e-pošto"}
+        </button>
+      )}
+      {open && t.kind === "reply" && (
         <div className="mt-2 rounded-[12px] bg-surface-muted p-3 text-[12.5px] leading-relaxed whitespace-pre-wrap">
           {t.subject && <div className="font-semibold mb-1">{t.subject}</div>}
           {t.body || "(brez besedila)"}
@@ -120,7 +125,7 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
         </div>
       )}
 
-      {!unknown && t.intent !== "unsubscribe" && t.intent !== "out_of_office" && (
+      {!unknown && t.kind !== "call" && t.intent !== "unsubscribe" && t.intent !== "out_of_office" && (
         <div className="mt-3 space-y-2">
           <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle">
             {t.draftBody ? "Osnutek odgovora" : "Odgovor"}
@@ -144,7 +149,7 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
             >
               Pošlji odgovor
             </Button>
-            {(t.status === "ai_failed" || t.status === "new") && (
+            {t.kind === "reply" && (t.status === "ai_failed" || t.status === "new") && (
               <Button size="sm" variant="secondary" disabled={busy} onClick={() => void run(retryTriage(t.id), "Povzetek pripravljen")}>
                 Poskusi znova (AI)
               </Button>

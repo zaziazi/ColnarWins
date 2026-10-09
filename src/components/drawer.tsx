@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Briefcase,
+  UsersRound,
   ClipboardList,
   Landmark,
   LayoutDashboard,
@@ -24,6 +25,7 @@ const SECTIONS: {
   { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: (r) => r === "manager" },
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
   { key: "prodaja",   href: "/prodaja",  label: "Prodaja",  icon: Briefcase,       visible: (r) => r === "sales" || r === "manager" },
+  { key: "drustva",   href: "/drustva",  label: "Društva",  icon: UsersRound,      visible: (r) => r === "manager" || r === "events" },
   { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r) => r === "manager" },
   { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r) => r === "manager" },
   { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r) => r === "manager" },

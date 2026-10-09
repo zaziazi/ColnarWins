@@ -38,6 +38,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/ponudba/") || // offer link for a venue (secret token)
     request.nextUrl.pathname.startsWith("/api/calendar/") || // calendar feed (secret token)
     request.nextUrl.pathname === "/api/offer-open" ||
+    request.nextUrl.pathname === "/api/instantly/webhook" || // Instantly events (secret header)
     request.nextUrl.pathname === "/manifest.webmanifest" ||
     request.nextUrl.pathname.startsWith("/api/cron/"); // guarded by CRON_SECRET, not a session
 

@@ -164,7 +164,7 @@ export interface RouteWithStops {
   shortages: { productName: string; needed: number; onHand: number }[];
 }
 
-export type StaffRole = "office" | "driver" | "sales" | "manager";
+export type StaffRole = "office" | "driver" | "sales" | "manager" | "events";
 
 export interface CurrentStaff {
   id: string;
@@ -426,4 +426,103 @@ export interface SalesProduct {
   caseSize: number | null;
   price: number;
   vat: number;
+}
+
+// ------------------------------------------------------------------- Društva (group outreach)
+
+export type DrustvoStage =
+  | "not_contacted" | "in_sequence" | "replied" | "interested" | "later"
+  | "booked" | "visited" | "not_interested" | "unsubscribed" | "bounced";
+export type DrustvoTier = "focus" | "fifty_fifty" | "not_chosen";
+export type DrustvoIntent =
+  | "interested" | "question" | "later" | "not_interested" | "unsubscribe" | "wrong_contact" | "out_of_office" | "other";
+export type DrustvoTaskStatus = "new" | "ai_failed" | "awaiting_decision" | "sent" | "calling" | "done" | "dismissed";
+export type BookingStatus = "tentative" | "confirmed" | "visited" | "cancelled";
+
+export interface Drustvo {
+  id: string;
+  name: string;
+  type: string | null;
+  town: string | null;
+  region: string | null;
+  tier: DrustvoTier;
+  stage: DrustvoStage;
+  email: string;
+  emailAlt: string | null;
+  phone: string | null;
+  contactName: string | null;
+  website: string | null;
+  emailCheck: string | null;
+  distanceKm: number | null;
+  distanceBand: string | null;
+  activityLevel: string | null;
+  organizesTrips: string | null;
+  activityNote: string | null;
+  wave: number | null;
+  nextAction: string | null;
+  nextActionOn: string | null;
+  notes: string | null;
+  sourceUrl: string | null;
+}
+
+export interface DrustvoMessage {
+  id: string;
+  direction: "in" | "out";
+  fromEmail: string | null;
+  subject: string | null;
+  body: string | null;
+  eventType: string | null;
+  uniboxUrl: string | null;
+  occurredAt: string | null;
+}
+
+export interface ReplyTask {
+  id: string;
+  status: DrustvoTaskStatus;
+  intent: DrustvoIntent | null;
+  recommendedAction: "email" | "call" | "none" | null;
+  summary: string | null;
+  reason: string | null;
+  urgency: "today" | "this_week" | "low" | null;
+  proposedDates: string[] | null;
+  draftSubject: string | null;
+  draftBody: string | null;
+  error: string | null;
+  createdAt: string;
+  drustvoId: string | null;
+  drustvoName: string | null;
+  drustvoType: string | null;
+  drustvoTown: string | null;
+  drustvoDistanceKm: number | null;
+  drustvoPhone: string | null;
+  fromEmail: string | null;
+  subject: string | null;
+  body: string | null;
+  uniboxUrl: string | null;
+}
+
+export interface GroupBooking {
+  id: string;
+  drustvoId: string;
+  drustvoName: string;
+  visitDate: string;
+  arrivalTime: string | null;
+  peoplePlanned: number | null;
+  peopleActual: number | null;
+  package: string | null;
+  pricePerPerson: number | null;
+  foodNotes: string | null;
+  status: BookingStatus;
+  wineSalesEur: number | null;
+  orderId: string | null;
+  notes: string | null;
+}
+
+export interface DrustvaSettings {
+  infoSheet: string;
+  rules: string;
+  maxGroupsPerDay: number;
+  hostingWeekdays: number[];
+  blackoutDates: string[];
+  notifyStaffIds: string[];
 }

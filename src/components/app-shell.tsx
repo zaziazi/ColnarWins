@@ -3,12 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, Users, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer } from "./drawer";
 
-export type SectionKey = "dashboard" | "narocila" | "prodaja" | "klet" | "zaloge" | "finance";
+export type SectionKey = "dashboard" | "narocila" | "prodaja" | "drustva" | "klet" | "zaloge" | "finance";
 
 type NavItem = {
   href: string;
@@ -29,6 +29,12 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/prodaja/teden",  label: "Načrt",       icon: CalendarDays },
     { href: "/prodaja/danes",  label: "Na terenu",    icon: Footprints },
     { href: "/prodaja/zaloga", label: "Vino v avtu", icon: Wine },
+  ],
+  drustva: [
+    { href: "/drustva",            label: "Odgovori",    icon: MessageSquareReply, exact: true },
+    { href: "/drustva/seznam",     label: "Društva",     icon: Users },
+    { href: "/drustva/obiski",     label: "Obiski",      icon: CalendarDays },
+    { href: "/drustva/nastavitve", label: "Nastavitve",  icon: Settings2 },
   ],
   klet: [
     { href: "/klet",             label: "Vina",         icon: FlaskConical, exact: true },

@@ -47,26 +47,38 @@ export function TodayView({
 
   return (
     <div className="space-y-3">
-      <Card className="p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[14px] font-bold">
+      <div className="rounded-[var(--radius-card)] bg-wine-soft border border-wine-border p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-wine">
               {weekdayName(today)} {dayMonth(today)}
             </div>
-            {label && <div className="text-[12.5px] text-ink-muted">{label}</div>}
-          </div>
-          <div className="text-right text-[12px] text-ink-subtle">
-            <div className="font-bold text-ink text-[15px]">
-              {done.length} / {visits.length}
+            <div className="text-[22px] font-bold tracking-[-0.02em] leading-tight mt-0.5 truncate">
+              {label ? label.charAt(0).toUpperCase() + label.slice(1) : "Obiski za danes"}
             </div>
-            obiskanih
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-[26px] font-bold tracking-[-0.02em] leading-none tabular">
+              {done.length}
+              <span className="text-ink-subtle text-[18px]"> / {visits.length}</span>
+            </div>
+            <div className="text-[11.5px] text-ink-muted mt-1">obiskanih</div>
           </div>
         </div>
-        <Link href="/prodaja/zaloga" className="mt-2.5 flex items-center gap-2 text-[12.5px] text-ink-muted hover:text-ink">
-          <Wine className="size-4" />
+        <div
+          className="mt-3 h-1.5 rounded-full bg-white/80 overflow-hidden"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={visits.length}
+          aria-valuenow={done.length}
+        >
+          <div className="h-full rounded-full bg-wine transition-all" style={{ width: `${visits.length ? (done.length / visits.length) * 100 : 0}%` }} />
+        </div>
+        <Link href="/prodaja/zaloga" className="mt-3 flex items-center gap-2 text-[12.5px] text-ink-muted hover:text-ink">
+          <Wine className="size-4 text-wine" />
           {inCar > 0 ? `V avtu: ${inCar} steklenic za vzorce` : "V avtu ni vzorcev"}
         </Link>
-      </Card>
+      </div>
 
       {visits.length === 0 && (
         <Card className="p-6 text-center">

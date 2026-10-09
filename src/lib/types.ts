@@ -66,6 +66,8 @@ export interface OrderListItem {
   createdAt: string;
   createdByName: string | null;
   assignedDriverId: string | null;
+  /** Set on orders that need the office to look at them (e.g. new customer from the field). */
+  reviewNote?: string | null;
   /** Set once this order is a stop on a route — the route's driver, read-only. */
   routedDriverName: string | null;
   /** Delivery documents e-mail for this order, once the delivery was signed. */
@@ -348,4 +350,80 @@ export interface CustomerPointDetail {
   city: string | null;
   phone: string | null;
   email: string | null;
+}
+
+// ------------------------------------------------------------------- Teren (field sales)
+
+export type VisitOutcome = "ordered" | "thinking" | "no_interest" | "not_there";
+
+/** One stop on the salesperson's plan: a venue or customer on a date, planned or already visited. */
+export interface PlannedVisit {
+  id: string;
+  plannedFor: string;
+  plannedTime: string | null;
+  sortOrder: number;
+  venueId: string | null;
+  customerId: string | null;
+  isCustomer: boolean;
+  name: string;
+  kind: VenueKind | null;
+  address: string | null;
+  city: string | null;
+  postCode: string | null;
+  phone: string | null;
+  email: string | null;
+  lat: number | null;
+  lng: number | null;
+  vatId: string | null;
+  legalName: string | null;
+  knownContact: string | null;
+  visitedAt: string | null;
+  outcome: VisitOutcome | null;
+  contactName: string | null;
+  note: string | null;
+  followUpOn: string | null;
+  announcedAt: string | null;
+  announcedVia: string | null;
+  offerToken: string;
+  offerOpenCount: number;
+  orderId: string | null;
+}
+
+export interface FollowUp {
+  visitId: string;
+  venueId: string | null;
+  customerId: string | null;
+  name: string;
+  city: string | null;
+  followUpOn: string;
+  note: string | null;
+}
+
+export interface CarStockRow {
+  productId: string;
+  name: string;
+  vintage: number | null;
+  volumeL: number | null;
+  caseSize: number | null;
+  cellarQty: number;
+  inCar: number;
+}
+
+export interface RepMovement {
+  id: string;
+  kind: "checkout" | "given" | "return";
+  quantity: number;
+  productName: string;
+  venueName: string | null;
+  createdAt: string;
+}
+
+export interface SalesProduct {
+  id: string;
+  name: string;
+  vintage: number | null;
+  volumeL: number | null;
+  caseSize: number | null;
+  price: number;
+  vat: number;
 }

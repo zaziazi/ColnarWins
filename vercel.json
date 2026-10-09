@@ -1,6 +1,20 @@
 {
   "crons": [
-    { "path": "/api/cron/driver-plan", "schedule": "0 15 * * *" },
-    { "path": "/api/cron/driver-plan", "schedule": "0 16 * * *" }
+    {
+      "path": "/api/cron/driver-plan",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/driver-plan",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/sales-plan",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/sales-plan",
+      "schedule": "0 6 * * *"
+    }
   ]
 }

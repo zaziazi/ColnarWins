@@ -18,8 +18,8 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 }
 
 /** The worker is registered by RouteShell; this makes sure one exists and is active before subscribing. */
-async function activeRegistration(): Promise<ServiceWorkerRegistration> {
-  const reg = await navigator.serviceWorker.register("/dostava-sw.js", { scope: "/dostava/" });
+async function activeRegistration(swPath: string, scope: string): Promise<ServiceWorkerRegistration> {
+  const reg = await navigator.serviceWorker.register(swPath, { scope });
   // An older worker without the push handler may be active — swap it in now,
   // the driver just tapped the button so this is a deliberate moment.
   reg.waiting?.postMessage({ type: "SKIP_WAITING" });
@@ -43,7 +43,17 @@ function isStandalone(): boolean {
   );
 }
 
-export function PushToggle() {
+export function PushToggle({
+  swPath = "/dostava-sw.js",
+  scope = "/dostava/",
+  onText = "Ob 17:00 dobiš načrt za jutri",
+  offText = "Obvestilo ob 17:00 z načrtom za jutri",
+}: {
+  swPath?: string;
+  scope?: string;
+  onText?: string;
+  offText?: string;
+} = {}) {
   const [state, setState] = React.useState<State>("loading");
   const [busy, setBusy] = React.useState(false);
 
@@ -55,7 +65,7 @@ export function PushToggle() {
         return;
       }
       if (Notification.permission === "denied") return setState("denied");
-      const reg = await navigator.serviceWorker.getRegistration("/dostava/");
+      const reg = await navigator.serviceWorker.getRegistration(scope);
       const sub = await reg?.pushManager.getSubscription();
       setState(sub && Notification.permission === "granted" ? "on" : "off");
     })().catch(() => setState("unsupported"));
@@ -74,7 +84,7 @@ export function PushToggle() {
         setState(permission === "denied" ? "denied" : "off");
         return;
       }
-      const reg = await activeRegistration();
+      const reg = await activeRegistration(swPath, scope);
       const sub =
         (await reg.pushManager.getSubscription()) ??
         (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) }));
@@ -101,7 +111,7 @@ export function PushToggle() {
   async function disable() {
     setBusy(true);
     try {
-      const reg = await navigator.serviceWorker.getRegistration("/dostava/");
+      const reg = await navigator.serviceWorker.getRegistration(scope);
       const sub = await reg?.pushManager.getSubscription();
       if (sub) {
         await removePushSubscription(sub.endpoint);
@@ -118,7 +128,7 @@ export function PushToggle() {
   if (state === "needs-install") {
     return (
       <Card className="p-3 mb-4 text-[12.5px] text-ink-muted leading-relaxed">
-        Za obvestila o jutrišnji poti na iPhonu: v Safariju tapni »Deli« → »Dodaj na začetni zaslon«, nato odpri
+        Za obvestila na iPhonu: v Safariju tapni »Deli« → »Dodaj na začetni zaslon«, nato odpri
         aplikacijo od tam.
       </Card>
     );
@@ -136,7 +146,7 @@ export function PushToggle() {
     <Card className="p-3 mb-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-[12.5px] text-ink-muted">
         {state === "on" ? <Bell className="size-4 text-good" /> : <BellOff className="size-4" />}
-        {state === "on" ? "Ob 17:00 dobiš načrt za jutri" : "Obvestilo ob 17:00 z načrtom za jutri"}
+        {state === "on" ? onText : offText}
       </div>
       {state === "on" ? (
         <Button size="sm" variant="ghost" onClick={() => void disable()} loading={busy}>

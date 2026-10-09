@@ -175,6 +175,9 @@ function OrderCard({
               {order.deliveryDate && ` · dostava ${dateShort(order.deliveryDate)}`}
               {order.createdByName && ` · vnesel/a ${order.createdByName}`}
             </p>
+            {order.reviewNote && order.status === "draft" && (
+              <p className="text-[12px] text-warn font-semibold mt-1">{order.reviewNote}</p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             <Badge tone={statusTone[order.status]}>{statusLabel[order.status]}</Badge>

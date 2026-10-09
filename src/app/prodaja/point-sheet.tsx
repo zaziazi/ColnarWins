@@ -27,6 +27,7 @@ import {
   type ActionResult,
 } from "./actions";
 import { KIND_LABEL, SOURCE_LABEL, STATUS_LABEL, STATUS_TONE } from "./constants";
+import { PlanButton } from "./plan-button";
 
 function Row({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
   return (
@@ -45,6 +46,7 @@ export function PointSheet({ point, onClose }: { point: SalesMapPoint | null; on
     <Dialog open={point !== null} onOpenChange={(open) => !open && onClose()}>
       {point && (
         <DialogContent title={point.name}>
+          <PlanButton target={point.source === "venue" ? { venueId: point.id } : { customerId: point.id }} />
           {point.source === "venue" ? <VenueBody id={point.id} /> : <CustomerBody id={point.id} />}
         </DialogContent>
       )}

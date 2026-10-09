@@ -135,7 +135,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
+        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
       );
 
   // Open work, soonest delivery first (no delivery date sinks to the bottom).
@@ -180,6 +180,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
       createdAt: o.created_at,
       createdByName: (o.creator as unknown as { full_name: string } | null)?.full_name ?? null,
       assignedDriverId: o.assigned_driver_id,
+      reviewNote: (o.review_note as string | null) ?? null,
       routedDriverName:
         (
           o.route_stop as unknown as {

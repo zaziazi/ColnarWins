@@ -27,6 +27,7 @@ import {
   type ActionResult,
 } from "./actions";
 import { KIND_LABEL, SOURCE_LABEL, STATUS_LABEL, STATUS_TONE } from "./constants";
+import { GoogleInfo } from "./google-info";
 import { PlanButton } from "./plan-button";
 
 function Row({ icon: Icon, children }: { icon: typeof Phone; children: React.ReactNode }) {
@@ -148,6 +149,8 @@ function VenueBody({ id }: { id: string }) {
         {d.source !== "osm" && <Badge tone="info">{SOURCE_LABEL[d.source]}</Badge>}
         {d.ignored && <Badge tone="warn">Skrito (ni cilj)</Badge>}
       </div>
+
+      <GoogleInfo venueId={d.id} />
 
       {d.locationStatus === "unverified" && (
         <Callout tone="warn">

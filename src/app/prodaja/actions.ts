@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentStaff } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
+import { lookupGooglePlace, monthlyCap, type GoogleLookup } from "@/lib/google-places";
 import { createClient } from "@/lib/supabase/server";
 import type { CustomerPointDetail, VenueDetail, VenueKind } from "@/lib/types";
 
@@ -430,4 +431,32 @@ export async function createVenue(input: z.input<typeof CreateVenueInput>): Prom
 
   refresh();
   return { ok: true, id: data.id, name: d.name, lat, lng };
+}
+
+// ------------------------------------------------------------------- Google ratings
+
+/** Live Google rating / reviews / price level for one venue (see lib/google-places.ts for the rules). */
+export async function getGoogleInfo(venueId: string): Promise<GoogleLookup> {
+  if (isDemoMode || !Id.safeParse(venueId).success) return { status: "unconfigured" };
+  const staff = await getCurrentStaff();
+  if (!staff || (staff.role !== "sales" && staff.role !== "manager")) return { status: "error", message: "Ni dostopa." };
+
+  const supabase = await createClient();
+  const { data: v } = await supabase
+    .from("venue")
+    .select("name,city,lat,lng,google_place_id")
+    .eq("id", venueId)
+    .maybeSingle();
+  if (!v) return { status: "notfound" };
+
+  return lookupGooglePlace(
+    { name: v.name, city: v.city, lat: v.lat, lng: v.lng, googlePlaceId: v.google_place_id },
+    async () => {
+      const { data } = await supabase.rpc("bump_api_usage", { p_service: "google_places", p_cap: monthlyCap() });
+      return data === true;
+    },
+    async (placeId) => {
+      await supabase.from("venue").update({ google_place_id: placeId }).eq("id", venueId);
+    },
+  );
 }

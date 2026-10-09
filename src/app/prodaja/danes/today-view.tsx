@@ -9,14 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { announceSms, navigateHref, smsHref } from "@/lib/sales/config";
 import { dayMonth, weekdayName } from "@/lib/sales/dates";
-import type { GoogleLookup } from "@/lib/google-places";
 import type { CarStockRow, PlannedVisit, SalesMapPoint, SalesProduct } from "@/lib/types";
 import { AddToDayDialog } from "../add-to-day";
 import { KIND_LABEL } from "../constants";
 import { RouteButton } from "../route-button";
 import { OUTCOME_LABEL, OUTCOME_TONE } from "../outcome";
-import { useGoogleRatings } from "../google-cache";
-import { GoogleLine } from "../google-line";
 import { markAnnounced } from "../teren-actions";
 import { VisitDialog } from "./visit-dialog";
 
@@ -46,11 +43,6 @@ export function TodayView({
   const open = visits.filter((v) => !v.visitedAt);
   const done = visits.filter((v) => v.visitedAt);
   const inCar = carStock.reduce((s, r) => s + r.inCar, 0);
-  // Today's open stops: ratings load by themselves (about 8 calls, once per browser session).
-  const google = useGoogleRatings(
-    open.map((v) => v.venueId).filter((id): id is string => Boolean(id)),
-    true,
-  );
   const plannedKeys = new Set(visits.map((v) => (v.venueId ? `venue:${v.venueId}` : `customer:${v.customerId}`)));
 
   return (
@@ -105,15 +97,7 @@ export function TodayView({
       {open.length > 0 && <RouteButton stops={open} />}
 
       {open.map((v) => (
-        <StopCard
-          key={v.id}
-          v={v}
-          origin={origin}
-          repName={repName}
-          google={v.venueId ? google.lookups.get(v.venueId) : undefined}
-          googleLoading={google.loading}
-          onVisit={() => setActive({ visit: v, mode: "visit" })}
-        />
+        <StopCard key={v.id} v={v} origin={origin} repName={repName} onVisit={() => setActive({ visit: v, mode: "visit" })} />
       ))}
 
       {done.length > 0 && <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle pt-1">Opravljeno</div>}
@@ -155,21 +139,7 @@ export function TodayView({
   );
 }
 
-function StopCard({
-  v,
-  origin,
-  repName,
-  google,
-  googleLoading,
-  onVisit,
-}: {
-  v: PlannedVisit;
-  origin: string;
-  repName: string;
-  google?: GoogleLookup;
-  googleLoading: boolean;
-  onVisit: () => void;
-}) {
+function StopCard({ v, origin, repName, onVisit }: { v: PlannedVisit; origin: string; repName: string; onVisit: () => void }) {
   const router = useRouter();
   const offerUrl = `${origin}/ponudba/${v.offerToken}`;
   const sms = v.phone ? smsHref(v.phone, announceSms({ repName, offerUrl })) : null;
@@ -187,7 +157,6 @@ function StopCard({
           <div className="text-[12px] text-ink-subtle mt-0.5">
             {[v.kind ? KIND_LABEL[v.kind] : null, v.address, v.city].filter(Boolean).join(" · ")}
           </div>
-          {v.venueId && <GoogleLine lookup={google} loading={googleLoading} />}
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           {v.plannedTime && <Badge tone="info">{v.plannedTime}</Badge>}

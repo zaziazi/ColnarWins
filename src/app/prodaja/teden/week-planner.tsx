@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, CalendarDays, Star, Check, ChevronLeft, ChevronRight, Copy, Phone, Plus, Route, X } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Phone, Plus, Route, X } from "lucide-react";
 import { PushToggle } from "@/app/dostava/push-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,6 @@ import { routeOrder } from "@/lib/sales/suggest";
 import type { FollowUp, PlannedVisit, SalesMapPoint } from "@/lib/types";
 import { AddToDayDialog } from "../add-to-day";
 import { KIND_LABEL } from "../constants";
-import { useGoogleRatings } from "../google-cache";
-import { GoogleLine } from "../google-line";
 import { RouteButton } from "../route-button";
 import { OUTCOME_LABEL, OUTCOME_TONE } from "../outcome";
 import { planVisits, removeVisit, reorderVisits, setDayLabel, setVisitTime } from "../teren-actions";
@@ -206,11 +204,6 @@ function DayCard({
 }) {
   const open = day.visits.filter((v) => !v.visitedAt); // already in visit-time order
   const untimed = open.filter((v) => !v.plannedTime);
-  // Ratings for this day's stops: on request (one button), not on every page load.
-  const google = useGoogleRatings(
-    open.map((v) => v.venueId).filter((id): id is string => Boolean(id)),
-    false,
-  );
   const done = day.visits.filter((v) => v.visitedAt);
   const isToday = day.date === today;
   const past = day.date < today;
@@ -278,7 +271,6 @@ function DayCard({
                   <Phone className="size-3" /> {v.phone}
                 </a>
               )}
-              {v.venueId && <GoogleLine lookup={google.lookups.get(v.venueId)} loading={google.loading} />}
             </div>
             <select
               value={v.plannedTime ?? ""}
@@ -320,17 +312,6 @@ function DayCard({
       {open.length > 0 && open.some((v) => v.plannedTime) && untimed.length > 0 && (
         <p className="text-[11.5px] text-ink-subtle mt-1.5">Najprej lokali z uro, nato ostali.</p>
       )}
-      {google.configured && google.missing > 0 && (
-        <button
-          type="button"
-          onClick={() => void google.load()}
-          disabled={google.loading}
-          className="mt-1.5 ml-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-wine disabled:opacity-50"
-        >
-          <Star className="size-3.5" /> {google.loading ? "Nalagam ocene…" : `Pokaži Google ocene (${google.missing})`}
-        </button>
-      )}
-      {google.problem && <p className="text-[11.5px] text-warn mt-1">{google.problem}</p>}
       {open.length > 0 && <RouteButton stops={open} className="mt-3" />}
     </Card>
   );

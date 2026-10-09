@@ -8,23 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import type { GoogleLookup } from "@/lib/google-places";
 import { getGoogleInfo, setVenueIgnored } from "./actions";
-import { cachedGoogle, rememberGoogle } from "./google-cache";
+
+// One paid lookup per venue per browser session; reopening the sheet shows the same answer.
+const session = new Map<string, GoogleLookup>();
 
 const PRICE = ["Brezplačno", "€", "€€", "€€€", "€€€€"];
 
 /** Google rating, review count and price level — fetched on request, never stored (Google's terms). */
 export function GoogleInfo({ venueId }: { venueId: string }) {
   const router = useRouter();
-  const [res, setRes] = React.useState<GoogleLookup | null>(cachedGoogle(venueId) ?? null);
+  const [res, setRes] = React.useState<GoogleLookup | null>(session.get(venueId) ?? null);
   const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => setRes(cachedGoogle(venueId) ?? null), [venueId]);
+  React.useEffect(() => setRes(session.get(venueId) ?? null), [venueId]);
 
   async function load() {
     setBusy(true);
     const r = await getGoogleInfo(venueId);
     setBusy(false);
-    rememberGoogle(venueId, r);
+    if (r.status !== "limit" && r.status !== "error") session.set(venueId, r);
     setRes(r);
   }
 

@@ -435,7 +435,12 @@ export async function createVenue(input: z.input<typeof CreateVenueInput>): Prom
 
 // ------------------------------------------------------------------- Google ratings
 
-async function lookupVenueOnGoogle(venueId: string): Promise<GoogleLookup> {
+/** Live Google rating / reviews / price level for one venue (see lib/google-places.ts for the rules). */
+export async function getGoogleInfo(venueId: string): Promise<GoogleLookup> {
+  if (isDemoMode || !Id.safeParse(venueId).success) return { status: "unconfigured" };
+  const staff = await getCurrentStaff();
+  if (!staff || (staff.role !== "sales" && staff.role !== "manager")) return { status: "error", message: "Ni dostopa." };
+
   const supabase = await createClient();
   const { data: v } = await supabase
     .from("venue")
@@ -454,35 +459,4 @@ async function lookupVenueOnGoogle(venueId: string): Promise<GoogleLookup> {
       await supabase.from("venue").update({ google_place_id: placeId }).eq("id", venueId);
     },
   );
-}
-
-async function canUseGoogle(): Promise<boolean> {
-  if (isDemoMode) return false;
-  const staff = await getCurrentStaff();
-  return Boolean(staff && (staff.role === "sales" || staff.role === "manager"));
-}
-
-/** Live Google rating / reviews / price level for one venue (see lib/google-places.ts for the rules). */
-export async function getGoogleInfo(venueId: string): Promise<GoogleLookup> {
-  if (!Id.safeParse(venueId).success) return { status: "notfound" };
-  if (!(await canUseGoogle())) return { status: "unconfigured" };
-  return lookupVenueOnGoogle(venueId);
-}
-
-/** Several venues at once (a day's stops). At most 20 per request; each is one counted call. */
-export async function getGoogleInfos(venueIds: string[]): Promise<Record<string, GoogleLookup>> {
-  const ids = [...new Set(venueIds)].filter((id) => Id.safeParse(id).success).slice(0, 20);
-  const out: Record<string, GoogleLookup> = {};
-  if (ids.length === 0) return out;
-  if (!(await canUseGoogle())) {
-    for (const id of ids) out[id] = { status: "unconfigured" };
-    return out;
-  }
-  // a few at a time: fast enough, gentle on the counter and on Google
-  for (let i = 0; i < ids.length; i += 4) {
-    const chunk = ids.slice(i, i + 4);
-    const results = await Promise.all(chunk.map((id) => lookupVenueOnGoogle(id)));
-    chunk.forEach((id, j) => (out[id] = results[j]));
-  }
-  return out;
 }

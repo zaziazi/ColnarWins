@@ -6,6 +6,7 @@ import { getCurrentStaff } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 import { getDrustvoThread } from "@/lib/drustva/data";
+import { triageTask } from "@/lib/drustva/triage";
 import type { DrustvoMessage } from "@/lib/types";
 import { canUseDrustva } from "./constants";
 
@@ -238,4 +239,111 @@ export async function saveSettings(input: z.infer<typeof Settings>): Promise<Act
   if (error) return { ok: false, error: error.message };
   revalidatePath("/drustva/nastavitve");
   return { ok: true };
+}
+
+// ------------------------------------------------------------------- sending a reply
+
+const escapeHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const toHtml = (text: string) =>
+  text
+    .trim()
+    .split(/\n{2,}/)
+    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+
+const SendInput = z.object({ taskId: Id, subject: z.string().max(200), body: z.string().min(1).max(5000) });
+
+/**
+ * The one human decision: sends the (possibly edited) text as a reply in the
+ * same Instantly thread, from the mailbox the reply came in on. Nothing is
+ * ever sent without this tap.
+ */
+export async function sendReply(input: z.infer<typeof SendInput>): Promise<ActionResult> {
+  const parsed = SendInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Napiši besedilo odgovora." };
+  if (isDemoMode) return { ok: true };
+  const staff = await guard();
+  if (!staff) return { ok: false, error: "Ni dostopa." };
+  const key = process.env.INSTANTLY_API_KEY;
+  if (!key) return { ok: false, error: "Pošiljanje še ni nastavljeno (INSTANTLY_API_KEY). Odgovori v Instantly." };
+
+  const { taskId, subject, body } = parsed.data;
+  const supabase = await createClient();
+
+  const { data: task } = await supabase
+    .from("drustvo_reply_task")
+    .select("id,status,drustvo_id,decided_at,draft_body,drustvo_message(instantly_email_id,email_account,subject)")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "Naloga ne obstaja." };
+  if (["sent", "done", "dismissed"].includes(task.status as string)) return { ok: false, error: "To je že obdelano." };
+  const m = task.drustvo_message as unknown as { instantly_email_id: string | null; email_account: string | null; subject: string | null } | null;
+  if (!m?.instantly_email_id || !m.email_account) return { ok: false, error: "Manjka podatek o izvirni e-pošti; odgovori v Instantly." };
+
+  // claim the task so a double tap cannot send twice
+  const { data: claimed } = await supabase
+    .from("drustvo_reply_task")
+    .update({ decided_by: staff.id, decided_at: new Date().toISOString() })
+    .eq("id", taskId)
+    .is("decided_at", null)
+    .select("id");
+  if (!claimed || claimed.length === 0) return { ok: false, error: "Odgovor se že pošilja ali je poslan." };
+
+  const subj = subject.trim() || (m.subject?.toLowerCase().startsWith("re:") ? m.subject : `Re: ${m.subject ?? ""}`.trim());
+  let sentId: string | null = null;
+  try {
+    const res = await fetch(`${process.env.INSTANTLY_API_BASE || "https://api.instantly.ai"}/api/v2/emails/reply`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reply_to_uuid: m.instantly_email_id,
+        eaccount: m.email_account,
+        subject: subj,
+        body: { text: body, html: toHtml(body) },
+      }),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Instantly ${res.status}: ${text.slice(0, 200)}`);
+    try {
+      const j = JSON.parse(text) as { id?: string; email_id?: string };
+      sentId = j.id ?? j.email_id ?? null;
+    } catch {
+      // some responses have no body — a 2xx is enough
+    }
+  } catch (e) {
+    await supabase.from("drustvo_reply_task").update({ decided_by: null, decided_at: null, error: e instanceof Error ? e.message.slice(0, 500) : "napaka" }).eq("id", taskId);
+    return { ok: false, error: `Pošiljanje ni uspelo: ${e instanceof Error ? e.message : "napaka"}. Poskusi znova ali odgovori v Instantly.` };
+  }
+
+  await supabase.from("drustvo_message").insert({
+    drustvo_id: task.drustvo_id,
+    direction: "out",
+    instantly_email_id: sentId ?? `out-${taskId}`,
+    email_account: m.email_account,
+    subject: subj,
+    body_text: body,
+    event_type: "reply_sent",
+    occurred_at: new Date().toISOString(),
+  });
+  const { error } = await supabase
+    .from("drustvo_reply_task")
+    .update({ status: "sent", final_body: body, sent_email_id: sentId, error: null })
+    .eq("id", taskId);
+  if (error) return { ok: false, error: `Poslano, a stanja ni bilo mogoče shraniti: ${error.message}` };
+  refresh();
+  return { ok: true };
+}
+
+/** Runs the AI again for a task that has no summary yet (key was missing, AI was down). */
+export async function retryTriage(taskId: string): Promise<ActionResult> {
+  if (!Id.safeParse(taskId).success) return { ok: false, error: "Neveljavna naloga." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  if (!process.env.ANTHROPIC_API_KEY) return { ok: false, error: "Umetna inteligenca še ni nastavljena (ANTHROPIC_API_KEY)." };
+  const supabase = await createClient();
+  // allow another round of three attempts
+  await supabase.from("drustvo_reply_task").update({ attempts: 0 }).eq("id", taskId);
+  const r = await triageTask(supabase, taskId);
+  refresh();
+  return r.status === "awaiting_decision" ? { ok: true } : { ok: false, error: r.error ?? "Povzetek ni uspel." };
 }

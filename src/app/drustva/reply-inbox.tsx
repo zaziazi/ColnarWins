@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Combobox } from "@/components/ui/combobox";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { addDays, todayIso } from "@/lib/sales/dates";
 import type { ReplyTask } from "@/lib/types";
-import { dismissTask, finishCall, linkTaskToDrustvo } from "./actions";
+import { dismissTask, finishCall, linkTaskToDrustvo, retryTriage, sendReply } from "./actions";
 import { INTENT_LABEL, INTENT_TONE } from "./constants";
 
 const dt = new Intl.DateTimeFormat("sl-SI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -50,6 +50,8 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
   const [calling, setCalling] = React.useState(false);
   const [laterOn, setLaterOn] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [draft, setDraft] = React.useState(t.draftBody ?? "");
+  const [subject, setSubject] = React.useState(t.draftSubject ?? (t.subject ? (t.subject.toLowerCase().startsWith("re:") ? t.subject : `Re: ${t.subject}`) : ""));
 
   async function run(p: Promise<{ ok: boolean; error?: string }>, ok?: string) {
     setBusy(true);
@@ -118,6 +120,40 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
         </div>
       )}
 
+      {!unknown && t.intent !== "unsubscribe" && t.intent !== "out_of_office" && (
+        <div className="mt-3 space-y-2">
+          <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle">
+            {t.draftBody ? "Osnutek odgovora" : "Odgovor"}
+          </div>
+          {t.proposedDates && t.proposedDates.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {t.proposedDates.map((d) => (
+                <Badge key={d} tone="info">{d.slice(8, 10)}. {d.slice(5, 7)}. {d.slice(0, 4)}</Badge>
+              ))}
+            </div>
+          )}
+          <Textarea className="min-h-[130px]" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Napiši odgovor ali uporabi osnutek…" />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              disabled={busy || !draft.trim()}
+              onClick={() => {
+                if (!window.confirm("Poslati odgovor društvu?")) return;
+                void run(sendReply({ taskId: t.id, subject, body: draft }), "Odgovor poslan");
+              }}
+            >
+              Pošlji odgovor
+            </Button>
+            {(t.status === "ai_failed" || t.status === "new") && (
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => void run(retryTriage(t.id), "Povzetek pripravljen")}>
+                Poskusi znova (AI)
+              </Button>
+            )}
+          </div>
+          {t.error && t.status === "ai_failed" && <p className="text-[11.5px] text-ink-subtle">{t.error}</p>}
+        </div>
+      )}
+
       {!calling ? (
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
@@ -127,6 +163,14 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
             disabled={busy || unknown}
           >
             <Phone className="size-4" /> Pokličem
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void run(t.drustvoId ? finishCall(t.id, t.drustvoId, { outcome: "not_interested" }) : dismissTask(t.id), "Zabeleženo")}
+            disabled={busy}
+          >
+            Ni zainteresiran
           </Button>
           <Button variant="ghost" size="sm" onClick={() => void run(dismissTask(t.id), "Zaprto")} disabled={busy}>
             Zapri

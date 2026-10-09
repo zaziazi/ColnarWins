@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, after } from "next/server";
 import { notifyNewReply } from "@/lib/drustva/notify";
+import { triageTask } from "@/lib/drustva/triage";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,12 @@ export async function POST(req: Request) {
   const result = data as { status: string; task_id?: string | null };
   if (result.task_id) {
     after(async () => {
+      try {
+        await triageTask(admin, result.task_id!);
+      } catch (e) {
+        console.error("drustva triage failed", e);
+      }
+      // The person is told either way: with the summary if the AI worked, with the raw text if it did not.
       try {
         await notifyNewReply(admin, result.task_id!);
       } catch (e) {

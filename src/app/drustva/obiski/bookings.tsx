@@ -11,25 +11,12 @@ import { Combobox } from "@/components/ui/combobox";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { dayMonth, addDays, weekdayName } from "@/lib/sales/dates";
+import { freeDates } from "@/lib/drustva/capacity";
 import type { BookingStatus, DrustvaSettings, GroupBooking } from "@/lib/types";
 import { saveBooking } from "../actions";
 import { BOOKING_LABEL } from "../constants";
 
 const TONE: Record<BookingStatus, "warn" | "good" | "info" | "danger"> = { tentative: "warn", confirmed: "good", visited: "info", cancelled: "danger" };
-const dow = (iso: string) => ((new Date(`${iso}T12:00:00Z`).getUTCDay() + 6) % 7) + 1; // 1 = Monday
-
-/** Hosting days in the next 8 weeks that still have room: the dates a draft may offer. */
-function freeDates(today: string, settings: DrustvaSettings, bookings: GroupBooking[]): string[] {
-  const used = new Map<string, number>();
-  for (const b of bookings) if (b.status !== "cancelled") used.set(b.visitDate, (used.get(b.visitDate) ?? 0) + 1);
-  const out: string[] = [];
-  for (let i = 1; i <= 56; i++) {
-    const d = addDays(today, i);
-    if (settings.hostingWeekdays.includes(dow(d)) && !settings.blackoutDates.includes(d) && (used.get(d) ?? 0) < settings.maxGroupsPerDay) out.push(d);
-  }
-  return out;
-}
-
 type Draft = Partial<GroupBooking> & { drustvoId: string; visitDate: string; status: BookingStatus };
 
 export function Bookings({

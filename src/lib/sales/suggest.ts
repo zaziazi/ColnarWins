@@ -28,6 +28,9 @@ function metres(a: SalesMapPoint, b: SalesMapPoint): number {
   return 6371000 * Math.hypot(x, y);
 }
 
+/** Venue types that realistically list wine — the default filter when planning a day. */
+export const WINE_KINDS: VenueKind[] = ["restaurant", "hotel", "wine_shop", "pub", "bar", "guest_house"];
+
 export interface Suggestion {
   score: number;
   reasons: string[];
@@ -46,7 +49,7 @@ export function suggest(points: SalesMapPoint[]): Map<string, Suggestion> {
       const near = clients.filter((c) => c.id !== p.id && Math.abs(c.lat - p.lat) < 0.02 && metres(p, c) <= 2000).length;
       if (near > 0) {
         score += Math.min(near, 3) * 0.7;
-        reasons.push(`${plural(near, "stranka", "stranki", "stranke", "strank")} v bližini`);
+        reasons.push(near > 5 ? "veliko strank v bližini" : `${plural(near, "stranka", "stranki", "stranke", "strank")} v bližini`);
       }
       if (p.status === "prospect") {
         score += 1.5;
@@ -69,6 +72,8 @@ export interface TownSummary {
   total: number;
   clients: number;
   open: number;
+  /** Not yet customers, of a type that sells wine. */
+  suitable: number;
 }
 
 /** "NOVO MESTO" (as customers are stored) -> "Novo mesto". */
@@ -84,10 +89,13 @@ export function towns(points: SalesMapPoint[]): TownSummary[] {
     if (!p.city) continue;
     const key = fold(p.city.trim());
     let t = by.get(key);
-    if (!t) by.set(key, (t = { key, name: p.city.trim(), total: 0, clients: 0, open: 0, names: new Map() }));
+    if (!t) by.set(key, (t = { key, name: p.city.trim(), total: 0, clients: 0, open: 0, suitable: 0, names: new Map() }));
     t.total++;
     if (p.status === "client") t.clients++;
-    else t.open++;
+    else {
+      t.open++;
+      if (WINE_KINDS.includes(p.kind)) t.suitable++;
+    }
     t.names.set(p.city.trim(), (t.names.get(p.city.trim()) ?? 0) + 1);
   }
   return [...by.values()]
@@ -97,6 +105,7 @@ export function towns(points: SalesMapPoint[]): TownSummary[] {
       total: t.total,
       clients: t.clients,
       open: t.open,
+      suitable: t.suitable,
     }))
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "sl"));
 }

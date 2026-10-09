@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, List, CalendarDays, Footprints, Wine } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer } from "./drawer";
@@ -26,7 +26,6 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   ],
   prodaja: [
     { href: "/prodaja",        label: "Zemljevid",   icon: MapIcon, exact: true },
-    { href: "/prodaja/seznam", label: "Seznam",      icon: List },
     { href: "/prodaja/teden",  label: "Teden",       icon: CalendarDays },
     { href: "/prodaja/danes",  label: "Danes",       icon: Footprints },
     { href: "/prodaja/zaloga", label: "Zaloga",      icon: Wine },

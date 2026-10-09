@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { Plus, Search } from "lucide-react";
+import { List, Map as MapIcon, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -36,8 +36,9 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-/** Filters + map or list + the detail sheet. One component so both tabs behave the same. */
-export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view: "map" | "list" }) {
+/** Filters + map or list (one switch) + the detail sheet. Both views share the same filters. */
+export function SalesExplorer({ points, initialView }: { points: SalesMapPoint[]; initialView: "map" | "list" }) {
+  const [view, setView] = React.useState<"map" | "list">(initialView);
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [kinds, setKinds] = React.useState<Set<VenueKind>>(new Set());
   const [query, setQuery] = React.useState("");
@@ -101,6 +102,26 @@ export function SalesExplorer({ points, view }: { points: SalesMapPoint[]; view:
         <Button className="h-11 shrink-0" onClick={() => setAdding(true)}>
           <Plus className="size-4" /> Dodaj lokal
         </Button>
+      </div>
+
+      <div className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5 mb-3" role="group" aria-label="Pogled">
+        {([
+          ["map", "Zemljevid", MapIcon],
+          ["list", "Seznam", List],
+        ] as const).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setView(key)}
+            aria-pressed={view === key}
+            className={cn(
+              "h-8 px-3.5 rounded-[8px] text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-colors",
+              view === key ? "bg-wine text-white" : "text-ink-muted hover:text-ink",
+            )}
+          >
+            <Icon className="size-3.5" /> {label}
+          </button>
+        ))}
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-4 px-4">

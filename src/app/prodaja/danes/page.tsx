@@ -25,7 +25,7 @@ export default async function TodayPage() {
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
 
   return (
-    <AppShell title="Danes" subtitle="Obiski za danes" who={staff.fullName} role={staff.role} section="prodaja">
+    <AppShell title="Na terenu" subtitle="Obiski za danes" who={staff.fullName} role={staff.role} section="prodaja">
       <TodayView
         today={today}
         label={labels[today] ?? ""}

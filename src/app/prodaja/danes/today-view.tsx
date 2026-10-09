@@ -72,7 +72,7 @@ export function TodayView({
           <p className="text-[13.5px] text-ink-muted">Za danes ni načrtovanih obiskov.</p>
           <div className="mt-3 flex justify-center gap-2">
             <Button asChild variant="secondary">
-              <Link href="/prodaja/teden">Odpri teden</Link>
+              <Link href="/prodaja/teden">Odpri načrt</Link>
             </Button>
             <Button onClick={() => setAdding(true)}>
               <Plus className="size-4" /> Dodaj lokale

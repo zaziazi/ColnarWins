@@ -211,7 +211,7 @@ function DayCard({
         <div className="flex items-center gap-1.5">
           {isToday && (
             <Button asChild size="sm" variant="secondary">
-              <Link href="/prodaja/danes">Danes</Link>
+              <Link href="/prodaja/danes">Na terenu</Link>
             </Button>
           )}
           {!past && (

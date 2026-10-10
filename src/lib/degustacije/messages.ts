@@ -41,7 +41,7 @@ export function presenterMessage(b: GroupBooking): string {
   const lines = [
     `Degustacija ${when(b)}`,
     `Skupina: ${b.groupName}${b.peoplePlanned ? `, ${b.peoplePlanned} oseb` : ""}`,
-    b.wines.length ? `Vina (${b.wines.length}): ${b.wines.join(", ")}` : "Vina še niso določena",
+    b.winePreferences ? `Želje glede vin: ${b.winePreferences}` : "Vina izberete na licu mesta",
     b.food ? `Hrana: da${b.foodNotes ? ` (${b.foodNotes})` : ""}` : "Hrana: ne",
   ];
   if (b.contactName || b.contactPhone) lines.push(`Kontakt: ${[b.contactName, b.contactPhone].filter(Boolean).join(", ")}`);

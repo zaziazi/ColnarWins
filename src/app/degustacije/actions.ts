@@ -29,6 +29,12 @@ async function guard() {
   return staff && canUseDrustva(staff.role) ? staff : null;
 }
 
+/** Settings, people and roles are for managers only. */
+async function adminGuard() {
+  const staff = await getCurrentStaff();
+  return staff && staff.role === "manager" ? staff : null;
+}
+
 // ------------------------------------------------------------------- društva
 
 const STAGES = ["not_contacted", "in_sequence", "replied", "interested", "later", "booked", "visited", "not_interested", "unsubscribed", "bounced"] as const;
@@ -158,7 +164,7 @@ const Booking = z.object({
   endTime: Hhmm.nullable().optional(),
   peoplePlanned: z.number().int().min(0).max(1000).nullable().optional(),
   peopleActual: z.number().int().min(0).max(1000).nullable().optional(),
-  wines: z.array(z.string().trim().min(1).max(120)).max(30),
+  winePreferences: z.string().max(500).nullable().optional(),
   food: z.boolean(),
   foodNotes: z.string().max(1000).nullable().optional(),
   contactName: z.string().max(120).nullable().optional(),
@@ -215,7 +221,7 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     end_time: b.endTime ?? null,
     people_planned: b.peoplePlanned ?? null,
     people_actual: b.peopleActual ?? null,
-    wines: b.wines,
+    wine_preferences: b.winePreferences?.trim() || null,
     food: b.food,
     food_notes: b.foodNotes?.trim() || null,
     contact_name: b.contactName?.trim() || null,
@@ -309,7 +315,7 @@ export async function savePerson(input: z.infer<typeof PersonInput>): Promise<Ac
   const parsed = PersonInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven vnos." };
   if (isDemoMode) return { ok: true };
-  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  if (!(await adminGuard())) return { ok: false, error: "Ni dostopa." };
   const p = parsed.data;
   if (p.phone && !normalizePhone(p.phone)) return { ok: false, error: "Telefonska številka ni veljavna (npr. 041 123 456)." };
   const supabase = await createClient();
@@ -326,7 +332,7 @@ export async function savePerson(input: z.infer<typeof PersonInput>): Promise<Ac
     ? await supabase.from("degustacija_person").update(row).eq("id", p.id)
     : await supabase.from("degustacija_person").insert(row);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/degustacije/nastavitve");
+  revalidatePath("/admin/degustacije");
   revalidatePath("/degustacije/nova");
   return { ok: true };
 }
@@ -334,11 +340,11 @@ export async function savePerson(input: z.infer<typeof PersonInput>): Promise<Ac
 export async function deletePerson(id: string): Promise<ActionResult> {
   if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
   if (isDemoMode) return { ok: true };
-  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  if (!(await adminGuard())) return { ok: false, error: "Ni dostopa." };
   const supabase = await createClient();
   const { error } = await supabase.from("degustacija_person").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/degustacije/nastavitve");
+  revalidatePath("/admin/degustacije");
   return { ok: true };
 }
 
@@ -391,7 +397,7 @@ export async function saveSettings(input: z.infer<typeof Settings>): Promise<Act
   const parsed = Settings.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Neveljaven vnos." };
   if (isDemoMode) return { ok: true };
-  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  if (!(await adminGuard())) return { ok: false, error: "Ni dostopa." };
   const s = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase
@@ -407,7 +413,7 @@ export async function saveSettings(input: z.infer<typeof Settings>): Promise<Act
     })
     .eq("id", 1);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/degustacije/nastavitve");
+  revalidatePath("/admin/degustacije");
   return { ok: true };
 }
 

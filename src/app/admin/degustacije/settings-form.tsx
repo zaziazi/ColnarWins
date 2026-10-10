@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import type { DegustacijaPerson, DrustvaSettings } from "@/lib/types";
-import { deletePerson, savePerson, saveSettings } from "../actions";
-import { WEEKDAYS } from "../constants";
+import { deletePerson, savePerson, saveSettings } from "@/app/degustacije/actions";
+import { WEEKDAYS } from "@/app/degustacije/constants";
 
 export function SettingsForm({
   settings,
@@ -160,7 +160,7 @@ function PersonsCard({ persons }: { persons: DegustacijaPerson[] }) {
       <FieldLabel>Osebe, ki dobijo sporočila</FieldLabel>
       <p className="text-[12.5px] text-ink-muted leading-relaxed">
         Voditelj degustacije dobi dan prej podrobnosti skupine, oseba za hrano (običajno Katarina) pa obvestilo, kdaj in za koliko oseb naj pripravi kruh.
-        Sporočilo gre po SMS ali WhatsAppu.
+        Sporočilo gre privzeto po WhatsAppu; za posamezno osebo lahko izbereš SMS.
       </p>
       {persons.length === 0 && <p className="text-[13px] text-ink-subtle">Še ni oseb.</p>}
       {persons.map((p) => (

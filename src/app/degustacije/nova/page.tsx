@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { getCurrentStaff } from "@/lib/data";
-import { getDrustvoBasics, getPersons, getTastingWines } from "@/lib/drustva/data";
+import { getDrustvoBasics, getPersons } from "@/lib/drustva/data";
 import { todayIso } from "@/lib/sales/dates";
 import { canUseDrustva } from "../constants";
 import { NoAccess } from "../gate";
@@ -14,9 +14,8 @@ export default async function NewTastingPage({ searchParams }: { searchParams: P
   if (!staff || !canUseDrustva(staff.role)) return <NoAccess />;
 
   const q = await searchParams;
-  const [persons, wines, drustvo] = await Promise.all([
+  const [persons, drustvo] = await Promise.all([
     getPersons(),
-    getTastingWines(),
     q.drustvo && /^[0-9a-f-]{36}$/.test(q.drustvo) ? getDrustvoBasics(q.drustvo) : Promise.resolve(null),
   ]);
 
@@ -24,7 +23,6 @@ export default async function NewTastingPage({ searchParams }: { searchParams: P
     <AppShell title="Nova degustacija" subtitle="Ročni vnos rezervacije" who={staff.fullName} role={staff.role} section="degustacije">
       <NewTasting
         persons={persons}
-        wineOptions={wines}
         initial={{
           visitDate: q.datum && /^\d{4}-\d{2}-\d{2}$/.test(q.datum) ? q.datum : todayIso(),
           startTime: q.ura && /^\d{2}:\d{2}$/.test(q.ura) ? q.ura : "",

@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { getCurrentStaff } from "@/lib/data";
-import { getDrustva, getOpenReplyTasks, getOpenWebReservations, getPersons, getTastingWines } from "@/lib/drustva/data";
+import { getDrustva, getOpenReplyTasks, getOpenWebReservations, getPersons } from "@/lib/drustva/data";
 import { canUseDrustva } from "./constants";
 import { NoAccess } from "./gate";
 import { ReplyInbox } from "./reply-inbox";
@@ -11,12 +11,11 @@ export default async function RepliesPage() {
   const staff = await getCurrentStaff();
   if (!staff || !canUseDrustva(staff.role)) return <NoAccess />;
 
-  const [tasks, web, drustva, persons, wines] = await Promise.all([
+  const [tasks, web, drustva, persons] = await Promise.all([
     getOpenReplyTasks(),
     getOpenWebReservations(),
     getDrustva(),
     getPersons(),
-    getTastingWines(),
   ]);
 
   return (
@@ -26,7 +25,6 @@ export default async function RepliesPage() {
         web={web}
         drustva={drustva.map((d) => ({ id: d.id, name: d.name, town: d.town }))}
         persons={persons}
-        wineOptions={wines}
       />
     </AppShell>
   );

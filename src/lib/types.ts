@@ -513,7 +513,8 @@ export interface GroupBooking {
   endTime: string | null;
   peoplePlanned: number | null;
   peopleActual: number | null;
-  wines: string[];
+  /** Wishes the group mentioned; the wines themselves are chosen on the spot. */
+  winePreferences: string | null;
   food: boolean;
   foodNotes: string | null;
   contactName: string | null;

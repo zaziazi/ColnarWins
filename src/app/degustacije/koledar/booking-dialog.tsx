@@ -26,16 +26,14 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** Everything about one group: who, how many, which wines, food, contact, who is in charge — and the messages. */
+/** Everything about one group: who, how many, wine wishes, food, contact, who is in charge — and the messages. */
 export function BookingDialog({
   booking: b,
   persons,
-  wineOptions,
   onClose,
 }: {
   booking: GroupBooking;
   persons: DegustacijaPerson[];
-  wineOptions: string[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -83,7 +81,7 @@ export function BookingDialog({
               startTime: b.startTime ?? "",
               endTime: b.endTime ?? "",
               people: b.peoplePlanned?.toString() ?? "",
-              wines: b.wines,
+              winePreferences: b.winePreferences ?? "",
               food: b.food,
               foodNotes: b.foodNotes ?? "",
               contactName: b.contactName ?? "",
@@ -97,7 +95,6 @@ export function BookingDialog({
               wineSalesEur: b.status === "visited" ? (b.wineSalesEur?.toString() ?? "") : undefined,
             })}
             persons={persons}
-            wineOptions={wineOptions}
             submitLabel="Shrani spremembe"
             onSaved={() => {
               router.refresh();
@@ -128,15 +125,14 @@ export function BookingDialog({
             {b.endTime && `–${b.endTime}`}
           </Row>
           <Row label="Oseb">{b.peoplePlanned ?? "—"}</Row>
-          <Row label={`Vina${b.wines.length ? ` (${b.wines.length})` : ""}`}>
-            {b.wines.length ? (
-              <ul className="list-disc pl-5">
-                {b.wines.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
+          <Row label="Vina">
+            {b.winePreferences ? (
+              <>
+                <span className="text-ink-subtle text-[12px]">Izberemo na licu mesta. Želje: </span>
+                {b.winePreferences}
+              </>
             ) : (
-              <span className="text-ink-subtle">Še niso določena</span>
+              <span className="text-ink-subtle">Izberemo na licu mesta</span>
             )}
           </Row>
           <Row label="Hrana">

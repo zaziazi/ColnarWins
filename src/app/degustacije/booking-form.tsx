@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
@@ -18,7 +17,7 @@ export interface BookingDraft {
   startTime: string;
   endTime: string;
   people: string;
-  wines: string[];
+  winePreferences: string;
   food: boolean;
   foodNotes: string;
   contactName: string;
@@ -39,7 +38,7 @@ export function emptyDraft(over: Partial<BookingDraft> = {}, kitchenDefault: str
     startTime: "",
     endTime: "",
     people: "",
-    wines: [],
+    winePreferences: "",
     food: true,
     foodNotes: "",
     contactName: "",
@@ -69,29 +68,20 @@ const selectCls = "h-11 w-full rounded-[var(--radius-control)] border border-lin
 export function BookingForm({
   draft,
   persons,
-  wineOptions,
   submitLabel = "Shrani degustacijo",
   onSaved,
 }: {
   draft: BookingDraft;
   persons: DegustacijaPerson[];
-  wineOptions: string[];
   submitLabel?: string;
   onSaved: (id: string, d: BookingDraft) => void;
 }) {
   const [f, setF] = React.useState<BookingDraft>(draft);
-  const [custom, setCustom] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const endTouched = React.useRef(Boolean(draft.endTime));
 
   const presenters = persons.filter((p) => p.active && (p.role === "presenter" || p.role === "both"));
   const kitchens = persons.filter((p) => p.active && (p.role === "kitchen" || p.role === "both"));
-  const all = [...new Set([...wineOptions, ...f.wines])];
-
-  function toggleWine(w: string) {
-    setF((prev) => ({ ...prev, wines: prev.wines.includes(w) ? prev.wines.filter((x) => x !== w) : [...prev.wines, w] }));
-  }
-
   async function submit(force = false) {
     if (!f.groupName.trim()) return void toast.error("Vpiši ime skupine.");
     if (!f.visitDate || !f.startTime) return void toast.error("Izberi datum in uro začetka.");
@@ -107,7 +97,7 @@ export function BookingForm({
       endTime: f.endTime || null,
       peoplePlanned: num(f.people),
       peopleActual: num(f.peopleActual),
-      wines: f.wines,
+      winePreferences: f.winePreferences || null,
       food: f.food,
       foodNotes: f.foodNotes || null,
       contactName: f.contactName || null,
@@ -156,7 +146,7 @@ export function BookingForm({
 
       <div>
         <FieldLabel>Kdaj</FieldLabel>
-        <div className="grid grid-cols-[1fr_112px_112px] gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_104px_104px] gap-2">
           <Input type="date" value={f.visitDate} onChange={(e) => setF({ ...f, visitDate: e.target.value })} />
           <Input
             type="time"
@@ -180,34 +170,12 @@ export function BookingForm({
       </div>
 
       <div>
-        <FieldLabel>Vina {f.wines.length > 0 && `(${f.wines.length})`}</FieldLabel>
-        <div className="flex flex-wrap gap-1.5">
-          {all.map((w) => (
-            <button
-              key={w}
-              type="button"
-              onClick={() => toggleWine(w)}
-              aria-pressed={f.wines.includes(w)}
-              className={`h-8 px-3 rounded-full text-[12.5px] font-semibold border ${f.wines.includes(w) ? "bg-wine text-white border-wine" : "bg-surface text-ink-muted border-line"}`}
-            >
-              {w}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 mt-2">
-          <Input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Drugo vino…" className="h-10" />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const v = custom.trim();
-              if (v && !f.wines.includes(v)) setF({ ...f, wines: [...f.wines, v] });
-              setCustom("");
-            }}
-          >
-            <Plus className="size-4" /> Dodaj
-          </Button>
-        </div>
+        <FieldLabel>Želje glede vin</FieldLabel>
+        <Input
+          value={f.winePreferences}
+          onChange={(e) => setF({ ...f, winePreferences: e.target.value })}
+          placeholder="Neobvezno — vina izberemo na licu mesta (npr. raje bela, brez peneče)"
+        />
       </div>
 
       <div>
@@ -250,7 +218,7 @@ export function BookingForm({
             </option>
           ))}
         </select>
-        {persons.length === 0 && <p className="text-[12px] text-ink-subtle mt-1">Osebe dodaš v Nastavitvah.</p>}
+        {persons.length === 0 && <p className="text-[12px] text-ink-subtle mt-1">Osebe doda vodja v Admin → Degustacije.</p>}
         <p className="text-[12px] text-ink-subtle mt-1">Voditelj in kuhinja dobita sporočilo dan prej.</p>
       </div>
 
@@ -286,11 +254,6 @@ export function BookingForm({
       <Button size="lg" onClick={() => void submit(false)} loading={busy}>
         {submitLabel}
       </Button>
-      {f.wines.length > 0 && (
-        <button type="button" className="text-[12px] text-ink-subtle inline-flex items-center gap-1" onClick={() => setF({ ...f, wines: [] })}>
-          <X className="size-3" /> Počisti izbor vin
-        </button>
-      )}
     </div>
   );
 }

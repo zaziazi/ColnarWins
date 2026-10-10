@@ -16,7 +16,7 @@ export function mapBooking(b: Row): GroupBooking {
     endTime: s(b.end_time)?.slice(0, 5) ?? null,
     peoplePlanned: n(b.people_planned),
     peopleActual: n(b.people_actual),
-    wines: ((b.wines as string[] | null) ?? []).filter(Boolean),
+    winePreferences: s(b.wine_preferences),
     food: b.food !== false,
     foodNotes: s(b.food_notes),
     contactName: s(b.contact_name),

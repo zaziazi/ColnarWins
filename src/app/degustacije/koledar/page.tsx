@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { getCurrentStaff } from "@/lib/data";
-import { getBookingsBetween, getDrustvaSettings, getPersons, getTastingWines } from "@/lib/drustva/data";
+import { getBookingsBetween, getDrustvaSettings, getPersons } from "@/lib/drustva/data";
 import { addDays, todayIso, weekDays, weekStart } from "@/lib/sales/dates";
 import { canUseDrustva } from "../constants";
 import { NoAccess } from "../gate";
@@ -17,11 +17,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const anchor = q.d && /^\d{4}-\d{2}-\d{2}$/.test(q.d) ? q.d : today;
   const start = weekStart(anchor);
 
-  const [bookings, settings, persons, wines] = await Promise.all([
+  const [bookings, settings, persons] = await Promise.all([
     getBookingsBetween(start, addDays(start, 6)),
     getDrustvaSettings(),
     getPersons(),
-    getTastingWines(),
   ]);
 
   return (
@@ -32,7 +31,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         days={weekDays(start)}
         bookings={bookings}
         persons={persons}
-        wineOptions={wines}
         hostingWeekdays={settings.hostingWeekdays}
         blackoutDates={settings.blackoutDates}
         initialView={q.v === "week" ? "week" : q.v === "day" ? "day" : null}

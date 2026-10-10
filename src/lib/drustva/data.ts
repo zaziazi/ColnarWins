@@ -135,7 +135,7 @@ export async function getBookingsBetween(from: string, to: string): Promise<Grou
   const { data, error } = await supabase
     .from("group_booking")
     .select(
-      "id,drustvo_id,group_name,source,visit_date,arrival_time,end_time,people_planned,people_actual,wines,food,food_notes,contact_name,contact_phone,contact_email,presenter_id,kitchen_id,presenter_notified_at,kitchen_notified_at,status,wine_sales_eur,notes,web_reservation_id,drustvo(name)",
+      "id,drustvo_id,group_name,source,visit_date,arrival_time,end_time,people_planned,people_actual,wine_preferences,food,food_notes,contact_name,contact_phone,contact_email,presenter_id,kitchen_id,presenter_notified_at,kitchen_notified_at,status,wine_sales_eur,notes,web_reservation_id,drustvo(name)",
     )
     .gte("visit_date", from)
     .lte("visit_date", to)
@@ -235,12 +235,4 @@ export async function getStaffChoices(): Promise<{ id: string; name: string; rol
   const supabase = await createClient();
   const { data } = await supabase.from("staff").select("id,full_name,role").eq("active", true).order("full_name");
   return (data ?? []).map((x) => ({ id: x.id as string, name: x.full_name as string, role: x.role as string }));
-}
-
-/** Wine names offered as quick picks when composing a tasting. */
-export async function getTastingWines(): Promise<string[]> {
-  if (isDemoMode) return [];
-  const supabase = await createClient();
-  const { data } = await supabase.from("product").select("name").eq("active", true).order("name");
-  return (data ?? []).map((p) => p.name as string);
 }

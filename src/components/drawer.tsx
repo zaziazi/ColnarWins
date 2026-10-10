@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Briefcase,
   CalendarCheck,
+  ShieldCheck,
   ClipboardList,
   Landmark,
   LayoutDashboard,
@@ -26,6 +27,7 @@ const SECTIONS: {
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
   { key: "prodaja",   href: "/prodaja",  label: "Prodaja",  icon: Briefcase,       visible: (r) => r === "sales" || r === "manager" },
   { key: "degustacije", href: "/degustacije", label: "Degustacije", icon: CalendarCheck, visible: (r) => r === "manager" || r === "events" },
+  { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r) => r === "manager" },
   { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r) => r === "manager" },
   { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r) => r === "manager" },
   { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r) => r === "manager" },

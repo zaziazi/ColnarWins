@@ -41,13 +41,11 @@ export function ReplyInbox({
   web,
   drustva,
   persons,
-  wineOptions,
 }: {
   tasks: ReplyTask[];
   web: WebReservation[];
   drustva: { id: string; name: string; town: string | null }[];
   persons: DegustacijaPerson[];
-  wineOptions: string[];
 }) {
   return (
     <div className="space-y-3">
@@ -62,7 +60,7 @@ export function ReplyInbox({
         {web.length === 0 ? (
           <p className="text-[13px] text-ink-muted px-1 py-2">Ni novih rezervacij s spletne strani.</p>
         ) : (
-          web.map((w) => <WebCard key={w.id} w={w} persons={persons} wineOptions={wineOptions} />)
+          web.map((w) => <WebCard key={w.id} w={w} persons={persons} />)
         )}
       </Section>
     </div>
@@ -72,7 +70,7 @@ export function ReplyInbox({
 const dtShort = new Intl.DateTimeFormat("sl-SI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** One reservation e-mail from the website: what they want, confirm into the calendar, answer. */
-function WebCard({ w, persons, wineOptions }: { w: WebReservation; persons: DegustacijaPerson[]; wineOptions: string[] }) {
+function WebCard({ w, persons }: { w: WebReservation; persons: DegustacijaPerson[] }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
@@ -180,12 +178,12 @@ function WebCard({ w, persons, wineOptions }: { w: WebReservation; persons: Degu
                   contactName: p?.contactName ?? w.fromName ?? "",
                   contactPhone: p?.phone ?? "",
                   contactEmail: w.fromEmail ?? "",
-                  notes: [p?.wines ? `Želje glede vin: ${p.wines}` : null, p?.notes].filter(Boolean).join("\n"),
+                  winePreferences: p?.wines ?? "",
+                  notes: p?.notes ?? "",
                 },
                 kitchen,
               )}
               persons={persons}
-              wineOptions={wineOptions}
               submitLabel="Potrdi in shrani v koledar"
               onSaved={() => {
                 setConfirming(false);

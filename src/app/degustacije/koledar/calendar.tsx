@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Users, Utensils, Wine } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addDays, dayMonth, weekdayName } from "@/lib/sales/dates";
 import type { DegustacijaPerson, GroupBooking } from "@/lib/types";
@@ -79,7 +79,6 @@ export function Calendar({
   days,
   bookings,
   persons,
-  wineOptions,
   hostingWeekdays,
   blackoutDates,
   initialView,
@@ -89,7 +88,6 @@ export function Calendar({
   days: string[];
   bookings: GroupBooking[];
   persons: DegustacijaPerson[];
-  wineOptions: string[];
   hostingWeekdays: number[];
   blackoutDates: string[];
   initialView: "day" | "week" | null;
@@ -231,12 +229,6 @@ export function Calendar({
                                 {b.peoplePlanned}
                               </span>
                             )}
-                            {b.wines.length > 0 && (
-                              <span className="inline-flex items-center gap-0.5">
-                                <Wine className="size-3" />
-                                {b.wines.length}
-                              </span>
-                            )}
                             {b.food && <Utensils className="size-3" />}
                           </div>
                         )}
@@ -254,7 +246,7 @@ export function Calendar({
         Tapni na prosto polje za novo degustacijo ob tisti uri. Črtkana ozadja so dnevi brez skupin. Okvirne rezervacije so črtkane.
       </p>
 
-      {open && <BookingDialog key={open.id} booking={open} persons={persons} wineOptions={wineOptions} onClose={() => setOpen(null)} />}
+      {open && <BookingDialog key={open.id} booking={open} persons={persons} onClose={() => setOpen(null)} />}
     </div>
   );
 }

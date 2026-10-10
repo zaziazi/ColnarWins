@@ -6,11 +6,9 @@ import { BookingForm, emptyDraft, type BookingDraft } from "../booking-form";
 
 export function NewTasting({
   persons,
-  wineOptions,
   initial,
 }: {
   persons: DegustacijaPerson[];
-  wineOptions: string[];
   initial: Partial<BookingDraft>;
 }) {
   const router = useRouter();
@@ -23,7 +21,6 @@ export function NewTasting({
     <BookingForm
       draft={draft}
       persons={persons}
-      wineOptions={wineOptions}
       onSaved={(_id, d) => router.push(`/degustacije/koledar?d=${d.visitDate}`)}
     />
   );

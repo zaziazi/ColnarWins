@@ -3,45 +3,205 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ExternalLink, Phone } from "lucide-react";
+import { ChevronDown, ExternalLink, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Combobox } from "@/components/ui/combobox";
 import { Input, Textarea } from "@/components/ui/input";
 import { addDays, todayIso } from "@/lib/sales/dates";
-import type { ReplyTask } from "@/lib/types";
-import { dismissTask, finishCall, linkTaskToDrustvo, retryTriage, sendReply } from "./actions";
+import type { DegustacijaPerson, ReplyTask, WebReservation } from "@/lib/types";
+import { dismissTask, finishCall, linkTaskToDrustvo, retryTriage, retryWebParse, sendReply, sendWebReply, setWebStatus } from "./actions";
+import { BookingForm, emptyDraft } from "./booking-form";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { INTENT_LABEL, INTENT_TONE } from "./constants";
 
 const dt = new Intl.DateTimeFormat("sl-SI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
 
 const URGENCY: Record<string, string> = { today: "Danes", this_week: "Ta teden", low: "Ni nujno" };
 
-export function ReplyInbox({
-  tasks,
-  drustva,
-}: {
-  tasks: ReplyTask[];
-  drustva: { id: string; name: string; town: string | null }[];
-}) {
-  if (tasks.length === 0) {
-    return (
-      <Card className="p-7 text-center">
-        <p className="text-[14px] font-semibold">Ni odgovorov, ki bi čakali.</p>
-        <p className="text-[12.5px] text-ink-muted mt-1.5 leading-relaxed">
-          Ko društvo odgovori na e-pošto, se tukaj pokaže kartica, telefon pa zazvoni z obvestilom.
-        </p>
-      </Card>
-    );
-  }
+function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
   return (
-    <div className="space-y-3">
-      {tasks.map((t) => (
-        <TaskCard key={t.id} task={t} drustva={drustva} />
-      ))}
+    <div className="rounded-[var(--radius-card)] border border-line bg-surface">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left">
+        <span className="flex items-center gap-2.5">
+          <span className="text-[15px] font-bold">{title}</span>
+          {count > 0 && <Badge tone="wine">{count}</Badge>}
+        </span>
+        <ChevronDown className={`size-5 text-ink-subtle transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && <div className="px-3 pb-3 space-y-3">{children}</div>}
     </div>
   );
+}
+
+export function ReplyInbox({
+  tasks,
+  web,
+  drustva,
+  persons,
+  wineOptions,
+}: {
+  tasks: ReplyTask[];
+  web: WebReservation[];
+  drustva: { id: string; name: string; town: string | null }[];
+  persons: DegustacijaPerson[];
+  wineOptions: string[];
+}) {
+  return (
+    <div className="space-y-3">
+      <Section title="Društva" count={tasks.length}>
+        {tasks.length === 0 ? (
+          <p className="text-[13px] text-ink-muted px-1 py-2">Ni odgovorov društev, ki bi čakali.</p>
+        ) : (
+          tasks.map((t) => <TaskCard key={t.id} task={t} drustva={drustva} />)
+        )}
+      </Section>
+      <Section title="Spletne rezervacije" count={web.length}>
+        {web.length === 0 ? (
+          <p className="text-[13px] text-ink-muted px-1 py-2">Ni novih rezervacij s spletne strani.</p>
+        ) : (
+          web.map((w) => <WebCard key={w.id} w={w} persons={persons} wineOptions={wineOptions} />)
+        )}
+      </Section>
+    </div>
+  );
+}
+
+const dtShort = new Intl.DateTimeFormat("sl-SI", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+
+/** One reservation e-mail from the website: what they want, confirm into the calendar, answer. */
+function WebCard({ w, persons, wineOptions }: { w: WebReservation; persons: DegustacijaPerson[]; wineOptions: string[] }) {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [reply, setReply] = React.useState(w.replyDraft ?? "");
+  const p = w.parsed;
+  const who = w.fromName || w.fromEmail || "Neznan pošiljatelj";
+
+  async function run(promise: Promise<{ ok: boolean; error?: string }>, ok?: string) {
+    setBusy(true);
+    const r = await promise;
+    setBusy(false);
+    if (!r.ok) return void toast.error(r.error ?? "Ni uspelo.");
+    if (ok) toast.success(ok);
+    router.refresh();
+  }
+
+  const kitchen = persons.find((x) => x.active && x.isDefaultKitchen)?.id ?? null;
+  const subject = w.subject ? (w.subject.toLowerCase().startsWith("re:") ? w.subject : `Re: ${w.subject}`) : "Rezervacija degustacije";
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-bold text-[15px] leading-snug">{who}</div>
+          <div className="text-[12px] text-ink-subtle mt-0.5">{[w.fromName ? w.fromEmail : null, dtShort.format(new Date(w.receivedAt))].filter(Boolean).join(" · ")}</div>
+        </div>
+        {w.status !== "parsed" && <Badge tone="warn">{w.status === "parse_failed" ? "Brez povzetka" : "Obdelujem…"}</Badge>}
+      </div>
+
+      <p className="text-[13.5px] mt-2.5 leading-relaxed">{w.summary ?? (w.body ?? "").replace(/\s+/g, " ").trim().slice(0, 220)}</p>
+
+      {p && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {p.date && <Badge tone="info">{p.date.slice(8, 10)}. {p.date.slice(5, 7)}. {p.date.slice(0, 4)}{p.time ? ` ob ${p.time}` : ""}</Badge>}
+          {p.people !== null && <Badge>{p.people} oseb</Badge>}
+          {p.food !== null && <Badge tone={p.food ? "good" : "neutral"}>{p.food ? "S hrano" : "Brez hrane"}</Badge>}
+          {p.phone && <Badge>{p.phone}</Badge>}
+        </div>
+      )}
+
+      <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 text-[12px] font-semibold text-wine">
+        {open ? "Skrij e-pošto" : "Pokaži celotno e-pošto"}
+      </button>
+      {open && (
+        <div className="mt-2 rounded-[12px] bg-surface-muted p-3 text-[12.5px] leading-relaxed whitespace-pre-wrap">
+          {w.subject && <div className="font-semibold mb-1">{w.subject}</div>}
+          {w.body || "(brez besedila)"}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => setConfirming(true)} disabled={busy}>
+          Potrdi in vnesi v koledar
+        </Button>
+        {w.status === "parse_failed" && (
+          <Button size="sm" variant="secondary" onClick={() => void run(retryWebParse(w.id), "Povzetek pripravljen")} disabled={busy}>
+            Poskusi znova (AI)
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle">Odgovor stranki</div>
+        <Textarea className="min-h-[110px]" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Napiši odgovor ali uporabi osnutek…" />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy || !reply.trim() || !w.fromEmail}
+            onClick={() => {
+              if (!window.confirm(`Poslati odgovor na ${w.fromEmail}?`)) return;
+              void run(sendWebReply(w.id, subject, reply), "Odgovor poslan");
+            }}
+          >
+            Pošlji odgovor
+          </Button>
+          {w.fromEmail && reply.trim() && (
+            <Button asChild size="sm" variant="ghost">
+              <a href={`mailto:${w.fromEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(reply)}`}>Odpri v e-pošti</a>
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => void run(setWebStatus(w.id, "declined"), "Zavrnjeno")} disabled={busy}>
+            Zavrni
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => void run(setWebStatus(w.id, "dismissed"), "Zaprto")} disabled={busy}>
+            Zapri
+          </Button>
+        </div>
+      </div>
+
+      {confirming && (
+        <Dialog open onOpenChange={(o) => !o && setConfirming(false)}>
+          <DialogContent title="Potrdi rezervacijo">
+            <BookingForm
+              draft={emptyDraft(
+                {
+                  webReservationId: w.id,
+                  groupName: p?.groupName ?? w.fromName ?? w.fromEmail ?? "",
+                  visitDate: p?.date ?? "",
+                  startTime: p?.time ?? "",
+                  endTime: p?.time ? plus2(p.time) : "",
+                  people: p?.people?.toString() ?? "",
+                  food: p?.food ?? true,
+                  contactName: p?.contactName ?? w.fromName ?? "",
+                  contactPhone: p?.phone ?? "",
+                  contactEmail: w.fromEmail ?? "",
+                  notes: [p?.wines ? `Želje glede vin: ${p.wines}` : null, p?.notes].filter(Boolean).join("\n"),
+                },
+                kitchen,
+              )}
+              persons={persons}
+              wineOptions={wineOptions}
+              submitLabel="Potrdi in shrani v koledar"
+              onSaved={() => {
+                setConfirming(false);
+                router.refresh();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </Card>
+  );
+}
+
+function plus2(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  return `${String(Math.min(23, h + 2)).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string; name: string; town: string | null }[] }) {
@@ -192,7 +352,17 @@ function TaskCard({ task: t, drustva }: { task: ReplyTask; drustva: { id: string
           )}
           <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-ink-subtle">Kako je šlo?</div>
           <div className="grid grid-cols-1 gap-2">
-            <Button size="sm" onClick={() => void run(finishCall(t.id, t.drustvoId, { outcome: "booked" }), "Označeno kot rezervirano — vnesi obisk v zavihku Obiski.")} disabled={busy}>
+            <Button
+              size="sm"
+              onClick={async () => {
+                setBusy(true);
+                const r = await finishCall(t.id, t.drustvoId, { outcome: "booked" });
+                setBusy(false);
+                if (!r.ok) return void toast.error(r.error);
+                router.push(t.drustvoId ? `/degustacije/nova?drustvo=${t.drustvoId}` : "/degustacije/nova");
+              }}
+              disabled={busy}
+            >
               Rezervirali
             </Button>
             {laterOn === null ? (

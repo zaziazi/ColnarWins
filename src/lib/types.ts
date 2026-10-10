@@ -504,19 +504,66 @@ export interface ReplyTask {
 
 export interface GroupBooking {
   id: string;
-  drustvoId: string;
-  drustvoName: string;
+  /** Linked društvo (outreach) — null for website and ad-hoc groups. */
+  drustvoId: string | null;
+  groupName: string;
+  source: "drustvo" | "web" | "manual";
   visitDate: string;
-  arrivalTime: string | null;
+  startTime: string | null;
+  endTime: string | null;
   peoplePlanned: number | null;
   peopleActual: number | null;
-  package: string | null;
-  pricePerPerson: number | null;
+  wines: string[];
+  food: boolean;
   foodNotes: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  presenterId: string | null;
+  kitchenId: string | null;
+  presenterNotifiedAt: string | null;
+  kitchenNotifiedAt: string | null;
   status: BookingStatus;
   wineSalesEur: number | null;
-  orderId: string | null;
   notes: string | null;
+  webReservationId: string | null;
+}
+
+export interface DegustacijaPerson {
+  id: string;
+  name: string;
+  phone: string | null;
+  role: "presenter" | "kitchen" | "both";
+  channel: "sms" | "whatsapp";
+  isDefaultKitchen: boolean;
+  active: boolean;
+}
+
+export interface WebReservationParsed {
+  isReservation: boolean;
+  date: string | null;
+  time: string | null;
+  people: number | null;
+  wines: string | null;
+  food: boolean | null;
+  contactName: string | null;
+  phone: string | null;
+  groupName: string | null;
+  notes: string | null;
+}
+
+export interface WebReservation {
+  id: string;
+  status: "new" | "parsed" | "parse_failed" | "confirmed" | "declined" | "dismissed";
+  fromEmail: string | null;
+  fromName: string | null;
+  subject: string | null;
+  body: string | null;
+  receivedAt: string;
+  summary: string | null;
+  parsed: WebReservationParsed | null;
+  replyDraft: string | null;
+  error: string | null;
 }
 
 export interface DrustvaSettings {

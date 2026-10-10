@@ -68,6 +68,7 @@ async function createVisitTasks(db: Db, today: string): Promise<{ reminders: num
     .from("group_booking")
     .select("id,drustvo_id,visit_date,arrival_time,people_planned,package,food_notes,drustvo(name,type,town)")
     .eq("status", "confirmed")
+    .not("drustvo_id", "is", null)
     .eq("visit_date", addDays(today, 7));
   for (const b of (upcoming ?? []) as Row[]) {
     const d = b.drustvo as unknown as { name: string; type: string | null; town: string | null } | null;
@@ -96,6 +97,7 @@ async function createVisitTasks(db: Db, today: string): Promise<{ reminders: num
     .from("group_booking")
     .select("id,drustvo_id,visit_date,arrival_time,people_planned,package,food_notes,status,drustvo(name,type,town)")
     .in("status", ["confirmed", "visited"])
+    .not("drustvo_id", "is", null)
     .eq("visit_date", addDays(today, -1));
   for (const b of (done ?? []) as Row[]) {
     const d = b.drustvo as unknown as { name: string; type: string | null; town: string | null } | null;
@@ -159,7 +161,7 @@ export async function runDrustvaDaily(db: Db, today: string): Promise<DailyResul
 
   let push = { sent: 0, devices: 0 };
   if (parts.length > 0) {
-    const r = await pushToDrustvaStaff(db, { title: "Društva · jutranji pregled", body: parts.join(" · "), url: "/drustva", tag: `drustva-daily-${today}` });
+    const r = await pushToDrustvaStaff(db, { title: "Degustacije · jutranji pregled", body: parts.join(" · "), url: "/degustacije", tag: `drustva-daily-${today}` });
     push = { sent: r.sent, devices: r.devices };
   }
   return { retried, callTasks, reminders, thanks, open, callsToday, visitsNextWeek, failedJobs, push };

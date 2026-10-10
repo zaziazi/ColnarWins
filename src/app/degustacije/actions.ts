@@ -7,6 +7,10 @@ import { isDemoMode } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
 import { getDrustvoThread } from "@/lib/drustva/data";
 import { triageTask } from "@/lib/drustva/triage";
+import { parseWebReservation } from "@/lib/degustacije/web-parse";
+import { degustacijeMailConfigured, sendDegustacijeMail } from "@/lib/degustacije/mail";
+import { ljubljanaInstant, normalizePhone } from "@/lib/degustacije/messages";
+import { notifyBooking, type NotifyResult } from "@/lib/degustacije/people";
 import type { DrustvoMessage } from "@/lib/types";
 import { canUseDrustva } from "./constants";
 
@@ -16,9 +20,8 @@ const Id = z.string().uuid();
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 function refresh() {
-  revalidatePath("/drustva");
-  revalidatePath("/drustva/seznam");
-  revalidatePath("/drustva/obiski");
+  revalidatePath("/degustacije");
+  revalidatePath("/degustacije/koledar");
 }
 
 async function guard() {
@@ -141,67 +144,234 @@ export async function linkTaskToDrustvo(taskId: string, drustvoId: string): Prom
   return { ok: true };
 }
 
-// ------------------------------------------------------------------- bookings
+// ------------------------------------------------------------------- bookings (the tasting calendar)
+
+const Hhmm = z.string().regex(/^\d{2}:\d{2}$/);
 
 const Booking = z.object({
   id: Id.optional(),
-  drustvoId: Id,
+  drustvoId: Id.nullable().optional(),
+  webReservationId: Id.nullable().optional(),
+  groupName: z.string().trim().min(1, "Vpiši ime skupine.").max(200),
   visitDate: IsoDate,
-  arrivalTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  startTime: Hhmm,
+  endTime: Hhmm.nullable().optional(),
   peoplePlanned: z.number().int().min(0).max(1000).nullable().optional(),
   peopleActual: z.number().int().min(0).max(1000).nullable().optional(),
-  package: z.string().max(200).nullable().optional(),
-  pricePerPerson: z.number().min(0).max(10000).nullable().optional(),
+  wines: z.array(z.string().trim().min(1).max(120)).max(30),
+  food: z.boolean(),
   foodNotes: z.string().max(1000).nullable().optional(),
+  contactName: z.string().max(120).nullable().optional(),
+  contactPhone: z.string().max(60).nullable().optional(),
+  contactEmail: z.string().max(200).nullable().optional(),
+  presenterId: Id.nullable().optional(),
+  kitchenId: Id.nullable().optional(),
   status: z.enum(["tentative", "confirmed", "visited", "cancelled"]),
   wineSalesEur: z.number().min(0).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  /** Save even though the day is full / not a hosting day / blocked. */
+  force: z.boolean().optional(),
 });
+export type BookingInput = z.infer<typeof Booking>;
 
-/** Saves a booking and refuses a day that is already full, blacked out, or not a hosting weekday. */
-export async function saveBooking(input: z.infer<typeof Booking>): Promise<ActionResult> {
+export type SaveBookingResult = { ok: true; id: string } | { ok: false; error: string; warning?: boolean };
+
+const dowOf = (iso: string) => ((new Date(`${iso}T12:00:00Z`).getUTCDay() + 6) % 7) + 1; // 1 = Monday
+
+/**
+ * Saves a tasting. Day-full / blocked / non-hosting-day come back as a
+ * warning the person can override (ad-hoc tastings happen), everything else is
+ * a hard error. A confirmed tasting that starts within 24 hours tells the
+ * presenter and the kitchen straight away; the evening-before job covers the rest.
+ */
+export async function saveBooking(input: BookingInput): Promise<SaveBookingResult> {
   const parsed = Booking.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Neveljaven vnos." };
-  if (isDemoMode) return { ok: true };
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true, id: "demo" };
   const staff = await guard();
   if (!staff) return { ok: false, error: "Ni dostopa." };
   const b = parsed.data;
+  if (b.endTime && b.endTime <= b.startTime) return { ok: false, error: "Konec mora biti po začetku." };
   const supabase = await createClient();
 
-  if (b.status !== "cancelled") {
-    const { data: settings } = await supabase.from("drustvo_settings").select("max_groups_per_day,hosting_weekdays,blackout_dates").eq("id", 1).single();
-    if (settings) {
-      const dow = ((new Date(`${b.visitDate}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
-      if (!(settings.hosting_weekdays as number[]).includes(dow)) return { ok: false, error: "Ta dan v tednu ni na seznamu dni za skupine (Nastavitve)." };
-      if ((settings.blackout_dates as string[]).includes(b.visitDate)) return { ok: false, error: "Ta datum je blokiran (Nastavitve)." };
+  if (b.status !== "cancelled" && !b.force) {
+    const { data: st } = await supabase.from("drustvo_settings").select("max_groups_per_day,hosting_weekdays,blackout_dates").eq("id", 1).single();
+    if (st) {
+      if ((st.blackout_dates as string[]).includes(b.visitDate)) return { ok: false, warning: true, error: "Ta datum je med blokiranimi (Nastavitve)." };
+      if (!(st.hosting_weekdays as number[]).includes(dowOf(b.visitDate))) return { ok: false, warning: true, error: "Ta dan v tednu ni na seznamu dni za skupine (Nastavitve)." };
       let q = supabase.from("group_booking").select("id", { count: "exact", head: true }).eq("visit_date", b.visitDate).neq("status", "cancelled");
       if (b.id) q = q.neq("id", b.id);
       const { count } = await q;
-      if ((count ?? 0) >= (settings.max_groups_per_day as number)) return { ok: false, error: "Ta dan je že poln (največ skupin na dan v Nastavitvah)." };
+      if ((count ?? 0) >= (st.max_groups_per_day as number)) return { ok: false, warning: true, error: "Ta dan je že poln (največ skupin na dan v Nastavitvah)." };
     }
   }
 
   const row = {
-    drustvo_id: b.drustvoId,
+    drustvo_id: b.drustvoId ?? null,
+    group_name: b.groupName,
+    source: b.webReservationId ? "web" : b.drustvoId ? "drustvo" : "manual",
     visit_date: b.visitDate,
-    arrival_time: b.arrivalTime ?? null,
+    arrival_time: b.startTime,
+    end_time: b.endTime ?? null,
     people_planned: b.peoplePlanned ?? null,
     people_actual: b.peopleActual ?? null,
-    package: b.package?.trim() || null,
-    price_per_person: b.pricePerPerson ?? null,
+    wines: b.wines,
+    food: b.food,
     food_notes: b.foodNotes?.trim() || null,
+    contact_name: b.contactName?.trim() || null,
+    contact_phone: b.contactPhone?.trim() || null,
+    contact_email: b.contactEmail?.trim() || null,
+    presenter_id: b.presenterId ?? null,
+    kitchen_id: b.food ? (b.kitchenId ?? null) : null,
     status: b.status,
     wine_sales_eur: b.wineSalesEur ?? null,
     notes: b.notes?.trim() || null,
+    web_reservation_id: b.webReservationId ?? null,
   };
-  const { error } = b.id
-    ? await supabase.from("group_booking").update(row).eq("id", b.id)
-    : await supabase.from("group_booking").insert({ ...row, created_by: staff.id });
-  if (error) return { ok: false, error: error.message };
 
-  // keep the društvo's stage in step with its booking
-  const stage = b.status === "visited" ? "visited" : b.status === "confirmed" || b.status === "tentative" ? "booked" : null;
-  if (stage) await supabase.from("drustvo").update({ stage }).eq("id", b.drustvoId).not("stage", "in", "(unsubscribed,bounced)");
+  let id = b.id;
+  if (id) {
+    const { error } = await supabase.from("group_booking").update(row).eq("id", id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { data, error } = await supabase.from("group_booking").insert({ ...row, created_by: staff.id }).select("id").single();
+    if (error || !data) return { ok: false, error: error?.message ?? "Shranjevanje ni uspelo." };
+    id = data.id as string;
+  }
+
+  if (b.drustvoId) {
+    const stage = b.status === "visited" ? "visited" : b.status === "confirmed" || b.status === "tentative" ? "booked" : null;
+    if (stage) await supabase.from("drustvo").update({ stage }).eq("id", b.drustvoId).not("stage", "in", "(unsubscribed,bounced)");
+  }
+  if (b.webReservationId) {
+    await supabase.from("web_reservation").update({ status: b.status === "cancelled" ? "declined" : "confirmed" }).eq("id", b.webReservationId);
+  }
+
+  // starts within 24 hours: do not wait for the evening-before job
+  if (b.status === "confirmed" && (b.presenterId || (b.food && b.kitchenId))) {
+    const start = ljubljanaInstant(b.visitDate, b.startTime);
+    const hours = (start.getTime() - Date.now()) / 3600_000;
+    if (hours > 0 && hours <= 24) await notifyBooking(supabase, id!);
+  }
+  refresh();
+  return { ok: true, id: id! };
+}
+
+export async function setBookingStatus(id: string, status: "tentative" | "confirmed" | "visited" | "cancelled"): Promise<ActionResult> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("group_booking").update({ status }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+/** "Obvesti zdaj": sends the presenter / kitchen messages now (again, if `force`). */
+export async function notifyBookingNow(id: string): Promise<{ ok: true; result: NotifyResult } | { ok: false; error: string }> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: false, error: "Demo." };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const result = await notifyBooking(supabase, id, { force: true });
+  refresh();
+  return { ok: true, result };
+}
+
+/** The person sent the text by hand (wa.me / sms link): remember that it went out. */
+export async function markNotified(id: string, who: "presenter" | "kitchen"): Promise<ActionResult> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("group_booking")
+    .update({ [who === "presenter" ? "presenter_notified_at" : "kitchen_notified_at"]: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------- people (presenters, kitchen)
+
+const PersonInput = z.object({
+  id: Id.optional(),
+  name: z.string().trim().min(1, "Vpiši ime.").max(120),
+  phone: z.string().max(40).nullable().optional(),
+  role: z.enum(["presenter", "kitchen", "both"]),
+  channel: z.enum(["sms", "whatsapp"]),
+  isDefaultKitchen: z.boolean(),
+});
+
+export async function savePerson(input: z.infer<typeof PersonInput>): Promise<ActionResult> {
+  const parsed = PersonInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const p = parsed.data;
+  if (p.phone && !normalizePhone(p.phone)) return { ok: false, error: "Telefonska številka ni veljavna (npr. 041 123 456)." };
+  const supabase = await createClient();
+  const isKitchen = p.role !== "presenter";
+  if (p.isDefaultKitchen && isKitchen) await supabase.from("degustacija_person").update({ is_default_kitchen: false }).eq("is_default_kitchen", true);
+  const row = {
+    name: p.name,
+    phone: p.phone?.trim() || null,
+    role: p.role,
+    channel: p.channel,
+    is_default_kitchen: p.isDefaultKitchen && isKitchen,
+  };
+  const { error } = p.id
+    ? await supabase.from("degustacija_person").update(row).eq("id", p.id)
+    : await supabase.from("degustacija_person").insert(row);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/degustacije/nastavitve");
+  revalidatePath("/degustacije/nova");
+  return { ok: true };
+}
+
+export async function deletePerson(id: string): Promise<ActionResult> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("degustacija_person").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/degustacije/nastavitve");
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------- website reservations
+
+export async function setWebStatus(id: string, status: "declined" | "dismissed"): Promise<ActionResult> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("web_reservation").update({ status }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+/** Sends the person's reply to the customer from the website mailbox (SMTP). */
+export async function sendWebReply(id: string, subject: string, body: string): Promise<ActionResult> {
+  if (!Id.safeParse(id).success || !body.trim() || body.length > 5000) return { ok: false, error: "Napiši besedilo odgovora." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  if (!degustacijeMailConfigured()) return { ok: false, error: "Pošiljanje iz nabiralnika za degustacije še ni nastavljeno (DEGUSTACIJE_SMTP_*). Odgovori iz e-pošte." };
+  const supabase = await createClient();
+  const { data: w } = await supabase.from("web_reservation").select("id,from_email,subject,message_id,reply_sent_at").eq("id", id).maybeSingle();
+  if (!w?.from_email) return { ok: false, error: "Pošiljatelj nima e-naslova." };
+  const r = await sendDegustacijeMail({
+    to: w.from_email as string,
+    subject: subject.trim() || `Re: ${(w.subject as string | null) ?? "Rezervacija degustacije"}`,
+    text: body,
+    inReplyTo: (w.message_id as string).startsWith("<") ? (w.message_id as string) : undefined,
+  });
+  if (!r.ok) return { ok: false, error: `Pošiljanje ni uspelo: ${r.error}` };
+  await supabase.from("web_reservation").update({ reply_sent_at: new Date().toISOString() }).eq("id", id);
   refresh();
   return { ok: true };
 }
@@ -237,7 +407,7 @@ export async function saveSettings(input: z.infer<typeof Settings>): Promise<Act
     })
     .eq("id", 1);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/drustva/nastavitve");
+  revalidatePath("/degustacije/nastavitve");
   return { ok: true };
 }
 
@@ -360,4 +530,16 @@ export async function retryTriage(taskId: string): Promise<ActionResult> {
   const r = await triageTask(supabase, taskId);
   refresh();
   return r.status === "awaiting_decision" ? { ok: true } : { ok: false, error: r.error ?? "Povzetek ni uspel." };
+}
+
+/** Run the AI reading of a website request again (key was missing, AI was down). */
+export async function retryWebParse(id: string): Promise<ActionResult> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  if (!process.env.ANTHROPIC_API_KEY) return { ok: false, error: "Umetna inteligenca še ni nastavljena (ANTHROPIC_API_KEY)." };
+  const supabase = await createClient();
+  const r = await parseWebReservation(supabase, id);
+  refresh();
+  return r.status === "parsed" ? { ok: true } : { ok: false, error: r.error ?? "Branje ni uspelo." };
 }

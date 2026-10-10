@@ -92,3 +92,9 @@ emits the import payload. Used with TSmedia's permission (confirmed by the
 owner, 2026-10-09) — do not run it for other purposes without asking them again.
 Rows matched to an existing venue only add a phone number; new ones get
 `source = 'itis'` and `location_status = 'unverified'` when only the town was found.
+
+## degustacije-gmail-forwarder.gs
+
+Google Apps Script for the tastings mailbox: forwards every new e-mail (the
+website reservation form lands there) to `/api/degustacije/inbound`. Setup
+steps are at the top of the file. Needs `DEGUSTACIJE_INBOUND_SECRET` in Vercel.

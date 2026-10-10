@@ -54,9 +54,9 @@ export async function notifyNewReply(
   const who = d?.name ?? m?.from_email ?? "Neznan pošiljatelj";
   const text = (task.summary as string | null) ?? m?.body_text?.replace(/\s+/g, " ").trim() ?? m?.subject ?? "Nov odgovor";
   await pushToDrustvaStaff(admin, {
-    title: `Društva · nov odgovor · ${who}`,
+    title: `Degustacije · nov odgovor · ${who}`,
     body: clip(text, 120),
-    url: "/drustva",
+    url: "/degustacije",
     tag: `drustvo-reply-${taskId}`,
   });
 }

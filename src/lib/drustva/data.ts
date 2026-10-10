@@ -1,8 +1,9 @@
 import "server-only";
 import { isDemoMode } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
+import { mapBooking } from "@/lib/degustacije/map";
 import type {
-  BookingStatus, Drustvo, DrustvoMessage, DrustvoStage, DrustvoTier, DrustvaSettings, GroupBooking, ReplyTask,
+  BookingStatus, DegustacijaPerson, Drustvo, DrustvoMessage, DrustvoStage, DrustvoTier, DrustvaSettings, GroupBooking, ReplyTask, WebReservation,
 } from "@/lib/types";
 
 type Row = Record<string, unknown>;
@@ -127,32 +128,90 @@ export async function getOpenReplyTasks(): Promise<ReplyTask[]> {
     .sort((a, b) => rank(a.urgency) - rank(b.urgency) || b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function getBookings(from: string): Promise<GroupBooking[]> {
+/** Bookings between two dates (inclusive), cancelled ones included so the calendar can offer them. */
+export async function getBookingsBetween(from: string, to: string): Promise<GroupBooking[]> {
   if (isDemoMode) return [];
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("group_booking")
-    .select("id,drustvo_id,visit_date,arrival_time,people_planned,people_actual,package,price_per_person,food_notes,status,wine_sales_eur,order_id,notes,drustvo(name)")
+    .select(
+      "id,drustvo_id,group_name,source,visit_date,arrival_time,end_time,people_planned,people_actual,wines,food,food_notes,contact_name,contact_phone,contact_email,presenter_id,kitchen_id,presenter_notified_at,kitchen_notified_at,status,wine_sales_eur,notes,web_reservation_id,drustvo(name)",
+    )
     .gte("visit_date", from)
+    .lte("visit_date", to)
     .order("visit_date")
     .order("arrival_time");
   if (error) throw error;
-  return (data ?? []).map((b) => ({
-    id: b.id as string,
-    drustvoId: b.drustvo_id as string,
-    drustvoName: (b.drustvo as unknown as { name: string } | null)?.name ?? "?",
-    visitDate: b.visit_date as string,
-    arrivalTime: s(b.arrival_time)?.slice(0, 5) ?? null,
-    peoplePlanned: n(b.people_planned),
-    peopleActual: n(b.people_actual),
-    package: s(b.package),
-    pricePerPerson: n(b.price_per_person),
-    foodNotes: s(b.food_notes),
-    status: b.status as BookingStatus,
-    wineSalesEur: n(b.wine_sales_eur),
-    orderId: s(b.order_id),
-    notes: s(b.notes),
+  return (data ?? []).map((b) => mapBooking(b as Row));
+}
+
+export async function getPersons(): Promise<DegustacijaPerson[]> {
+  if (isDemoMode) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("degustacija_person")
+    .select("id,name,phone,role,channel,is_default_kitchen,active")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    name: p.name as string,
+    phone: s(p.phone),
+    role: p.role as DegustacijaPerson["role"],
+    channel: p.channel as DegustacijaPerson["channel"],
+    isDefaultKitchen: Boolean(p.is_default_kitchen),
+    active: p.active !== false,
   }));
+}
+
+/** Website reservation e-mails still waiting for a decision. */
+export async function getOpenWebReservations(): Promise<WebReservation[]> {
+  if (isDemoMode) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("web_reservation")
+    .select("id,status,from_email,from_name,subject,body_text,received_at,summary,parsed,reply_draft,error")
+    .in("status", ["new", "parsed", "parse_failed"])
+    .order("received_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map((w) => {
+    const p = w.parsed as Row | null;
+    return {
+      id: w.id as string,
+      status: w.status as WebReservation["status"],
+      fromEmail: s(w.from_email),
+      fromName: s(w.from_name),
+      subject: s(w.subject),
+      body: s(w.body_text),
+      receivedAt: w.received_at as string,
+      summary: s(w.summary),
+      parsed: p
+        ? {
+            isReservation: p.is_reservation !== false,
+            date: s(p.date),
+            time: s(p.time),
+            people: n(p.people),
+            wines: s(p.wines),
+            food: p.food === null || p.food === undefined ? null : Boolean(p.food),
+            contactName: s(p.contact_name),
+            phone: s(p.phone),
+            groupName: s(p.group_name),
+            notes: s(p.notes),
+          }
+        : null,
+      replyDraft: s(w.reply_draft),
+      error: s(w.error),
+    } satisfies WebReservation;
+  });
+}
+
+/** One društvo's name and contact, to prefill a booking made after a successful call. */
+export async function getDrustvoBasics(id: string): Promise<{ id: string; name: string; phone: string | null; email: string | null; contactName: string | null } | null> {
+  if (isDemoMode) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("drustvo").select("id,name,phone,email,contact_name").eq("id", id).maybeSingle();
+  return data ? { id: data.id as string, name: data.name as string, phone: s(data.phone), email: s(data.email), contactName: s(data.contact_name) } : null;
 }
 
 export async function getDrustvaSettings(): Promise<DrustvaSettings> {
@@ -176,4 +235,12 @@ export async function getStaffChoices(): Promise<{ id: string; name: string; rol
   const supabase = await createClient();
   const { data } = await supabase.from("staff").select("id,full_name,role").eq("active", true).order("full_name");
   return (data ?? []).map((x) => ({ id: x.id as string, name: x.full_name as string, role: x.role as string }));
+}
+
+/** Wine names offered as quick picks when composing a tasting. */
+export async function getTastingWines(): Promise<string[]> {
+  if (isDemoMode) return [];
+  const supabase = await createClient();
+  const { data } = await supabase.from("product").select("name").eq("active", true).order("name");
+  return (data ?? []).map((p) => p.name as string);
 }

@@ -3,13 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Mail, Hourglass, Printer } from "lucide-react";
+import { Mail, Hourglass, Printer, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { dateShort, narocila } from "@/lib/format";
 import type { DeliveryDay, DayOrder } from "@/lib/delivery-days";
-import { sendToPrint } from "./actions";
+import { dismissCancelled, sendToPrint } from "./actions";
 
 function addDays(iso: string, n: number): string {
   const d = new Date(`${iso}T12:00:00`);
@@ -46,6 +46,14 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
   async function send(key: string, day: string, orderIds?: string[]) {
     setBusy(key);
     const res = await sendToPrint({ day, orderIds });
+    setBusy(null);
+    if (!res.ok) return toast.error(res.error);
+    router.refresh();
+  }
+
+  async function dismiss(orderId: string) {
+    setBusy(orderId);
+    const res = await dismissCancelled(orderId);
     setBusy(null);
     if (!res.ok) return toast.error(res.error);
     router.refresh();
@@ -130,6 +138,13 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
                       </li>
                     ))}
                   </ul>
+                  {o.cancelled && (
+                    <div className="mt-2.5">
+                      <Button size="sm" variant="secondary" loading={busy === o.orderId} onClick={() => void dismiss(o.orderId)}>
+                        <X className="size-3.5" /> Odstrani
+                      </Button>
+                    </div>
+                  )}
                   {!o.cancelled && (
                     <div className="mt-2.5">
                       <Button

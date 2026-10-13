@@ -83,7 +83,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,customer_id,delivery_date,driver_note,confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
+        "id,order_number,status,customer_id,delivery_date,driver_note,confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
       )
       .gte("delivery_date", from)
       .lte("delivery_date", to)
@@ -109,6 +109,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     cancelled_at: string | null;
     print_sent_at: string | null;
     print_hash: string | null;
+    print_dismissed_at: string | null;
     customer: { name: string; address: string | null; city: string | null; vat_id: string | null; delivery_notes: string | null } | null;
     order_line: {
       product_id: string;
@@ -126,6 +127,8 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
   for (const o of (ordersRes.data ?? []) as unknown as OrderRow[]) {
     const day = confirmedDays.get(o.delivery_date);
     const cancelled = o.status === "cancelled";
+    // Cancelled orders the office has cleared from the list stay in the database but not on screen.
+    if (cancelled && o.print_dismissed_at) continue;
     // A cancelled order only matters if the driver or the printer already saw it.
     if (cancelled && !(o.print_sent_at || (day && o.cancelled_at && o.cancelled_at > day.confirmed_at))) continue;
 

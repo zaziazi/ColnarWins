@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, CheckCheck, Pencil, Undo2 } from "lucide-react";
+import { Check, CheckCheck, Pencil, Undo2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Callout } from "@/components/ui/callout";
 import { cn } from "@/lib/utils";
 import { dateShort } from "@/lib/format";
 import type { DeliveryDay } from "@/lib/delivery-days";
+import { dismissCancelled } from "@/app/tisk/actions";
 import { setDelivered } from "./actions";
 
 /**
@@ -166,6 +167,22 @@ export function DeliveryList({ day: initial, date }: { day: DeliveryDay | null; 
                   </li>
                 ))}
               </ul>
+
+              {order.cancelled && (
+                <div className="mt-2.5">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      const res = await dismissCancelled(order.orderId);
+                      if (!res.ok) return toast.error(res.error);
+                      router.refresh();
+                    }}
+                  >
+                    <X className="size-3.5" /> Odstrani
+                  </Button>
+                </div>
+              )}
 
               {!locked && order.lines.length > 0 && (
                 <div className="mt-2.5 flex items-center gap-2">

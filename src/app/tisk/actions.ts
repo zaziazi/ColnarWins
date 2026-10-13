@@ -54,3 +54,25 @@ export async function sendToPrint(input: z.infer<typeof Input>): Promise<PrintRe
   revalidatePath("/dostava");
   return { ok: true, sent: orders.length, to };
 }
+
+/**
+ * Clears a cancelled order from Tisk and Dostava once the office has seen
+ * it. Only cancelled orders can be cleared; the order itself is kept.
+ */
+export async function dismissCancelled(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = z.string().min(1).safeParse(orderId);
+  if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
+  if (isDemoMode) return { ok: true };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ print_dismissed_at: new Date().toISOString() })
+    .eq("id", parsed.data)
+    .eq("status", "cancelled");
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/tisk");
+  revalidatePath("/dostava");
+  return { ok: true };
+}

@@ -92,3 +92,68 @@ export async function unlinkLogin(staffId: string): Promise<ActionResult> {
   revalidatePath("/admin");
   return { ok: true };
 }
+
+const Username = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9._-]{3,30}$/, "Uporabniško ime: 3 do 30 znakov, majhne črke, številke, pika ali pomišljaj.");
+const Password = z.string().min(8, "Geslo naj ima vsaj 8 znakov.").max(72);
+
+/** Gives an existing team member a username + temporary password (they must change it at first sign-in). */
+export async function createLogin(staffId: string, username: string, password: string): Promise<ActionResult> {
+  const u = Username.safeParse(username);
+  const p = Password.safeParse(password);
+  if (!z.string().uuid().safeParse(staffId).success) return { ok: false, error: "Neveljaven vnos." };
+  if (!u.success) return { ok: false, error: u.error.issues[0].message };
+  if (!p.success) return { ok: false, error: p.error.issues[0].message };
+  if (isDemoMode) return { ok: true };
+  if (!(await adminOnly())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_create_login", { p_staff: staffId, p_username: u.data, p_password: p.data });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Sets a new temporary password for someone who forgot theirs; they change it again at next sign-in. */
+export async function resetPassword(staffId: string, password: string): Promise<ActionResult> {
+  const p = Password.safeParse(password);
+  if (!z.string().uuid().safeParse(staffId).success) return { ok: false, error: "Neveljaven vnos." };
+  if (!p.success) return { ok: false, error: p.error.issues[0].message };
+  if (isDemoMode) return { ok: true };
+  if (!(await adminOnly())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_reset_password", { p_staff: staffId, p_password: p.data });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+const NewUser = NewStaff.extend({ username: Username, password: Password });
+
+/** New team member with a login in one step. If the login fails, the new row is removed again. */
+export async function addStaffWithLogin(input: z.infer<typeof NewUser>): Promise<ActionResult> {
+  const parsed = NewUser.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await adminOnly())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { data: row, error } = await supabase
+    .from("staff")
+    .insert({ full_name: parsed.data.fullName, role: parsed.data.role, phone: parsed.data.phone?.trim() || null, active: true })
+    .select("id")
+    .single();
+  if (error || !row) return { ok: false, error: error?.message ?? "Dodajanje ni uspelo." };
+  const { error: loginError } = await supabase.rpc("admin_create_login", {
+    p_staff: row.id,
+    p_username: parsed.data.username,
+    p_password: parsed.data.password,
+  });
+  if (loginError) {
+    await supabase.from("staff").delete().eq("id", row.id);
+    return { ok: false, error: loginError.message };
+  }
+  revalidatePath("/admin");
+  return { ok: true };
+}

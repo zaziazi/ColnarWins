@@ -19,11 +19,13 @@ export function LoginForm() {
     setPending(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // A bare username (no @) is mapped to its internal address; real e-mail logins still work.
+    const login = email.includes("@") ? email.trim() : `${email.trim().toLowerCase()}@colnix.invalid`;
+    const { error } = await supabase.auth.signInWithPassword({ email: login, password });
 
     setPending(false);
     if (error) {
-      toast.error("Napačen e-naslov ali geslo.");
+      toast.error("Napačno uporabniško ime ali geslo.");
       return;
     }
     router.push("/pisarna");
@@ -33,14 +35,16 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
-        <FieldLabel>E-naslov</FieldLabel>
+        <FieldLabel>Uporabniško ime</FieldLabel>
         <Input
-          type="email"
-          autoComplete="email"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="ime@colnix.si"
+          placeholder="npr. janez"
         />
       </div>
       <div>

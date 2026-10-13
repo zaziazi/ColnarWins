@@ -10,13 +10,14 @@ export interface StaffMember {
   active: boolean;
   phone: string | null;
   email: string | null;
+  username: string | null;
   hasLogin: boolean;
 }
 
 export async function getStaffMembers(): Promise<StaffMember[]> {
   if (isDemoMode) return [];
   const supabase = await createClient();
-  const { data, error } = await supabase.from("staff").select("id,full_name,role,active,phone,email,auth_user_id").order("full_name");
+  const { data, error } = await supabase.from("staff").select("id,full_name,role,active,phone,email,username,auth_user_id").order("full_name");
   if (error) throw error;
   return (data ?? []).map((s) => ({
     id: s.id as string,
@@ -25,6 +26,7 @@ export async function getStaffMembers(): Promise<StaffMember[]> {
     active: s.active !== false,
     phone: (s.phone as string | null) ?? null,
     email: (s.email as string | null) ?? null,
+    username: (s.username as string | null) ?? null,
     hasLogin: Boolean(s.auth_user_id),
   }));
 }

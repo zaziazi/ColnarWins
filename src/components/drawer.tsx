@@ -95,6 +95,11 @@ export function Drawer({
             );
           })}
         </nav>
+        <div className="border-t border-line px-4 py-3">
+          <Link href="/spremeni-geslo" onClick={onClose} className="text-[13px] font-semibold text-ink-muted hover:text-ink">
+            Spremeni geslo
+          </Link>
+        </div>
       </div>
     </>
   );

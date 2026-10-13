@@ -43,6 +43,21 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === "/manifest.webmanifest" ||
     request.nextUrl.pathname.startsWith("/api/cron/"); // guarded by CRON_SECRET, not a session
 
+  // A login created by the admin carries a temporary password: send it to the change-password
+  // page until it has been replaced. Service-worker scripts and API routes are left alone.
+  const path = request.nextUrl.pathname;
+  if (
+    user?.user_metadata?.must_change_password === true &&
+    !path.startsWith("/spremeni-geslo") &&
+    !path.startsWith("/api/") &&
+    !path.endsWith("-sw.js")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/spremeni-geslo";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/prijava";

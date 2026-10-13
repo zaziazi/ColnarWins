@@ -9,15 +9,22 @@ import { Card, FieldLabel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { StaffMember } from "@/lib/admin-data";
 import type { StaffRole } from "@/lib/types";
-import { addStaff, linkLogin, unlinkLogin, updateStaff } from "./actions";
+import { addStaff, addStaffWithLogin, createLogin, linkLogin, resetPassword, unlinkLogin, updateStaff } from "./actions";
 
 export const ROLE_INFO: Record<StaffRole, { label: string; sees: string }> = {
   manager: { label: "Vodja", sees: "Vse: pregled, naročila, prodaja, degustacije, klet, zaloge, finance in admin." },
-  office: { label: "Pisarna", sees: "Naročila (vnos, potrjevanje, načrt dostav)." },
-  driver: { label: "Voznik", sees: "Naročila in svoja pot za danes." },
+  office: { label: "Pisarna", sees: "Naročila: vnos, potrjevanje dni dostave, tisk in dostava." },
+  driver: { label: "Voznik", sees: "Naročila: današnja dostava (prečrtavanje dostavljenega), tisk in vnos." },
   sales: { label: "Prodaja", sees: "Naročila in Prodaja (zemljevid, načrt, na terenu, vino v avtu)." },
   events: { label: "Degustacije", sees: "Naročila in Degustacije (odgovori, koledar, nova degustacija)." },
 };
+
+/** Readable temporary password (no look-alike characters). */
+function makePassword(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint32Array(10));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
 
 const selectCls = "h-10 rounded-[var(--radius-control)] border border-line bg-surface px-2.5 text-[13.5px]";
 
@@ -43,8 +50,8 @@ export function StaffRoles({ members, meId }: { members: StaffMember[]; meId: st
 
       <AddMember />
       <p className="text-[12px] text-ink-subtle leading-relaxed">
-        Sodelavec brez prijave (npr. voznik, ki mu samo dodeljuješ delo) se doda tukaj. Če naj se prijavlja, ustvari prijavo v Supabase
-        (Authentication → Users) in jo tukaj poveži z »Poveži prijavo«.
+        Prijava je uporabniško ime in začasno geslo, ki ga izbereš tukaj. Ob prvi prijavi mora sodelavec geslo zamenjati. Sodelavec
+        brez prijave (npr. voznik, ki mu samo dodeljuješ delo) se doda brez uporabniškega imena.
       </p>
     </div>
   );
@@ -56,6 +63,9 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
   const [busy, setBusy] = React.useState(false);
   const [linking, setLinking] = React.useState(false);
   const [loginEmail, setLoginEmail] = React.useState("");
+  const [panel, setPanel] = React.useState<"create" | "reset" | null>(null);
+  const [username, setUsername] = React.useState("");
+  const [tempPassword, setTempPassword] = React.useState("");
 
   async function save(patch: Parameters<typeof updateStaff>[1], ok = "Shranjeno") {
     setBusy(true);
@@ -77,7 +87,7 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
           <div className="font-bold text-[15px] truncate">
             {m.fullName} {isMe && <span className="text-[11px] font-bold text-wine">· ti</span>}
           </div>
-          <div className="text-[12px] text-ink-subtle truncate">{m.email ?? "brez e-pošte"}</div>
+          <div className="text-[12px] text-ink-subtle truncate">{m.username ? `uporabniško ime: ${m.username}` : (m.email ?? "brez prijave")}</div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <Badge tone={m.hasLogin ? "good" : "neutral"}>{m.hasLogin ? "Ima prijavo" : "Brez prijave"}</Badge>
@@ -119,9 +129,36 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save({ active: !m.active }, m.active ? "Deaktivirano" : "Aktivirano")}>
           {m.active ? "Deaktiviraj" : "Aktiviraj"}
         </Button>
+        {!m.hasLogin && panel !== "create" && (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => {
+              setUsername(m.fullName.split(" ")[0].toLowerCase().replace(/[^a-z0-9]/g, ""));
+              setTempPassword(makePassword());
+              setPanel("create");
+            }}
+          >
+            Ustvari prijavo
+          </Button>
+        )}
+        {m.hasLogin && !isMe && panel !== "reset" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => {
+              setTempPassword(makePassword());
+              setPanel("reset");
+            }}
+          >
+            Ponastavi geslo
+          </Button>
+        )}
         {!m.hasLogin && !linking && (
-          <Button size="sm" variant="secondary" disabled={busy} onClick={() => setLinking(true)}>
-            Poveži prijavo
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setLinking(true)}>
+            Poveži obstoječo e-pošto
           </Button>
         )}
         {m.hasLogin && !isMe && (
@@ -143,6 +180,46 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
           </Button>
         )}
       </div>
+      {panel && (
+        <div className="mt-2 rounded-[12px] border border-line p-3 space-y-2">
+          {panel === "create" && (
+            <>
+              <FieldLabel className="mb-0">Uporabniško ime</FieldLabel>
+              <Input value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="none" placeholder="npr. janez" />
+            </>
+          )}
+          <FieldLabel className="mb-0">Začasno geslo</FieldLabel>
+          <div className="flex gap-2">
+            <Input value={tempPassword} onChange={(e) => setTempPassword(e.target.value)} autoCapitalize="none" autoCorrect="off" />
+            <Button size="sm" variant="secondary" className="shrink-0 h-11" onClick={() => setTempPassword(makePassword())}>
+              Novo
+            </Button>
+          </div>
+          <p className="text-[12px] text-ink-muted leading-relaxed">
+            Sporoči mu uporabniško ime in to geslo. Ob prvi prijavi bo moral izbrati svoje geslo.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              loading={busy}
+              onClick={async () => {
+                setBusy(true);
+                const r = panel === "create" ? await createLogin(m.id, username, tempPassword) : await resetPassword(m.id, tempPassword);
+                setBusy(false);
+                if (!r.ok) return void toast.error(r.error);
+                toast.success(panel === "create" ? "Prijava ustvarjena" : "Geslo ponastavljeno");
+                setPanel(null);
+                router.refresh();
+              }}
+            >
+              {panel === "create" ? "Ustvari" : "Ponastavi"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPanel(null)}>
+              Prekliči
+            </Button>
+          </div>
+        </div>
+      )}
       {linking && (
         <div className="mt-2 rounded-[12px] border border-line p-3 space-y-2">
           <p className="text-[12px] text-ink-muted leading-relaxed">E-pošta prijave, ki že obstaja v Supabase (Authentication → Users).</p>
@@ -179,6 +256,8 @@ function AddMember() {
   const [name, setName] = React.useState("");
   const [role, setRole] = React.useState<StaffRole>("driver");
   const [phone, setPhone] = React.useState("");
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   if (!open) {
@@ -200,18 +279,32 @@ function AddMember() {
           </option>
         ))}
       </select>
+      <FieldLabel className="mb-0 mt-1">Prijava (neobvezno)</FieldLabel>
+      <Input value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="none" placeholder="Uporabniško ime, npr. janez" />
+      {username.trim() && (
+        <div className="flex gap-2">
+          <Input value={password} onChange={(e) => setPassword(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder="Začasno geslo" />
+          <Button size="sm" variant="secondary" className="shrink-0 h-11" onClick={() => setPassword(makePassword())}>
+            Ustvari
+          </Button>
+        </div>
+      )}
       <div className="flex gap-2">
         <Button
           size="sm"
           loading={busy}
           onClick={async () => {
             setBusy(true);
-            const r = await addStaff({ fullName: name, role, phone: phone || null });
+            const r = username.trim()
+              ? await addStaffWithLogin({ fullName: name, role, phone: phone || null, username, password })
+              : await addStaff({ fullName: name, role, phone: phone || null });
             setBusy(false);
             if (!r.ok) return void toast.error(r.error);
             toast.success("Dodano");
             setName("");
             setPhone("");
+            setUsername("");
+            setPassword("");
             setOpen(false);
             router.refresh();
           }}

@@ -11,6 +11,8 @@ const OrderInput = z.object({
   note: z.string().max(500).optional().default(""),
   /** Optional: who will deliver it. */
   driverId: z.string().min(1).nullable().optional(),
+  /** Someone not on the driver list, typed by hand. */
+  driverName: z.string().trim().max(80).nullable().optional(),
   holdForReview: z.boolean().default(false),
   lines: z
     .array(
@@ -42,7 +44,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
   if (!parsed.success) {
     return { ok: false, error: "Naročilo ni veljavno." };
   }
-  const { customerId, deliveryDate, note, lines, holdForReview, driverId } = parsed.data;
+  const { customerId, deliveryDate, note, lines, holdForReview, driverId, driverName } = parsed.data;
 
   if (isDemoMode) {
     // Demo mode has no database. Pretend it worked so the flow stays clickable.
@@ -74,6 +76,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
       delivery_date: deliveryDate,
       driver_note: note || null,
       assigned_driver_id: driverId ?? null,
+      assigned_driver_name: driverId ? null : driverName || null,
       created_by: staff?.id ?? null,
       confirmed_by: status === "confirmed" ? (staff?.id ?? null) : null,
       confirmed_at: status === "confirmed" ? new Date().toISOString() : null,

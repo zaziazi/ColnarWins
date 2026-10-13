@@ -124,6 +124,16 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
         </div>
       </div>
       <p className="text-[12px] text-ink-subtle mt-2">{ROLE_INFO[m.role].sees}</p>
+      <label className="mt-2 flex items-center gap-2 text-[13px] font-semibold">
+        <input
+          type="checkbox"
+          className="size-4 accent-[var(--color-wine)]"
+          checked={m.delivers}
+          disabled={busy}
+          onChange={(e) => void save({ delivers: e.target.checked }, e.target.checked ? "Dostavlja" : "Ne dostavlja več")}
+        />
+        Dostavlja (na seznamu voznikov, dobi obvestilo ob 17:00)
+      </label>
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save({ active: !m.active }, m.active ? "Deaktivirano" : "Aktivirano")}>

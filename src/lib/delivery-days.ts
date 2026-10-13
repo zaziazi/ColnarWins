@@ -20,6 +20,8 @@ export interface DayOrder {
   vatId: string | null;
   deliveryNotes: string | null;
   driverNote: string | null;
+  /** Who delivers: the picked driver, or a name typed by hand. */
+  driverName: string | null;
   cancelled: boolean;
   /** Created after the driver confirmed this day. */
   addedAfterConfirm: boolean;
@@ -83,7 +85,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,customer_id,delivery_date,driver_note,confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
+        "id,order_number,status,customer_id,delivery_date,driver_note,assigned_driver_name,driver:staff!sales_order_assigned_driver_id_fkey(full_name),confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
       )
       .gte("delivery_date", from)
       .lte("delivery_date", to)
@@ -104,6 +106,8 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     customer_id: string;
     delivery_date: string;
     driver_note: string | null;
+    assigned_driver_name: string | null;
+    driver: { full_name: string } | null;
     confirmed_at: string | null;
     created_at: string;
     cancelled_at: string | null;
@@ -142,6 +146,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
       vatId: o.customer?.vat_id ?? null,
       deliveryNotes: o.customer?.delivery_notes ?? null,
       driverNote: o.driver_note,
+      driverName: o.driver?.full_name ?? o.assigned_driver_name ?? null,
       cancelled,
       addedAfterConfirm: Boolean(day && (o.confirmed_at ?? o.created_at) > day.confirmed_at),
       printSentAt: o.print_sent_at,

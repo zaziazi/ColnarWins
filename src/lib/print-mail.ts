@@ -44,7 +44,7 @@ export function buildPrintMail(day: string, orders: DayOrder[]): { subject: stri
         `Kupec: ${o.customerName}`,
         addressOf(o) ? `Naslov: ${addressOf(o)}` : "",
         o.vatId ? `Davčna številka: ${o.vatId}` : "",
-        `Dostava: ${when}`,
+        `Dostava: ${when}${o.driverName ? ` · voznik ${o.driverName}` : ""}`,
         o.deliveryNotes ? `Opomba kupca: ${o.deliveryNotes}` : "",
         o.driverNote ? `Opomba: ${o.driverNote}` : "",
       ].filter(Boolean);
@@ -60,7 +60,7 @@ export function buildPrintMail(day: string, orders: DayOrder[]): { subject: stri
         return (
           `<div style="${i < orders.length - 1 ? "page-break-after:always;" : ""}padding:8px 0 24px">` +
           (flag ? `<div style="font-size:13px;font-weight:bold;color:#b00020;margin-bottom:6px">${esc(flag)}</div>` : "") +
-          `<div style="font-size:12px;color:#555">Naročilo #${o.orderNumber} · dostava ${when}</div>` +
+          `<div style="font-size:12px;color:#555">Naročilo #${o.orderNumber} · dostava ${when}${o.driverName ? ` · voznik ${esc(o.driverName)}` : ""}</div>` +
           `<h1 style="font-size:26px;margin:6px 0 2px">${esc(o.customerName)}</h1>` +
           (addressOf(o) ? `<div style="font-size:15px">${esc(addressOf(o))}</div>` : "") +
           (o.vatId ? `<div style="font-size:15px">Davčna številka: ${esc(o.vatId)}</div>` : "") +

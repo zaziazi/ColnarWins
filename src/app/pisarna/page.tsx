@@ -224,9 +224,9 @@ function OrderCard({
           <p className="text-[13px] font-semibold tabular">{eur(order.totalGross)}</p>
           <div className="text-right">
             <FieldLabel className="mb-1">Voznik</FieldLabel>
-            {order.routedDriverName ? (
+            {order.routedDriverName || (order.assignedDriverName && !order.assignedDriverId) ? (
               <p className="text-[12.5px] font-medium text-ink-muted h-7 flex items-center justify-end">
-                {order.routedDriverName}
+                {order.routedDriverName ?? order.assignedDriverName}
               </p>
             ) : (
               <DriverAssign

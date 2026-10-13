@@ -12,7 +12,7 @@ interface OrderRow {
  * stock covers it, and a nudge to confirm the day in Dostava (skipped once
  * the driver has confirmed it). Takes any Supabase client - the cron passes
  * the service-role one; RLS would hide stock from drivers. Every active
- * staff member gets the same message; only those with push on receive it.
+ * staff member marked "Dostavlja" gets the same message; only those with push on receive it.
  */
 export async function buildDriverPlan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,7 +26,7 @@ export async function buildDriverPlan(
       .eq("delivery_date", forDate)
       .in("status", ["confirmed", "planned"]),
     admin.from("delivery_day").select("day").eq("day", forDate),
-    admin.from("staff").select("id").eq("active", true),
+    admin.from("staff").select("id").eq("active", true).eq("delivers", true),
     admin.from("product_stock").select("product_id,quantity_on_hand"),
   ]);
   if (ordersRes.error) throw ordersRes.error;

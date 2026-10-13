@@ -25,6 +25,7 @@ interface EditOrder {
   deliveryDate: string | null;
   note: string;
   driverId: string | null;
+  driverName: string | null;
   lines: StandingOrderLine[];
 }
 
@@ -71,7 +72,9 @@ export function OrderForm({
     editOrder?.deliveryDate ?? deliveryDates[0] ?? "",
   );
   const [note, setNote] = React.useState(editOrder?.note ?? "");
-  const [driverId, setDriverId] = React.useState(editOrder?.driverId ?? "");
+  // "__other" = someone not on the list, typed by hand.
+  const [driverId, setDriverId] = React.useState(editOrder?.driverId ?? (editOrder?.driverName ? "__other" : ""));
+  const [driverName, setDriverName] = React.useState(editOrder?.driverName ?? "");
   const [pending, startTransition] = React.useTransition();
 
   const todayIso = React.useMemo(() => {
@@ -139,7 +142,8 @@ export function OrderForm({
           orderId: editOrder.id,
           deliveryDate,
           note,
-          driverId: driverId || null,
+          driverId: driverId && driverId !== "__other" ? driverId : null,
+          driverName: driverId === "__other" ? driverName.trim() || null : null,
           lines: orderLines,
         });
 
@@ -157,7 +161,8 @@ export function OrderForm({
         customerId,
         deliveryDate,
         note,
-        driverId: driverId || null,
+        driverId: driverId && driverId !== "__other" ? driverId : null,
+        driverName: driverId === "__other" ? driverName.trim() || null : null,
         lines: orderLines,
         holdForReview: blocked,
       });
@@ -366,7 +371,16 @@ export function OrderForm({
                   {d.fullName}
                 </option>
               ))}
+              <option value="__other">Drugo (vpiši ročno)</option>
             </select>
+            {driverId === "__other" && (
+              <Input
+                className="mt-2 max-w-[260px]"
+                value={driverName}
+                onChange={(e) => setDriverName(e.target.value)}
+                placeholder="Kdo bo dostavil?"
+              />
+            )}
           </Card>
 
           {/* -------------------------------------------------- submit */}

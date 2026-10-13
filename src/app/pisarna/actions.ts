@@ -36,7 +36,7 @@ export async function assignDriver(
   const supabase = await createClient();
   const { error } = await supabase
     .from("sales_order")
-    .update({ assigned_driver_id: parsed.data.driverId })
+    .update({ assigned_driver_id: parsed.data.driverId, assigned_driver_name: null })
     .eq("id", parsed.data.orderId);
 
   if (error) return { ok: false, error: error.message };
@@ -150,6 +150,7 @@ const UpdateOrderInput = z.object({
   deliveryDate: z.string().min(1),
   note: z.string().max(500).optional().default(""),
   driverId: z.string().min(1).nullable().optional(),
+  driverName: z.string().trim().max(80).nullable().optional(),
   lines: z
     .array(
       z.object({
@@ -183,7 +184,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
   if (!parsed.success) {
     return { ok: false, error: "Naročilo ni veljavno." };
   }
-  const { orderId, deliveryDate, note, lines, driverId } = parsed.data;
+  const { orderId, deliveryDate, note, lines, driverId, driverName } = parsed.data;
 
   if (isDemoMode) {
     await new Promise((r) => setTimeout(r, 400));
@@ -207,7 +208,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   const { error: updateError } = await supabase
     .from("sales_order")
-    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null })
+    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null, assigned_driver_name: driverId ? null : driverName || null })
     .eq("id", orderId);
 
   if (updateError) return { ok: false, error: updateError.message };

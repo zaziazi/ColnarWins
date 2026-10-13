@@ -66,6 +66,8 @@ export interface OrderListItem {
   createdAt: string;
   createdByName: string | null;
   assignedDriverId: string | null;
+  /** One-off driver typed by hand (when someone not on the list delivers). */
+  assignedDriverName: string | null;
   /** Set on orders that need the office to look at them (e.g. new customer from the field). */
   reviewNote?: string | null;
   /** Set once this order is a stop on a route — the route's driver, read-only. */
@@ -87,6 +89,7 @@ export interface OrderForEdit {
   deliveryDate: string | null;
   note: string;
   driverId: string | null;
+  driverName: string | null;
   lines: StandingOrderLine[];
 }
 

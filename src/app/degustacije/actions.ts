@@ -172,6 +172,9 @@ const Booking = z.object({
   contactEmail: z.string().max(200).nullable().optional(),
   presenterId: Id.nullable().optional(),
   kitchenId: Id.nullable().optional(),
+  /** Someone not on the list (something unusual happened): saved as a one-off person. */
+  presenterManual: z.object({ name: z.string().trim().min(1).max(120), phone: z.string().trim().max(60).nullable().optional() }).nullable().optional(),
+  kitchenManual: z.object({ name: z.string().trim().min(1).max(120), phone: z.string().trim().max(60).nullable().optional() }).nullable().optional(),
   status: z.enum(["tentative", "confirmed", "visited", "cancelled"]),
   wineSalesEur: z.number().min(0).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
@@ -212,6 +215,28 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     }
   }
 
+  // One-off people typed by hand: kept as inactive persons so the day-before message still reaches them.
+  async function oneOff(m: { name: string; phone?: string | null } | null | undefined, role: "presenter" | "kitchen") {
+    if (!m) return null;
+    const { data, error } = await supabase
+      .from("degustacija_person")
+      .insert({ name: m.name, phone: m.phone?.trim() || null, role, channel: "whatsapp", active: false })
+      .select("id")
+      .single();
+    if (error || !data) throw new Error(error?.message ?? "Osebe ni bilo mogoče shraniti.");
+    return data.id as string;
+  }
+  let manualPresenter: string | null = null;
+  let manualKitchen: string | null = null;
+  try {
+    manualPresenter = await oneOff(b.presenterManual, "presenter");
+    manualKitchen = b.food ? await oneOff(b.kitchenManual, "kitchen") : null;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Osebe ni bilo mogoče shraniti." };
+  }
+  const presenterId = manualPresenter ?? b.presenterId ?? null;
+  const kitchenId = manualKitchen ?? b.kitchenId ?? null;
+
   const row = {
     drustvo_id: b.drustvoId ?? null,
     group_name: b.groupName,
@@ -227,8 +252,8 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     contact_name: b.contactName?.trim() || null,
     contact_phone: b.contactPhone?.trim() || null,
     contact_email: b.contactEmail?.trim() || null,
-    presenter_id: b.presenterId ?? null,
-    kitchen_id: b.food ? (b.kitchenId ?? null) : null,
+    presenter_id: presenterId,
+    kitchen_id: b.food ? kitchenId : null,
     status: b.status,
     wine_sales_eur: b.wineSalesEur ?? null,
     notes: b.notes?.trim() || null,
@@ -254,7 +279,7 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
   }
 
   // starts within 24 hours: do not wait for the evening-before job
-  if (b.status === "confirmed" && (b.presenterId || (b.food && b.kitchenId))) {
+  if (b.status === "confirmed" && (presenterId || (b.food && kitchenId))) {
     const start = ljubljanaInstant(b.visitDate, b.startTime);
     const hours = (start.getTime() - Date.now()) / 3600_000;
     if (hours > 0 && hours <= 24) await notifyBooking(supabase, id!);

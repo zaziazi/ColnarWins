@@ -129,6 +129,7 @@ export function DeliveryList({
                     {[order.address, order.city].filter(Boolean).length > 0 &&
                       ` · ${[order.address, order.city].filter(Boolean).join(", ")}`}
                     {order.deliveryNotes && ` · ${order.deliveryNotes}`}
+                    {order.driverName && ` · voznik ${order.driverName}`}
                   </p>
                   {order.driverNote && <p className="text-[12px] text-warn font-medium mt-1">{order.driverNote}</p>}
                   {!order.cancelled && (

@@ -20,6 +20,7 @@ const Patch = z.object({
   role: z.enum(ROLES).optional(),
   active: z.boolean().optional(),
   phone: z.string().max(40).nullable().optional(),
+  delivers: z.boolean().optional(),
 });
 
 /**
@@ -39,6 +40,7 @@ export async function updateStaff(id: string, patch: z.infer<typeof Patch>): Pro
   if (p.role !== undefined) row.role = p.role;
   if (p.active !== undefined) row.active = p.active;
   if (p.phone !== undefined) row.phone = p.phone?.trim() || null;
+  if (p.delivers !== undefined) row.delivers = p.delivers;
   if (Object.keys(row).length === 0) return { ok: true };
 
   const supabase = await createClient();

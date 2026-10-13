@@ -23,8 +23,12 @@ export interface BookingDraft {
   contactName: string;
   contactPhone: string;
   contactEmail: string;
-  presenterId: string | null;
-  kitchenId: string | null;
+  presenterId: string | null; // "__manual" = typed by hand (presenterName/presenterPhone)
+  kitchenId: string | null; // "__manual" = typed by hand (kitchenName/kitchenPhone)
+  presenterName?: string;
+  presenterPhone?: string;
+  kitchenName?: string;
+  kitchenPhone?: string;
   status: BookingStatus;
   notes: string;
   peopleActual?: string;
@@ -85,6 +89,10 @@ export function BookingForm({
   async function submit(force = false) {
     if (!f.groupName.trim()) return void toast.error("Vpiši ime skupine.");
     if (!f.visitDate || !f.startTime) return void toast.error("Izberi datum in uro začetka.");
+    const presenterManual = f.presenterId === "__manual";
+    const kitchenManual = f.food && f.kitchenId === "__manual";
+    if (presenterManual && !f.presenterName?.trim()) return void toast.error("Vpiši ime voditelja.");
+    if (kitchenManual && !f.kitchenName?.trim()) return void toast.error("Vpiši, kdo pripravi hrano.");
     const num = (s: string | undefined) => (s === undefined || s.trim() === "" ? null : Number(s.replace(",", ".")));
     setBusy(true);
     const r = await saveBooking({
@@ -103,8 +111,10 @@ export function BookingForm({
       contactName: f.contactName || null,
       contactPhone: f.contactPhone || null,
       contactEmail: f.contactEmail || null,
-      presenterId: f.presenterId,
-      kitchenId: f.kitchenId,
+      presenterId: presenterManual ? null : f.presenterId,
+      kitchenId: kitchenManual || f.kitchenId === "__manual" ? null : f.kitchenId,
+      presenterManual: presenterManual ? { name: f.presenterName!.trim(), phone: f.presenterPhone?.trim() || null } : null,
+      kitchenManual: kitchenManual ? { name: f.kitchenName!.trim(), phone: f.kitchenPhone?.trim() || null } : null,
       status: f.status,
       wineSalesEur: num(f.wineSalesEur),
       notes: f.notes || null,
@@ -203,7 +213,14 @@ export function BookingForm({
                   {p.name}
                 </option>
               ))}
+              <option value="__manual">Drugo (vpiši ročno)</option>
             </select>
+            {f.kitchenId === "__manual" && (
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={f.kitchenName ?? ""} onChange={(e) => setF({ ...f, kitchenName: e.target.value })} placeholder="Ime" />
+                <Input value={f.kitchenPhone ?? ""} onChange={(e) => setF({ ...f, kitchenPhone: e.target.value })} placeholder="Telefon (za sporočilo)" inputMode="tel" />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -217,7 +234,14 @@ export function BookingForm({
               {p.name}
             </option>
           ))}
+          <option value="__manual">Drugo (vpiši ročno)</option>
         </select>
+        {f.presenterId === "__manual" && (
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <Input value={f.presenterName ?? ""} onChange={(e) => setF({ ...f, presenterName: e.target.value })} placeholder="Ime voditelja" />
+            <Input value={f.presenterPhone ?? ""} onChange={(e) => setF({ ...f, presenterPhone: e.target.value })} placeholder="Telefon (za sporočilo)" inputMode="tel" />
+          </div>
+        )}
         {persons.length === 0 && <p className="text-[12px] text-ink-subtle mt-1">Osebe doda vodja v Admin → Degustacije.</p>}
         <p className="text-[12px] text-ink-subtle mt-1">Voditelj in kuhinja dobita sporočilo dan prej.</p>
       </div>

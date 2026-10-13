@@ -86,6 +86,7 @@ export interface OrderForEdit {
   status: OrderStatus;
   deliveryDate: string | null;
   note: string;
+  driverId: string | null;
   lines: StandingOrderLine[];
 }
 

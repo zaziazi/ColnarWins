@@ -222,7 +222,7 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
   const { data, error } = await supabase
     .from("sales_order")
     .select(
-      "id,customer_id,status,delivery_date,driver_note,customer(name),order_line(product_id,quantity_ordered)",
+      "id,customer_id,status,delivery_date,driver_note,assigned_driver_id,customer(name),order_line(product_id,quantity_ordered)",
     )
     .eq("id", id)
     .single();
@@ -236,6 +236,7 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
     status: data.status,
     deliveryDate: data.delivery_date,
     note: data.driver_note ?? "",
+    driverId: data.assigned_driver_id,
     lines: (data.order_line ?? []).map((l) => ({
       productId: l.product_id,
       quantity: l.quantity_ordered,

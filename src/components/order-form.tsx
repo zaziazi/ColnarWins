@@ -13,7 +13,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
 import { eur, dateSl } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Customer, Product, StandingOrder, StandingOrderLine } from "@/lib/types";
+import type { Customer, Driver, Product, StandingOrder, StandingOrderLine } from "@/lib/types";
 import { createOrder } from "@/app/pisarna/novo/actions";
 import { updateOrder } from "@/app/pisarna/actions";
 
@@ -24,6 +24,7 @@ interface EditOrder {
   customerId: string;
   deliveryDate: string | null;
   note: string;
+  driverId: string | null;
   lines: StandingOrderLine[];
 }
 
@@ -33,6 +34,8 @@ interface Props {
   standingOrders: StandingOrder[];
   /** Next few plausible delivery dates, computed on the server. */
   deliveryDates: string[];
+  /** Optional driver choice; the order works without one. */
+  drivers: Driver[];
   /** When present, edits this existing draft instead of creating a new order. */
   editOrder?: EditOrder;
 }
@@ -50,6 +53,7 @@ export function OrderForm({
   products,
   standingOrders,
   deliveryDates,
+  drivers,
   editOrder,
 }: Props) {
   const router = useRouter();
@@ -67,6 +71,7 @@ export function OrderForm({
     editOrder?.deliveryDate ?? deliveryDates[0] ?? "",
   );
   const [note, setNote] = React.useState(editOrder?.note ?? "");
+  const [driverId, setDriverId] = React.useState(editOrder?.driverId ?? "");
   const [pending, startTransition] = React.useTransition();
 
   const todayIso = React.useMemo(() => {
@@ -134,6 +139,7 @@ export function OrderForm({
           orderId: editOrder.id,
           deliveryDate,
           note,
+          driverId: driverId || null,
           lines: orderLines,
         });
 
@@ -151,6 +157,7 @@ export function OrderForm({
         customerId,
         deliveryDate,
         note,
+        driverId: driverId || null,
         lines: orderLines,
         holdForReview: blocked,
       });
@@ -345,6 +352,21 @@ export function OrderForm({
                   : "npr. dostava do 10h, vhod zadaj, prevzame Peter"
               }
             />
+
+            <FieldLabel className="mt-4">Voznik (neobvezno)</FieldLabel>
+            <select
+              value={driverId}
+              onChange={(e) => setDriverId(e.target.value)}
+              className="h-11 w-full max-w-[260px] rounded-[var(--radius-control)] border border-line bg-surface
+                         px-3 text-[15px] text-ink"
+            >
+              <option value="">— še ni določen —</option>
+              {drivers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.fullName}
+                </option>
+              ))}
+            </select>
           </Card>
 
           {/* -------------------------------------------------- submit */}

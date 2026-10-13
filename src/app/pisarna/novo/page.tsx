@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { OrderForm } from "@/components/order-form";
-import { getCurrentStaff, getCustomers, getProducts, getStandingOrders } from "@/lib/data";
+import { getCurrentStaff, getCustomers, getDrivers, getProducts, getStandingOrders } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +20,11 @@ function nextDeliveryDates(count = 6): string[] {
 }
 
 export default async function NewOrderPage() {
-  const [customers, products, standingOrders, staff] = await Promise.all([
+  const [customers, products, standingOrders, drivers, staff] = await Promise.all([
     getCustomers(),
     getProducts(),
     getStandingOrders(),
+    getDrivers(),
     getCurrentStaff(),
   ]);
 
@@ -40,6 +41,7 @@ export default async function NewOrderPage() {
         products={products}
         standingOrders={standingOrders}
         deliveryDates={nextDeliveryDates()}
+        drivers={drivers}
       />
     </AppShell>
   );

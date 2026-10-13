@@ -4,6 +4,7 @@ import { OrderForm } from "@/components/order-form";
 import {
   getCurrentStaff,
   getCustomers,
+  getDrivers,
   getOrderForEdit,
   getProducts,
   getStandingOrders,
@@ -29,10 +30,11 @@ function nextDeliveryDates(count = 6): string[] {
 export default async function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [customers, products, standingOrders, order, staff] = await Promise.all([
+  const [customers, products, standingOrders, drivers, order, staff] = await Promise.all([
     getCustomers(),
     getProducts(),
     getStandingOrders(),
+    getDrivers(),
     getOrderForEdit(id),
     getCurrentStaff(),
   ]);
@@ -64,11 +66,13 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
         products={products}
         standingOrders={standingOrders}
         deliveryDates={nextDeliveryDates()}
+        drivers={drivers}
         editOrder={{
           id: order.id,
           customerId: order.customerId,
           deliveryDate: order.deliveryDate,
           note: order.note,
+          driverId: order.driverId,
           lines: order.lines,
         }}
       />

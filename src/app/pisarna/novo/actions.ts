@@ -9,6 +9,8 @@ const OrderInput = z.object({
   customerId: z.string().min(1),
   deliveryDate: z.string().min(1),
   note: z.string().max(500).optional().default(""),
+  /** Optional: who will deliver it. */
+  driverId: z.string().min(1).nullable().optional(),
   holdForReview: z.boolean().default(false),
   lines: z
     .array(
@@ -40,7 +42,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
   if (!parsed.success) {
     return { ok: false, error: "Naročilo ni veljavno." };
   }
-  const { customerId, deliveryDate, note, lines, holdForReview } = parsed.data;
+  const { customerId, deliveryDate, note, lines, holdForReview, driverId } = parsed.data;
 
   if (isDemoMode) {
     // Demo mode has no database. Pretend it worked so the flow stays clickable.
@@ -71,6 +73,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
       status,
       delivery_date: deliveryDate,
       driver_note: note || null,
+      assigned_driver_id: driverId ?? null,
       created_by: staff?.id ?? null,
       confirmed_by: status === "confirmed" ? (staff?.id ?? null) : null,
       confirmed_at: status === "confirmed" ? new Date().toISOString() : null,

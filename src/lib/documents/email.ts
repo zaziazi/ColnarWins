@@ -35,10 +35,14 @@ export async function sendMail(args: {
   to: string;
   subject: string;
   text: string;
-  attachments: MailAttachment[];
+  html?: string;
+  attachments?: MailAttachment[];
+  /** Internal mail (print jobs): skips the customer-copy BCC. */
+  internal?: boolean;
 }): Promise<MailResult> {
   const provider = mailProvider();
-  const bcc = process.env.MAIL_BCC?.trim() || undefined;
+  const bcc = args.internal ? undefined : process.env.MAIL_BCC?.trim() || undefined;
+  const attachments = args.attachments ?? [];
   const replyTo = process.env.MAIL_REPLY_TO?.trim() || undefined;
 
   try {
@@ -57,7 +61,8 @@ export async function sendMail(args: {
         replyTo,
         subject: args.subject,
         text: args.text,
-        attachments: args.attachments.map((a) => ({
+        html: args.html,
+        attachments: attachments.map((a) => ({
           filename: a.filename,
           content: Buffer.from(a.content),
           contentType: "application/pdf",
@@ -80,7 +85,8 @@ export async function sendMail(args: {
           reply_to: replyTo,
           subject: args.subject,
           text: args.text,
-          attachments: args.attachments.map((a) => ({
+          html: args.html,
+          attachments: attachments.map((a) => ({
             filename: a.filename,
             content: Buffer.from(a.content).toString("base64"),
           })),

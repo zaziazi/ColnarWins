@@ -28,7 +28,7 @@ export default async function WineLotsPage() {
       title="Klet"
       subtitle="Vina v kleti"
       who={staff.fullName}
-      role={staff.role}
+      role={staff.role} seesAc={staff.seesAc}
       section="klet"
     >
       <HarvestIntakeForm emptyVessels={emptyVessels} />

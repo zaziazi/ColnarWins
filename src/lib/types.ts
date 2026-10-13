@@ -170,6 +170,8 @@ export interface CurrentStaff {
   id: string;
   fullName: string;
   role: StaffRole;
+  /** Sees the advanced "Naročila AC" section (route planner, signature driver view). */
+  seesAc: boolean;
 }
 
 export interface ReceivablesAgeingBucket {

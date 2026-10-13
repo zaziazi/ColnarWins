@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,8 @@ export default async function DeliveryPlanPage({
     getCurrentStaff(),
   ]);
 
+  if (!staff?.seesAc) redirect("/pisarna");
+
   const forDay = unrouted.filter((o) => o.deliveryDate === date);
   const otherDays = unrouted.filter((o) => o.deliveryDate !== date);
 
@@ -70,8 +73,8 @@ export default async function DeliveryPlanPage({
       title="Načrt dostave"
       subtitle="Poti in nakladalni listi"
       who={staff?.fullName ?? "Prijava potrebna"}
-      role={staff?.role}
-      section="narocila"
+      role={staff?.role} seesAc={staff?.seesAc}
+      section="narocilaAc"
     >
       {/* -------------------------------------------------- date switcher */}
       <div className="flex items-center justify-between mb-5">

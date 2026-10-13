@@ -20,7 +20,7 @@ export default async function NewTastingPage({ searchParams }: { searchParams: P
   ]);
 
   return (
-    <AppShell title="Nova degustacija" subtitle="Ročni vnos rezervacije" who={staff.fullName} role={staff.role} section="degustacije">
+    <AppShell title="Nova degustacija" subtitle="Ročni vnos rezervacije" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} section="degustacije">
       <NewTasting
         persons={persons}
         initial={{

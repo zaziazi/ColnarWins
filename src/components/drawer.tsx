@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   ShieldCheck,
   ClipboardList,
+  ClipboardCheck,
   Landmark,
   LayoutDashboard,
   Warehouse,
@@ -21,10 +22,11 @@ const SECTIONS: {
   href: string;
   label: string;
   icon: typeof ClipboardList;
-  visible: (role?: StaffRole) => boolean;
+  visible: (role?: StaffRole, seesAc?: boolean) => boolean;
 }[] = [
   { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: (r) => r === "manager" },
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
+  { key: "narocilaAc", href: "/nacrt", label: "Naročila AC", icon: ClipboardCheck, visible: (_r, ac) => ac === true },
   { key: "prodaja",   href: "/prodaja",  label: "Prodaja",  icon: Briefcase,       visible: (r) => r === "sales" || r === "manager" },
   { key: "degustacije", href: "/degustacije", label: "Degustacije", icon: CalendarCheck, visible: (r) => r === "manager" || r === "events" },
   { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r) => r === "manager" },
@@ -38,15 +40,17 @@ export function Drawer({
   onClose,
   section,
   role,
+  seesAc,
 }: {
   open: boolean;
   onClose: () => void;
   section: SectionKey;
   role?: StaffRole;
+  seesAc?: boolean;
 }) {
   if (!open) return null;
 
-  const visibleSections = SECTIONS.filter((s) => s.visible(role));
+  const visibleSections = SECTIONS.filter((s) => s.visible(role, seesAc));
 
   return (
     <>

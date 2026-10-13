@@ -12,7 +12,7 @@ export default async function AdminPage() {
   const members = await getStaffMembers();
 
   return (
-    <AppShell title="Uporabniki in vloge" subtitle="Kdo lahko kaj vidi in dela" who={staff.fullName} role={staff.role} section="admin">
+    <AppShell title="Uporabniki in vloge" subtitle="Kdo lahko kaj vidi in dela" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} section="admin">
       <StaffRoles members={members} meId={staff.id} />
     </AppShell>
   );

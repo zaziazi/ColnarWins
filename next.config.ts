@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // can't see that, so list them for every route that renders or re-sends.
   outputFileTracingIncludes: {
     "/dostava": ["./src/lib/documents/fonts/**"],
+    "/voznik": ["./src/lib/documents/fonts/**"],
     "/pisarna": ["./src/lib/documents/fonts/**"],
   },
   experimental: {

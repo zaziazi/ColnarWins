@@ -41,7 +41,7 @@ export default async function OrdersPage() {
       title="Naročila"
       subtitle={`${narocila(drafts.length + open.length)} v obdelavi`}
       who={staff?.fullName ?? "Prijava potrebna"}
-      role={staff?.role}
+      role={staff?.role} seesAc={staff?.seesAc}
       section="narocila"
     >
       {isDemoMode && (

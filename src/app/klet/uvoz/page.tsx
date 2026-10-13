@@ -27,7 +27,7 @@ export default async function ImportReadingsPage() {
       title="Uvoz meritev"
       subtitle="Datoteke iz FOSS naprave"
       who={staff.fullName}
-      role={staff.role}
+      role={staff.role} seesAc={staff.seesAc}
       section="klet"
     >
       <ImportShell lots={lots} />

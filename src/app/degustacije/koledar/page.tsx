@@ -24,7 +24,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   ]);
 
   return (
-    <AppShell title="Koledar" subtitle="Degustacije po dnevih in urah" who={staff.fullName} role={staff.role} section="degustacije">
+    <AppShell title="Koledar" subtitle="Degustacije po dnevih in urah" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} section="degustacije">
       <Calendar
         today={today}
         anchor={anchor}

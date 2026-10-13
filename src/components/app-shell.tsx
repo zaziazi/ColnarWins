@@ -3,12 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer } from "./drawer";
 
-export type SectionKey = "dashboard" | "narocila" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance";
+export type SectionKey = "dashboard" | "narocila" | "narocilaAc" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance";
 
 type NavItem = {
   href: string;
@@ -21,8 +21,14 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   narocila: [
     { href: "/pisarna/novo", label: "Novo",       icon: Plus },
     { href: "/pisarna",      label: "Naročila",   icon: ClipboardList, exact: true },
+    { href: "/tisk",         label: "Tisk",       icon: Printer },
+    { href: "/dostava",      label: "Dostava",    icon: Truck },
+  ],
+  // The advanced flow (route planner, loading lists, signature + documents).
+  // Only for staff with sees_ac - Novo and Naročila are shared with "narocila".
+  narocilaAc: [
     { href: "/nacrt",        label: "Načrt",      icon: MapPin },
-    { href: "/dostava",      label: "Voznik",     icon: Truck },
+    { href: "/voznik",       label: "Voznik",     icon: Truck },
   ],
   prodaja: [
     { href: "/prodaja",        label: "Zemljevid",   icon: MapIcon, exact: true },
@@ -60,6 +66,7 @@ export function AppShell({
   subtitle,
   who,
   role,
+  seesAc,
   section,
   children,
 }: {
@@ -67,6 +74,7 @@ export function AppShell({
   subtitle?: string;
   who?: string;
   role?: StaffRole;
+  seesAc?: boolean;
   section: SectionKey;
   children: React.ReactNode;
 }) {
@@ -122,7 +130,7 @@ export function AppShell({
         </nav>
       )}
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} section={section} role={role} />
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} section={section} role={role} seesAc={seesAc} />
     </div>
   );
 }

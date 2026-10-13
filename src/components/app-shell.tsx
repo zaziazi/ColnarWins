@@ -21,8 +21,8 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   narocila: [
     { href: "/pisarna/novo", label: "Novo",       icon: Plus },
     { href: "/pisarna",      label: "Naročila",   icon: ClipboardList, exact: true },
-    { href: "/tisk",         label: "Tisk",       icon: Printer },
     { href: "/dostava",      label: "Dostava",    icon: Truck },
+    { href: "/tisk",         label: "Tisk",       icon: Printer },
   ],
   // The advanced flow (route planner, loading lists, signature + documents).
   // Only for staff with sees_ac - Novo and Naročila are shared with "narocila".

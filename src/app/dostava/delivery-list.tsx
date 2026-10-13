@@ -121,6 +121,17 @@ export function DeliveryList({ day: initial, date }: { day: DeliveryDay | null; 
                     {order.deliveryNotes && ` · ${order.deliveryNotes}`}
                   </p>
                   {order.driverNote && <p className="text-[12px] text-warn font-medium mt-1">{order.driverNote}</p>}
+                  {!order.cancelled && (
+                    <div className="mt-1.5">
+                      {order.changedAfterPrint ? (
+                        <Badge tone="warn">Spremenjeno po tisku</Badge>
+                      ) : order.printSentAt ? (
+                        <Badge tone="good">Poslano v tisk</Badge>
+                      ) : (
+                        <Badge tone="neutral">Še ni v tisku</Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1,9 +1,12 @@
 import "server-only";
 import type { SimpleRoute, SimpleStop } from "@/lib/simple-routes";
 
-/** Where print jobs go. The office worker prints whatever lands here. */
+/**
+ * Where print jobs go. For now they land in Aljaž's own mailbox; once the
+ * office worker is ready, set PRINT_MAIL_TO=info@colnar.si in Vercel.
+ */
 export function printMailTo(): string {
-  return process.env.PRINT_MAIL_TO?.trim() || "info@colnar.si";
+  return process.env.PRINT_MAIL_TO?.trim() || "colnar.aljaz.ac@gmail.com";
 }
 
 function esc(s: string): string {

@@ -68,7 +68,7 @@ export const EMAIL_CHECK_LABEL: Record<string, string> = {
 
 export const WEEKDAYS = ["Pon", "Tor", "Sre", "Čet", "Pet", "Sob", "Ned"];
 
-/** Who may use the module: managers and the new "events" role. */
+/** Who may use the module: managers, the "events" role and Prodaja (the salesperson also leads tastings). */
 export function canUseDrustva(role?: string | null): boolean {
-  return role === "manager" || role === "events";
+  return role === "manager" || role === "events" || role === "sales";
 }

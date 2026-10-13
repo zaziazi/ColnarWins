@@ -15,7 +15,7 @@ export const ROLE_INFO: Record<StaffRole, { label: string; sees: string }> = {
   manager: { label: "Vodja", sees: "Vse: pregled, naročila, prodaja, degustacije, klet, zaloge in finance. Admin samo skrbnik." },
   office: { label: "Pisarna", sees: "Naročila: vnos, potrjevanje dni dostave, tisk in dostava." },
   driver: { label: "Voznik", sees: "Naročila: današnja dostava (prečrtavanje dostavljenega), tisk in vnos." },
-  sales: { label: "Prodaja", sees: "Prodaja (zemljevid, načrt, na terenu, vino v avtu) in Dostava." },
+  sales: { label: "Prodaja", sees: "Prodaja (zemljevid, načrt, na terenu, vino v avtu), Degustacije in Dostava." },
   events: { label: "Degustacije", sees: "Naročila in Degustacije (odgovori, koledar, nova degustacija)." },
 };
 

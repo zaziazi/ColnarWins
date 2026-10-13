@@ -34,7 +34,6 @@ export function PrintPanel({ routes, today, mailTo }: { routes: SimpleRoute[]; t
     const res = await sendToPrint({ routeId, orderIds });
     setBusy(null);
     if (!res.ok) return toast.error(res.error);
-    toast.success(`Poslano na ${res.to} (${res.sent})`);
     router.refresh();
   }
 

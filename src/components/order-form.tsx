@@ -142,7 +142,6 @@ export function OrderForm({
           return;
         }
 
-        toast.success(`Naročilo za ${customer?.name} posodobljeno`);
         router.push("/pisarna");
         router.refresh();
         return;
@@ -161,11 +160,8 @@ export function OrderForm({
         return;
       }
 
-      toast.success(
-        blocked
-          ? `Naročilo za ${customer?.name} pripravljeno — čaka potrditev pisarne`
-          : `Naročilo za ${customer?.name} potrjeno · dobavnica pripravljena`,
-      );
+      // Only worth a message when something unusual happened.
+      if (blocked) toast.success(`Naročilo za ${customer?.name} pripravljeno — čaka potrditev pisarne`);
       router.push("/pisarna");
       router.refresh();
     });

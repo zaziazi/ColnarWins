@@ -26,7 +26,6 @@ export function OrderActions({ orderId, status }: { orderId: string; status: Ord
         toast.error(result.error ?? "Potrditev ni uspela");
         return;
       }
-      toast.success("Naročilo potrjeno");
       router.refresh();
     });
   }
@@ -39,7 +38,6 @@ export function OrderActions({ orderId, status }: { orderId: string; status: Ord
         setConfirmingCancel(false);
         return;
       }
-      toast.success("Naročilo preklicano");
       setConfirmingCancel(false);
       setReason("");
       router.refresh();

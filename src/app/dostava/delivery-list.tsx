@@ -68,7 +68,6 @@ export function DeliveryList({ routes: initial, today }: { routes: SimpleRoute[]
     const res = await confirmPlan(routeId);
     setBusy(null);
     if (!res.ok) return toast.error(res.error);
-    toast.success("Načrt potrjen");
     router.refresh();
   }
 

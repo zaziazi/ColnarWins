@@ -27,7 +27,7 @@ export default async function DashboardPage() {
       title="Pregled"
       subtitle="Splošni pregled"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="dashboard"
     >
       <SectionHeading>Naročila ta mesec</SectionHeading>

@@ -173,6 +173,8 @@ export interface CurrentStaff {
   role: StaffRole;
   /** Sees the advanced "Naročila AC" section (route planner, signature driver view). */
   seesAc: boolean;
+  /** May open Admin (users, roles, tasting settings). A manager without it sees everything else. */
+  isAdmin: boolean;
 }
 
 export interface ReceivablesAgeingBucket {

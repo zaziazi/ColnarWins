@@ -67,6 +67,7 @@ export function AppShell({
   who,
   role,
   seesAc,
+  isAdmin,
   section,
   children,
 }: {
@@ -75,12 +76,15 @@ export function AppShell({
   who?: string;
   role?: StaffRole;
   seesAc?: boolean;
+  isAdmin?: boolean;
   section: SectionKey;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const tabs = SECTION_TABS[section];
+  // Prodaja users only deliver from the Naročila section: Novo, Naročila and Tisk are not for them.
+  const allTabs = SECTION_TABS[section];
+  const tabs = section === "narocila" && role === "sales" ? allTabs?.filter((t) => t.href === "/dostava") : allTabs;
 
   return (
     <div className="min-h-dvh flex flex-col mx-auto w-full max-w-[520px] bg-canvas">
@@ -130,7 +134,7 @@ export function AppShell({
         </nav>
       )}
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} section={section} role={role} seesAc={seesAc} />
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} section={section} role={role} seesAc={seesAc} isAdmin={isAdmin} />
     </div>
   );
 }

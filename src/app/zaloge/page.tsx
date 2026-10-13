@@ -35,7 +35,7 @@ export default async function InventoryPage() {
       title="Zaloge"
       subtitle="Stanje steklenic"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="zaloge"
     >
       <SectionHeading>Steklenice</SectionHeading>

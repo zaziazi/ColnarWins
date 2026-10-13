@@ -28,7 +28,7 @@ export default async function VesselsPage() {
       title="Rezervoarji"
       subtitle="Cisterne, inox in sodi"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="klet"
     >
       <div className="flex justify-end mb-4">

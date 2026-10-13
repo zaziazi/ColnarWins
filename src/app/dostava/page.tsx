@@ -29,11 +29,11 @@ export default async function DostavaPage() {
       subtitle="Današnja dostava"
       who={staff.fullName}
       role={staff.role}
-      seesAc={staff.seesAc}
+      seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="narocila"
     >
       <PushToggle />
-      <DeliveryList day={day} date={today} />
+      <DeliveryList day={day} date={today} canEdit={staff.role !== "sales"} />
     </AppShell>
   );
 }

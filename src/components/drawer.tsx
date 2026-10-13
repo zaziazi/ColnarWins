@@ -22,14 +22,14 @@ const SECTIONS: {
   href: string;
   label: string;
   icon: typeof ClipboardList;
-  visible: (role?: StaffRole, seesAc?: boolean) => boolean;
+  visible: (role?: StaffRole, seesAc?: boolean, isAdmin?: boolean) => boolean;
 }[] = [
   { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: (r) => r === "manager" },
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
   { key: "narocilaAc", href: "/nacrt", label: "Naročila AC", icon: ClipboardCheck, visible: (_r, ac) => ac === true },
   { key: "prodaja",   href: "/prodaja",  label: "Prodaja",  icon: Briefcase,       visible: (r) => r === "sales" || r === "manager" },
   { key: "degustacije", href: "/degustacije", label: "Degustacije", icon: CalendarCheck, visible: (r) => r === "manager" || r === "events" },
-  { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r) => r === "manager" },
+  { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r, _ac, admin) => r === "manager" && admin === true },
   { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r) => r === "manager" },
   { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r) => r === "manager" },
   { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r) => r === "manager" },
@@ -41,16 +41,18 @@ export function Drawer({
   section,
   role,
   seesAc,
+  isAdmin,
 }: {
   open: boolean;
   onClose: () => void;
   section: SectionKey;
   role?: StaffRole;
   seesAc?: boolean;
+  isAdmin?: boolean;
 }) {
   if (!open) return null;
 
-  const visibleSections = SECTIONS.filter((s) => s.visible(role, seesAc));
+  const visibleSections = SECTIONS.filter((s) => s.visible(role, seesAc, isAdmin));
 
   return (
     <>
@@ -76,7 +78,9 @@ export function Drawer({
         </div>
 
         <nav className="flex-1 py-2">
-          {visibleSections.map(({ key, href, label, icon: Icon }) => {
+          {visibleSections.map(({ key, href: baseHref, label, icon: Icon }) => {
+            // A salesperson only has the Dostava tab in Naročila.
+            const href = key === "narocila" && role === "sales" ? "/dostava" : baseHref;
             const active = key === section;
             return (
               <Link

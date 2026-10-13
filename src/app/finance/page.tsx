@@ -39,7 +39,7 @@ export default async function FinancePage() {
       title="Finance"
       subtitle="Terjatve"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="finance"
     >
       <SectionHeading>Odprte terjatve</SectionHeading>

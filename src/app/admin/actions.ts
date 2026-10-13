@@ -12,7 +12,7 @@ const ROLES = ["manager", "office", "driver", "sales", "events"] as const;
 
 async function adminOnly() {
   const staff = await getCurrentStaff();
-  return staff && staff.role === "manager" ? staff : null;
+  return staff && staff.isAdmin ? staff : null;
 }
 
 const Patch = z.object({
@@ -98,7 +98,8 @@ const Username = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9._-]{3,30}$/, "Uporabniško ime: 3 do 30 znakov, majhne črke, številke, pika ali pomišljaj.");
-const Password = z.string().min(8, "Geslo naj ima vsaj 8 znakov.").max(72);
+// Temporary only: the person must choose a stronger one (8+) at first sign-in.
+const Password = z.string().min(6, "Začasno geslo naj ima vsaj 6 znakov.").max(72);
 
 /** Gives an existing team member a username + temporary password (they must change it at first sign-in). */
 export async function createLogin(staffId: string, username: string, password: string): Promise<ActionResult> {

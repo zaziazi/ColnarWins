@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
@@ -20,6 +21,8 @@ export default async function TiskPage() {
     );
   }
 
+  if (staff.role === "sales") redirect("/dostava");
+
   const days = await getDeliveryDays();
 
   return (
@@ -28,7 +31,7 @@ export default async function TiskPage() {
       subtitle="Potrjeni dnevi dostave"
       who={staff.fullName}
       role={staff.role}
-      seesAc={staff.seesAc}
+      seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="narocila"
     >
       <PrintPanel days={days} today={todayIso()} mailTo={printMailTo()} />

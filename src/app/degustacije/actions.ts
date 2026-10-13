@@ -29,10 +29,10 @@ async function guard() {
   return staff && canUseDrustva(staff.role) ? staff : null;
 }
 
-/** Settings, people and roles are for managers only. */
+/** Settings, people and roles are for admins only. */
 async function adminGuard() {
   const staff = await getCurrentStaff();
-  return staff && staff.role === "manager" ? staff : null;
+  return staff && staff.isAdmin ? staff : null;
 }
 
 // ------------------------------------------------------------------- društva

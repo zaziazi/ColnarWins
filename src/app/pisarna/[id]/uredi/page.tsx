@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { OrderForm } from "@/components/order-form";
@@ -39,11 +40,13 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
     getCurrentStaff(),
   ]);
 
+  if (staff?.role === "sales") redirect("/dostava");
+
   const editable = order && (order.status === "draft" || order.status === "confirmed");
 
   if (!editable) {
     return (
-      <AppShell title="Uredi naročilo" who={staff?.fullName ?? "Prijava potrebna"} role={staff?.role} seesAc={staff?.seesAc} section="narocila">
+      <AppShell title="Uredi naročilo" who={staff?.fullName ?? "Prijava potrebna"} role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin} section="narocila">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             {order ? "Tega naročila ni več mogoče urejati." : "Naročilo ne obstaja."}
@@ -58,7 +61,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
       title="Uredi naročilo"
       subtitle={order.customerName}
       who={staff?.fullName ?? "Prijava potrebna"}
-      role={staff?.role} seesAc={staff?.seesAc}
+      role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin}
       section="narocila"
     >
       <OrderForm

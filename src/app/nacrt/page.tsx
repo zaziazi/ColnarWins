@@ -73,7 +73,7 @@ export default async function DeliveryPlanPage({
       title="Načrt dostave"
       subtitle="Poti in nakladalni listi"
       who={staff?.fullName ?? "Prijava potrebna"}
-      role={staff?.role} seesAc={staff?.seesAc}
+      role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin}
       section="narocilaAc"
     >
       {/* -------------------------------------------------- date switcher */}

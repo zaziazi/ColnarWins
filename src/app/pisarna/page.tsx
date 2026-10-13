@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Pencil, Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge, statusLabel, statusTone } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ export default async function OrdersPage() {
   const drafts = orders.filter((o) => o.status === "draft");
   const open = orders.filter((o) => o.status === "confirmed" || o.status === "planned");
   const done = orders.filter((o) => o.status === "delivered" || o.status === "invoiced");
+  if (staff?.role === "sales") redirect("/dostava"); // Prodaja users only use Dostava here
   const days = groupByDay(open);
   const today = todayIso();
 
@@ -44,7 +46,7 @@ export default async function OrdersPage() {
       title="Naročila"
       subtitle={`${narocila(drafts.length + open.length)} v obdelavi`}
       who={staff?.fullName ?? "Prijava potrebna"}
-      role={staff?.role} seesAc={staff?.seesAc}
+      role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin}
       section="narocila"
     >
       {isDemoMode && (

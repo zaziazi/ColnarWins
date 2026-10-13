@@ -21,7 +21,16 @@ import { setDelivered } from "./actions";
  * in the background; if the save fails the tick is put back and the driver
  * is told. Orders added or cancelled since the day was confirmed are marked.
  */
-export function DeliveryList({ day: initial, date }: { day: DeliveryDay | null; date: string }) {
+export function DeliveryList({
+  day: initial,
+  date,
+  canEdit = true,
+}: {
+  day: DeliveryDay | null;
+  date: string;
+  /** Prodaja users deliver but cannot edit orders. */
+  canEdit?: boolean;
+}) {
   const router = useRouter();
   const [day, setDay] = React.useState(initial);
 
@@ -195,11 +204,13 @@ export function DeliveryList({ day: initial, date }: { day: DeliveryDay | null; 
                       <Button size="sm" onClick={() => void toggle(order.orderId, undefined, true)}>
                         <CheckCheck className="size-3.5" /> Vse dostavljeno
                       </Button>
-                      <Button asChild variant="secondary" size="sm">
-                        <Link href={`/pisarna/${order.orderId}/uredi`}>
-                          <Pencil className="size-3.5" /> Uredi
-                        </Link>
-                      </Button>
+                      {canEdit && (
+                        <Button asChild variant="secondary" size="sm">
+                          <Link href={`/pisarna/${order.orderId}/uredi`}>
+                            <Pencil className="size-3.5" /> Uredi
+                          </Link>
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>

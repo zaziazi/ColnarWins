@@ -68,7 +68,7 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
 
   if (!lot) {
     return (
-      <AppShell title="Klet" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} section="klet">
+      <AppShell title="Klet" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} section="klet">
         <BackLink />
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">Vino ne obstaja.</p>
@@ -81,7 +81,7 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
     <AppShell
       title={lot.lotNumber}
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
       section="klet"
     >
       <BackLink />

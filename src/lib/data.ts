@@ -799,16 +799,25 @@ export async function getSalesMap(): Promise<SalesMapPoint[]> {
   if (isDemoMode) return [];
 
   const supabase = await createClient();
+  const COLS = "source,id,name,kind,lat,lng,city,phone,email,status,needs_review";
+  // PostgREST returns at most 1000 rows per request. Count first, then fetch all pages in parallel
+  // (the map now holds the whole country, ~10 pages).
+  const { count, error: countError } = await supabase.from("v_sales_map").select("id", { count: "exact", head: true });
+  if (countError) throw countError;
+  const pages = Math.ceil((count ?? 0) / 1000);
+  const results = await Promise.all(
+    Array.from({ length: pages }, (_, i) =>
+      supabase
+        .from("v_sales_map")
+        .select(COLS)
+        .order("id")
+        .range(i * 1000, i * 1000 + 999),
+    ),
+  );
   const rows: Record<string, unknown>[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from("v_sales_map")
-      .select("source,id,name,kind,lat,lng,city,phone,email,status,needs_review")
-      .order("id")
-      .range(from, from + 999);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
+  for (const r of results) {
+    if (r.error) throw r.error;
+    rows.push(...(r.data ?? []));
   }
 
   return rows.map((r) => ({

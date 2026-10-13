@@ -98,3 +98,42 @@ Rows matched to an existing venue only add a phone number; new ones get
 Google Apps Script for the tastings mailbox: forwards every new e-mail (the
 website reservation form lands there) to `/api/degustacije/inbound`. Setup
 steps are at the top of the file. Needs `DEGUSTACIJE_INBOUND_SECRET` in Vercel.
+
+
+## Nationwide load (all of Slovenia, 2026-10-13)
+
+Same sources as Dolenjska, scaled up. Nothing needs the Supabase service key: the scripts sign in as a staff
+user (`IMPORT_EMAIL`/`IMPORT_PASSWORD`, a throwaway manager login) and write through PostgREST, so no SQL has to
+be retyped. Working files live outside the repo.
+
+```bash
+# 1. OpenStreetMap — Overpass is unreliable for a whole country; use the Geofabrik extract (pip install osmium)
+curl -L -o slovenia.osm.pbf https://download.geofabrik.de/europe/slovenia-latest.osm.pbf
+curl -s "https://nominatim.openstreetmap.org/search?country=slovenia&format=geojson&polygon_geojson=1&polygon_threshold=0.002&limit=1" -o si_poly.json
+python3 scripts/osm-pbf-import.py slovenia.osm.pbf osm_all.json si_poly.json
+
+# 2. what we already have, then Overture (deduped against it)
+python3 - <<'PY'   # venues_now.json via scripts/pg.py PG().select_all('venue', ...)
+PY
+python3 scripts/si-pool.py venues_now.json osm_all.json - pool_osm.json have.csv
+python3 scripts/overture-import.py have.csv ov-sql --bbox 45.42,13.37,46.88,16.61 --region slovenija \
+        --raw overture_raw.json --json overture_new.json
+python3 scripts/si-pool.py venues_now.json osm_all.json overture_new.json pool.json
+
+# 3. upload (idempotent; only adds what is missing)
+python3 scripts/si-upload.py osm osm_all.json
+python3 scripts/si-upload.py overture overture_new.json
+
+# 4. iTIS (listing from itis-scrape.py) and AJPES — Nominatim, 1 request/s, resumable via the cache file
+python3 scripts/itis-nationwide.py itis.json pool.json itis_geocache.jsonl itis_out.json
+python3 scripts/si-upload.py itis itis_out.json
+python3 scripts/ajpes-import.py extract "2025-03-10 AJPES Register.xlsx" hosp.json
+python3 scripts/ajpes-nationwide.py hosp.json pool.json ajpes_geocache.jsonl ajpes_out.json
+python3 scripts/si-upload.py ajpes ajpes_out.json
+
+# 5. towns for venues without addr:city (nearest settlement within 3 km), then customer matching
+python3 scripts/fill-city.py slovenia.osm.pbf places.json && python3 scripts/fill-city.py --apply places.json
+```
+
+Then `select match_venues_to_customers('slovenija'); select match_venues_to_customers('dolenjska');`.
+Region is `dolenjska` inside the old test box and `slovenija` elsewhere.

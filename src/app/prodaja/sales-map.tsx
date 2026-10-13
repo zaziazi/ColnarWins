@@ -23,10 +23,10 @@ function loadMapLib() {
 // Free vector tiles, no API key. Attribution is rendered by the map itself.
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 
-/** Dolenjska box, used for the first view. */
+/** All of Slovenia, used for the first view. */
 const START_BOUNDS: [[number, number], [number, number]] = [
-  [14.7, 45.55],
-  [15.55, 46.15],
+  [13.37, 45.42],
+  [16.61, 46.88],
 ];
 
 /** MapLibre paints need real colour strings, so read the design tokens at runtime. */
@@ -60,7 +60,7 @@ export default function SalesMap({
   const [colors, setColors] = React.useState<ReturnType<typeof readColors> | null>(null);
   React.useEffect(() => setColors(readColors()), []);
 
-  // When filters/search change, zoom to what is left (the first render keeps the Dolenjska view).
+  // When filters/search change, zoom to what is left (the first render keeps the whole-country view).
   const firstRun = React.useRef(true);
   React.useEffect(() => {
     if (firstRun.current) {

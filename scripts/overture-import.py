@@ -66,32 +66,45 @@ def main():
     s, w, n, e = [float(x) for x in opt("--bbox", "45.55,14.7,46.15,15.55").split(",")]
     release = opt("--release", "2026-09-23.1")
     region = opt("--region", "dolenjska")
+    json_out = opt("--json", None)  # write the new places as JSON rows (for the PostgREST uploader) instead of SQL
+    raw_cache = opt("--raw", None)  # cache the raw Overture query result here (reused on re-runs)
 
-    ours = []
+    # Spatial grid (~0.003 deg cells) so a whole country (10k+ venues) stays fast.
+    ours = {}
     for line in open(have_csv, encoding="utf-8"):
         lat, lng, name = line.rstrip("\n").split(",", 2)
-        ours.append((float(lat), float(lng), name, tokens(name), fold(name)))
+        la, ln = float(lat), float(lng)
+        ours.setdefault((int(la / 0.003), int(ln / 0.003)), []).append((la, ln, name, tokens(name), fold(name)))
 
-    con = duckdb.connect()
-    con.execute("INSTALL httpfs; LOAD httpfs; SET s3_region='us-west-2';")
-    rows = con.execute(
-        f"""select id, names."primary" as name, taxonomy."primary" as tax, taxonomy.hierarchy as hier,
-                   confidence, operating_status as status, phones, emails, websites, addresses,
-                   bbox.xmin as lng, bbox.ymin as lat
-            from read_parquet('s3://overturemaps-us-west-2/release/{release}/theme=places/type=place/*', hive_partitioning=1)
-            where bbox.xmin between {w} and {e} and bbox.ymin between {s} and {n}"""
-    ).fetchall()
+    if raw_cache and os.path.exists(raw_cache):
+        rows = [tuple(r) for r in json.load(open(raw_cache, encoding="utf-8"))]
+    else:
+        con = duckdb.connect()
+        con.execute("INSTALL httpfs; LOAD httpfs; SET s3_region='us-west-2';")
+        rows = con.execute(
+            f"""select id, names."primary" as name, taxonomy."primary" as tax, taxonomy.hierarchy as hier,
+                       confidence, operating_status as status, phones, emails, websites, addresses,
+                       bbox.xmin as lng, bbox.ymin as lat
+                from read_parquet('s3://overturemaps-us-west-2/release/{release}/theme=places/type=place/*', hive_partitioning=1)
+                where bbox.xmin between {w} and {e} and bbox.ymin between {s} and {n}
+                  and taxonomy.hierarchy[1] in ('food_and_drink', 'lodging')"""
+        ).fetchall()
+        if raw_cache:
+            json.dump(rows, open(raw_cache, "w", encoding="utf-8"), ensure_ascii=False, default=str)
     cols = ["id", "name", "tax", "hier", "confidence", "status", "phones", "emails", "websites", "addresses", "lng", "lat"]
     places = [dict(zip(cols, r)) for r in rows]
 
     def known(p):
         t, f = tokens(p["name"]), fold(p["name"])
-        for la, ln, _, ot, of in ours:
-            d = metres(p["lat"], p["lng"], la, ln)
-            if d <= 40:
-                return True
-            if d <= 300 and ((t and ot and len(t & ot) / min(len(t), len(ot)) >= 0.5) or f == of):
-                return True
+        gy, gx = int(p["lat"] / 0.003), int(p["lng"] / 0.003)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                for la, ln, _, ot, of in ours.get((gy + dy, gx + dx), ()):
+                    d = metres(p["lat"], p["lng"], la, ln)
+                    if d <= 40:
+                        return True
+                    if d <= 300 and ((t and ot and len(t & ot) / min(len(t), len(ot)) >= 0.5) or f == of):
+                        return True
         return False
 
     out, dropped = [], {}
@@ -117,6 +130,11 @@ def main():
             )
         )
 
+    if json_out:
+        json.dump(out, open(json_out, "w", encoding="utf-8"), ensure_ascii=False)
+        print(f"{len(out)} new places -> {json_out}")
+        print("dropped:", dropped)
+        return
     os.makedirs(outdir, exist_ok=True)
     cols_sql = ("overture_id text, name text, kind text, lat double precision, lng double precision, address text, "
                 "city text, post_code text, phone text, email text, website text, confidence numeric")

@@ -2,12 +2,9 @@ import "server-only";
 import type { DayOrder } from "@/lib/delivery-days";
 import { narocila } from "@/lib/format";
 
-/**
- * Where print jobs go. For now they land in Aljaž's own mailbox; once the
- * office worker is ready, set PRINT_MAIL_TO=info@colnar.si in Vercel.
- */
+/** Where print jobs go. The office worker prints whatever lands here; PRINT_MAIL_TO overrides it. */
 export function printMailTo(): string {
-  return process.env.PRINT_MAIL_TO?.trim() || "colnar.aljaz.ac@gmail.com";
+  return process.env.PRINT_MAIL_TO?.trim() || "info@colnar.si";
 }
 
 function esc(s: string): string {

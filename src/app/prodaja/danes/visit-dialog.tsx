@@ -283,7 +283,7 @@ export function VisitDialog({
                 <div className="rounded-[12px] border border-line p-3 space-y-2">
                   <FieldLabel className="mb-0">Nova stranka</FieldLabel>
                   <p className="text-[12px] text-ink-muted leading-relaxed">
-                    Marija bo podatke preverila, preden gre naročilo naprej.
+                    Pisarna bo podatke preverila, preden gre naročilo naprej.
                   </p>
                   <Input value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} placeholder="Ime podjetja" />
                   <Input value={cust.vatId} onChange={(e) => setCust({ ...cust, vatId: e.target.value })} placeholder="Davčna številka (npr. SI12345678)" />

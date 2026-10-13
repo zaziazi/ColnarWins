@@ -218,7 +218,7 @@ export async function getCalendarToken(staffId: string): Promise<string | null> 
   return (data?.calendar_token as string | null) ?? null;
 }
 
-/** The salesperson's phone, shown to venues on the offer page; absent until Marija fills it in. */
+/** The salesperson's phone, shown to venues on the offer page; absent until the office fills it in. */
 export async function getStaffPhone(staffId: string): Promise<string | null> {
   if (isDemoMode) return null;
   const supabase = await createClient();

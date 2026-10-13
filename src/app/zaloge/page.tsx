@@ -15,7 +15,7 @@ export default async function InventoryPage() {
   const staff = await getCurrentStaff();
   if (!staff || staff.role !== "manager") {
     return (
-      <AppShell title="Zaloge" who="Marija · pisarna" section="zaloge">
+      <AppShell title="Zaloge" who="Prijava potrebna" section="zaloge">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             Ta stran je na voljo samo vodstvu.

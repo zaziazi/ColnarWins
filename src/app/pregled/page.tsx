@@ -10,7 +10,7 @@ export default async function DashboardPage() {
 
   if (!staff || staff.role !== "manager") {
     return (
-      <AppShell title="Pregled" who="Marija · pisarna" section="dashboard">
+      <AppShell title="Pregled" who="Prijava potrebna" section="dashboard">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             Ta stran je na voljo samo vodstvu.

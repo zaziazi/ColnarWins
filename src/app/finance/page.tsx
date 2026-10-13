@@ -18,7 +18,7 @@ export default async function FinancePage() {
 
   if (!staff || staff.role !== "manager") {
     return (
-      <AppShell title="Finance" who="Marija · pisarna" section="finance">
+      <AppShell title="Finance" who="Prijava potrebna" section="finance">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             Ta stran je na voljo samo vodstvu.

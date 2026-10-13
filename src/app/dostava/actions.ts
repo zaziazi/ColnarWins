@@ -15,14 +15,46 @@ function refresh() {
   revalidatePath("/voznik");
 }
 
-/** The driver confirms the plan - from here on it is printable (Tisk) and can be ticked off. */
-export async function confirmPlan(routeId: string): Promise<ActionResult> {
-  const parsed = z.string().min(1).safeParse(routeId);
-  if (!parsed.success) return { ok: false, error: "Neveljavna pot." };
+const DayInput = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** The driver confirms a delivery day - from here on it is printable (Tisk) and can be ticked off. */
+export async function confirmDay(day: string): Promise<ActionResult> {
+  const parsed = DayInput.safeParse(day);
+  if (!parsed.success) return { ok: false, error: "Neveljaven datum." };
   if (isDemoMode) return { ok: true };
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("start_route", { p_route_id: parsed.data });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: staff } = user
+    ? await supabase.from("staff").select("id").eq("auth_user_id", user.id).single()
+    : { data: null };
+
+  const { error } = await supabase
+    .from("delivery_day")
+    .upsert({ day: parsed.data, confirmed_by: staff?.id ?? null, confirmed_at: new Date().toISOString() }, { onConflict: "day", ignoreDuplicates: true });
+  if (error) return { ok: false, error: error.message };
+
+  refresh();
+  return { ok: true };
+}
+
+/** Takes a confirmation back (e.g. tapped by mistake). Refused once anything for that day was mailed to print. */
+export async function unconfirmDay(day: string): Promise<ActionResult> {
+  const parsed = DayInput.safeParse(day);
+  if (!parsed.success) return { ok: false, error: "Neveljaven datum." };
+  if (isDemoMode) return { ok: true };
+
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("sales_order")
+    .select("id", { count: "exact", head: true })
+    .eq("delivery_date", parsed.data)
+    .not("print_sent_at", "is", null);
+  if ((count ?? 0) > 0) return { ok: false, error: "Naročila za ta dan so že poslana v tisk." };
+
+  const { error } = await supabase.from("delivery_day").delete().eq("day", parsed.data);
   if (error) return { ok: false, error: error.message };
 
   refresh();

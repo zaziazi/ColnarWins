@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
-import { getSimpleRoutes, todayIso } from "@/lib/simple-routes";
+import { getDeliveryDays, todayIso } from "@/lib/delivery-days";
 import { printMailTo } from "@/lib/print-mail";
 import { PrintPanel } from "./print-panel";
 
@@ -20,18 +20,18 @@ export default async function TiskPage() {
     );
   }
 
-  const routes = await getSimpleRoutes();
+  const days = await getDeliveryDays();
 
   return (
     <AppShell
       title="Tisk"
-      subtitle="Potrjeni načrti voznika"
+      subtitle="Dnevi, ki jih je voznik potrdil"
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc}
       section="narocila"
     >
-      <PrintPanel routes={routes} today={todayIso()} mailTo={printMailTo()} />
+      <PrintPanel days={days} today={todayIso()} mailTo={printMailTo()} />
     </AppShell>
   );
 }

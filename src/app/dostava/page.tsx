@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
-import { getSimpleRoutes, todayIso } from "@/lib/simple-routes";
+import { getDeliveryDays, todayIso } from "@/lib/delivery-days";
 import { DeliveryList } from "./delivery-list";
 import { PushToggle } from "./push-toggle";
 
@@ -20,19 +20,19 @@ export default async function DostavaPage() {
     );
   }
 
-  const routes = await getSimpleRoutes();
+  const days = await getDeliveryDays();
 
   return (
     <AppShell
       title="Dostava"
-      subtitle="Naročila na poti"
+      subtitle="Naročila po dnevih dostave"
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc}
       section="narocila"
     >
       <PushToggle />
-      <DeliveryList routes={routes} today={todayIso()} />
+      <DeliveryList days={days} today={todayIso()} />
     </AppShell>
   );
 }

@@ -1,106 +1,71 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { narocila, plural } from "@/lib/format";
+import { narocila } from "@/lib/format";
 import type { PushPayload } from "@/lib/push";
 
-interface RouteRow {
-  id: string;
-  driver_id: string | null;
-  route_stop: {
-    status: string;
-    order: { order_line: { quantity_ordered: number; product: { name: string } | null }[] } | null;
-  }[];
-}
-
-interface Shortage {
-  product_name: string;
-  needed: number | string;
-  on_hand: number | string;
+interface OrderRow {
+  order_line: { product_id: string; quantity_ordered: number; product: { name: string } | null }[];
 }
 
 /**
- * Builds tomorrow's push message per staff member: stop count, what to load,
- * whether stock covers it, and orders still waiting to be put on a route.
- * Takes any Supabase client — the cron passes the service-role one; RLS
- * would hide stock from drivers.
+ * Builds tomorrow's push message: how many orders, what to load, whether
+ * stock covers it, and a nudge to confirm the day in Dostava (skipped once
+ * the driver has confirmed it). Takes any Supabase client - the cron passes
+ * the service-role one; RLS would hide stock from drivers. Every active
+ * staff member gets the same message; only those with push on receive it.
  */
 export async function buildDriverPlan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any, any, any>,
   forDate: string,
 ): Promise<Map<string, PushPayload>> {
-  const [routesRes, unroutedRes, driversRes] = await Promise.all([
+  const [ordersRes, dayRes, staffRes, stockRes] = await Promise.all([
     admin
-      .from("route")
-      .select(
-        "id,driver_id,route_stop(status,order:sales_order(order_line(quantity_ordered,product(name))))",
-      )
-      .eq("route_date", forDate)
-      .not("driver_id", "is", null),
-    admin.from("sales_order").select("id,route_stop(id)").eq("delivery_date", forDate).eq("status", "confirmed"),
-    admin.from("staff").select("id,full_name").eq("active", true),
+      .from("sales_order")
+      .select("order_line(product_id,quantity_ordered,product(name))")
+      .eq("delivery_date", forDate)
+      .in("status", ["confirmed", "planned"]),
+    admin.from("delivery_day").select("day").eq("day", forDate),
+    admin.from("staff").select("id").eq("active", true),
+    admin.from("product_stock").select("product_id,quantity_on_hand"),
   ]);
-  if (routesRes.error) throw routesRes.error;
-  if (unroutedRes.error) throw unroutedRes.error;
-  if (driversRes.error) throw driversRes.error;
+  if (ordersRes.error) throw ordersRes.error;
+  if (dayRes.error) throw dayRes.error;
+  if (staffRes.error) throw staffRes.error;
+  if (stockRes.error) throw stockRes.error;
 
-  const routes = (routesRes.data ?? []) as unknown as RouteRow[];
-  const unrouted = (unroutedRes.data ?? []).filter(
-    (o: { route_stop: unknown[] | null }) => !o.route_stop || o.route_stop.length === 0,
-  ).length;
-
-  // Everyone with a route tomorrow, plus every active driver (who still
-  // needs to hear that orders are waiting to be loaded).
-  const recipients = new Set<string>([
-    ...routes.map((r) => r.driver_id!).filter(Boolean),
-    ...(driversRes.data ?? []).map((d: { id: string }) => d.id),
-  ]);
-
+  const orders = (ordersRes.data ?? []) as unknown as OrderRow[];
   const messages = new Map<string, PushPayload>();
-  for (const staffId of recipients) {
-    const mine = routes.filter((r) => r.driver_id === staffId);
-    const parts: string[] = [];
+  if (orders.length === 0 || (dayRes.data ?? []).length > 0) return messages;
 
-    if (mine.length > 0) {
-      const stops = mine.flatMap((r) => r.route_stop).filter((s) => s.status === "pending" || s.status === "arrived");
-      const load = new Map<string, number>();
-      for (const s of stops) {
-        for (const l of s.order?.order_line ?? []) {
-          const name = l.product?.name ?? "?";
-          load.set(name, (load.get(name) ?? 0) + l.quantity_ordered);
-        }
-      }
-      const items = [...load.entries()].map(([name, n]) => `${n}× ${name}`);
-      parts.push(
-        `Jutri: ${plural(stops.length, "dostava", "dostavi", "dostave", "dostav")}.` +
-          (items.length ? ` Naloži: ${items.slice(0, 6).join(", ")}${items.length > 6 ? ", …" : ""}.` : ""),
-      );
-
-      const short: string[] = [];
-      for (const r of mine) {
-        const { data } = await admin.rpc("route_stock_check", { p_route_id: r.id });
-        for (const row of (data ?? []) as Shortage[]) {
-          if (Number(row.on_hand) < Number(row.needed)) {
-            short.push(`${row.product_name} (potrebno ${row.needed}, na zalogi ${row.on_hand})`);
-          }
-        }
-      }
-      parts.push(short.length ? `⚠ Manjka: ${short.join(", ")}.` : "Vse imaš na zalogi.");
-    }
-
-    if (unrouted > 0) {
-      parts.push(`${narocila(unrouted)} za jutri še ni na nobeni poti.`);
-    }
-
-    if (parts.length > 0) {
-      messages.set(staffId, {
-        title: "Načrt za jutri",
-        body: parts.join(" "),
-        url: "/dostava",
-        tag: `driver-plan-${forDate}`,
-      });
+  const load = new Map<string, { name: string; n: number }>();
+  for (const o of orders) {
+    for (const l of o.order_line) {
+      const cur = load.get(l.product_id) ?? { name: l.product?.name ?? "?", n: 0 };
+      cur.n += l.quantity_ordered;
+      load.set(l.product_id, cur);
     }
   }
+  const onHand = new Map<string, number>(
+    (stockRes.data ?? []).map((r: { product_id: string; quantity_on_hand: number }) => [r.product_id, Number(r.quantity_on_hand)]),
+  );
 
+  const items = [...load.values()].map((l) => `${l.n}× ${l.name}`);
+  const short = [...load.entries()]
+    .filter(([id, l]) => (onHand.get(id) ?? 0) < l.n)
+    .map(([id, l]) => `${l.name} (potrebno ${l.n}, na zalogi ${onHand.get(id) ?? 0})`);
+
+  const body = [
+    `Jutri: ${narocila(orders.length)}.`,
+    items.length ? `Naloži: ${items.slice(0, 6).join(", ")}${items.length > 6 ? ", …" : ""}.` : "",
+    short.length ? `⚠ Manjka: ${short.join(", ")}.` : "Vse imaš na zalogi.",
+    "Odpri Dostava in potrdi dostavo.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  for (const s of (staffRes.data ?? []) as { id: string }[]) {
+    messages.set(s.id, { title: "Dostava za jutri", body, url: "/dostava", tag: `driver-plan-${forDate}` });
+  }
   return messages;
 }

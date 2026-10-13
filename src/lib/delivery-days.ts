@@ -174,3 +174,31 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
         d.orders.some((o) => !o.cancelled && !(o.lines.length > 0 && o.lines.every((l) => l.delivered))),
     );
 }
+
+export interface DayState {
+  confirmed: boolean;
+  /** Something for this day was already mailed to print. */
+  printed: boolean;
+}
+
+/** Confirmation / print state per delivery date, for the day headings in Naročila. */
+export async function getDayStates(): Promise<Map<string, DayState>> {
+  const states = new Map<string, DayState>();
+  if (isDemoMode) return states;
+
+  const from = isoDay(-2);
+  const supabase = await createClient();
+  const [daysRes, printedRes] = await Promise.all([
+    supabase.from("delivery_day").select("day").gte("day", from),
+    supabase.from("sales_order").select("delivery_date").gte("delivery_date", from).not("print_sent_at", "is", null),
+  ]);
+  if (daysRes.error) throw daysRes.error;
+  if (printedRes.error) throw printedRes.error;
+
+  for (const d of daysRes.data ?? []) states.set(d.day, { confirmed: true, printed: false });
+  for (const o of printedRes.data ?? []) {
+    const cur = states.get(o.delivery_date) ?? { confirmed: false, printed: false };
+    states.set(o.delivery_date, { ...cur, printed: true });
+  }
+  return states;
+}

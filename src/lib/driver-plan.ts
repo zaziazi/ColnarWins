@@ -59,7 +59,7 @@ export async function buildDriverPlan(
     `Jutri: ${narocila(orders.length)}.`,
     items.length ? `Naloži: ${items.slice(0, 6).join(", ")}${items.length > 6 ? ", …" : ""}.` : "",
     short.length ? `⚠ Manjka: ${short.join(", ")}.` : "Vse imaš na zalogi.",
-    "Odpri Dostava in potrdi dostavo.",
+    "V Naročilih potrdi dostavo za jutri.",
   ]
     .filter(Boolean)
     .join(" ");

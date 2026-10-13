@@ -70,7 +70,7 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
 
       {confirmed.length === 0 && (
         <Card className="p-5 text-center mb-6">
-          <p className="text-[13px] text-ink-muted">Noben dan še ni potrjen. Voznik ga potrdi v zavihku Dostava.</p>
+          <p className="text-[13px] text-ink-muted">Noben dan še ni potrjen. Dostavo za dan potrdiš v zavihku Naročila.</p>
         </Card>
       )}
 
@@ -88,7 +88,7 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
                 </h2>
                 <p className="text-[12px] text-ink-muted mt-0.5 truncate">
                   {narocila(active.length)}
-                  {day.confirmedByName && ` · potrdil ${day.confirmedByName}`}
+                  {day.confirmedByName && ` · potrdil/a ${day.confirmedByName}`}
                 </p>
               </div>
               <Button
@@ -152,7 +152,7 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
       {waiting.length > 0 && (
         <section className="mb-6">
           <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5 flex items-center gap-1.5">
-            <Hourglass className="size-3.5" /> Čaka na potrditev voznika
+            <Hourglass className="size-3.5" /> Še ni potrjeno v Naročilih
           </h2>
           <div className="space-y-2.5">
             {waiting.map((day) => (

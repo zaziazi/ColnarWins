@@ -20,19 +20,20 @@ export default async function DostavaPage() {
     );
   }
 
-  const days = await getDeliveryDays();
+  const today = todayIso();
+  const day = (await getDeliveryDays()).find((d) => d.date === today) ?? null;
 
   return (
     <AppShell
       title="Dostava"
-      subtitle="Naročila po dnevih dostave"
+      subtitle="Današnja dostava"
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc}
       section="narocila"
     >
       <PushToggle />
-      <DeliveryList days={days} today={todayIso()} />
+      <DeliveryList day={day} date={today} />
     </AppShell>
   );
 }

@@ -25,7 +25,7 @@ export default async function TiskPage() {
   return (
     <AppShell
       title="Tisk"
-      subtitle="Dnevi, ki jih je voznik potrdil"
+      subtitle="Potrjeni dnevi dostave"
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc}

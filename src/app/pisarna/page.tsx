@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card, FieldLabel } from "@/components/ui/card";
 import { getCurrentStaff, getDrivers, getOrders } from "@/lib/data";
+import { getDayStates, type DayState } from "@/lib/delivery-days";
 import { isDemoMode } from "@/lib/demo";
 import { dateShort, eur, narocila } from "@/lib/format";
+import { DayConfirm } from "./day-confirm";
 import { DeleteDelivered } from "./delete-delivered";
 import { DeliveryDocs } from "./delivery-docs";
 import { DriverAssign } from "./driver-assign";
@@ -25,10 +27,11 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default async function OrdersPage() {
-  const [orders, drivers, staff] = await Promise.all([
+  const [orders, drivers, staff, dayStates] = await Promise.all([
     getOrders(),
     getDrivers(),
     getCurrentStaff(),
+    getDayStates(),
   ]);
   const drafts = orders.filter((o) => o.status === "draft");
   const open = orders.filter((o) => o.status === "confirmed" || o.status === "planned");
@@ -76,7 +79,7 @@ export default async function OrdersPage() {
 
       {days.map((day) => (
         <div key={day.date ?? "brez"} className="mb-6">
-          <DayHeading date={day.date} today={today} count={day.orders.length} />
+          <DayHeading date={day.date} today={today} count={day.orders.length} state={dayStates.get(day.date ?? "")} />
           <div className="space-y-2.5">
             {day.orders.map((o) => (
               <OrderCard key={o.id} order={o} drivers={drivers} />
@@ -121,7 +124,17 @@ function groupByDay(orders: Order[]): { date: string | null; orders: Order[] }[]
   return out;
 }
 
-function DayHeading({ date, today, count }: { date: string | null; today: string; count: number }) {
+function DayHeading({
+  date,
+  today,
+  count,
+  state,
+}: {
+  date: string | null;
+  today: string;
+  count: number;
+  state?: DayState;
+}) {
   if (!date) {
     return <SectionHeading>Brez datuma dostave · {count}</SectionHeading>;
   }
@@ -133,17 +146,21 @@ function DayHeading({ date, today, count }: { date: string | null; today: string
   const prefix = date === today ? "Danes · " : date === tomorrowIso ? "Jutri · " : "";
   const overdue = date < today;
 
+  const word = date === today ? "danes" : date === tomorrowIso ? "jutri" : null;
+
   return (
-    <h2
-      className={
-        "text-xs font-bold uppercase tracking-[0.06em] mb-2.5 px-0.5 " +
-        (overdue ? "text-danger" : "text-ink-subtle")
-      }
-    >
-      {prefix}
-      {label}
-      {overdue && " · zamuja"} · {count}
-    </h2>
+    <div className="flex items-center justify-between gap-3 mb-2.5 px-0.5">
+      <h2
+        className={
+          "text-xs font-bold uppercase tracking-[0.06em] " + (overdue ? "text-danger" : "text-ink-subtle")
+        }
+      >
+        {prefix}
+        {label}
+        {overdue && " · zamuja"} · {count}
+      </h2>
+      <DayConfirm date={date} word={word} confirmed={state?.confirmed ?? false} printed={state?.printed ?? false} />
+    </div>
   );
 }
 

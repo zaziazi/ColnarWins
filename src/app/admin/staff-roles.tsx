@@ -9,7 +9,7 @@ import { Card, FieldLabel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { StaffMember } from "@/lib/admin-data";
 import type { StaffRole } from "@/lib/types";
-import { addStaff, updateStaff } from "./actions";
+import { addStaff, linkLogin, unlinkLogin, updateStaff } from "./actions";
 
 export const ROLE_INFO: Record<StaffRole, { label: string; sees: string }> = {
   manager: { label: "Vodja", sees: "Vse: pregled, naročila, prodaja, degustacije, klet, zaloge, finance in admin." },
@@ -43,8 +43,8 @@ export function StaffRoles({ members, meId }: { members: StaffMember[]; meId: st
 
       <AddMember />
       <p className="text-[12px] text-ink-subtle leading-relaxed">
-        Sodelavec brez prijave (npr. voznik, ki mu samo dodeljuješ delo) se lahko doda tukaj. Prijavo z e-pošto in geslom ustvariš v Supabase
-        (Authentication), nato jo povežemo s sodelavcem.
+        Sodelavec brez prijave (npr. voznik, ki mu samo dodeljuješ delo) se doda tukaj. Če naj se prijavlja, ustvari prijavo v Supabase
+        (Authentication → Users) in jo tukaj poveži z »Poveži prijavo«.
       </p>
     </div>
   );
@@ -54,6 +54,8 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
   const router = useRouter();
   const [phone, setPhone] = React.useState(m.phone ?? "");
   const [busy, setBusy] = React.useState(false);
+  const [linking, setLinking] = React.useState(false);
+  const [loginEmail, setLoginEmail] = React.useState("");
 
   async function save(patch: Parameters<typeof updateStaff>[1], ok = "Shranjeno") {
     setBusy(true);
@@ -113,11 +115,60 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
       </div>
       <p className="text-[12px] text-ink-subtle mt-2">{ROLE_INFO[m.role].sees}</p>
 
-      <div className="mt-2.5">
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save({ active: !m.active }, m.active ? "Deaktivirano" : "Aktivirano")}>
           {m.active ? "Deaktiviraj" : "Aktiviraj"}
         </Button>
+        {!m.hasLogin && !linking && (
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => setLinking(true)}>
+            Poveži prijavo
+          </Button>
+        )}
+        {m.hasLogin && !isMe && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={async () => {
+              if (!window.confirm(`Odvezati prijavo od ${m.fullName}? Njegovi podatki ostanejo.`)) return;
+              setBusy(true);
+              const r = await unlinkLogin(m.id);
+              setBusy(false);
+              if (!r.ok) return void toast.error(r.error);
+              toast.success("Prijava odvezana");
+              router.refresh();
+            }}
+          >
+            Odveži prijavo
+          </Button>
+        )}
       </div>
+      {linking && (
+        <div className="mt-2 rounded-[12px] border border-line p-3 space-y-2">
+          <p className="text-[12px] text-ink-muted leading-relaxed">E-pošta prijave, ki že obstaja v Supabase (Authentication → Users).</p>
+          <Input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="ime@primer.si" inputMode="email" />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              loading={busy}
+              onClick={async () => {
+                setBusy(true);
+                const r = await linkLogin(m.id, loginEmail);
+                setBusy(false);
+                if (!r.ok) return void toast.error(r.error);
+                toast.success("Prijava povezana");
+                setLinking(false);
+                router.refresh();
+              }}
+            >
+              Poveži
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setLinking(false)}>
+              Prekliči
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

@@ -66,3 +66,29 @@ export async function addStaff(input: z.infer<typeof NewStaff>): Promise<ActionR
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/** Attach an existing login (found by its e-mail) to a team member. */
+export async function linkLogin(staffId: string, email: string): Promise<ActionResult> {
+  if (!z.string().uuid().safeParse(staffId).success || !z.string().email().safeParse(email.trim()).success) {
+    return { ok: false, error: "Vpiši veljaven e-naslov prijave." };
+  }
+  if (isDemoMode) return { ok: true };
+  if (!(await adminOnly())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("link_staff_login", { p_staff: staffId, p_email: email });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Detach a login from a team member (their records stay). */
+export async function unlinkLogin(staffId: string): Promise<ActionResult> {
+  if (!z.string().uuid().safeParse(staffId).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await adminOnly())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("unlink_staff_login", { p_staff: staffId });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  return { ok: true };
+}

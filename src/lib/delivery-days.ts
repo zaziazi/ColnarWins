@@ -17,6 +17,7 @@ export interface DayOrder {
   customerName: string;
   address: string | null;
   city: string | null;
+  vatId: string | null;
   deliveryNotes: string | null;
   driverNote: string | null;
   cancelled: boolean;
@@ -82,7 +83,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,customer_id,delivery_date,driver_note,confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,customer(name,address,city,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
+        "id,order_number,status,customer_id,delivery_date,driver_note,confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
       )
       .gte("delivery_date", from)
       .lte("delivery_date", to)
@@ -108,7 +109,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     cancelled_at: string | null;
     print_sent_at: string | null;
     print_hash: string | null;
-    customer: { name: string; address: string | null; city: string | null; delivery_notes: string | null } | null;
+    customer: { name: string; address: string | null; city: string | null; vat_id: string | null; delivery_notes: string | null } | null;
     order_line: {
       product_id: string;
       quantity_ordered: number;
@@ -135,6 +136,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
       customerName: o.customer?.name ?? "—",
       address: o.customer?.address ?? null,
       city: o.customer?.city ?? null,
+      vatId: o.customer?.vat_id ?? null,
       deliveryNotes: o.customer?.delivery_notes ?? null,
       driverNote: o.driver_note,
       cancelled,

@@ -46,6 +46,7 @@ export function buildPrintMail(day: string, orders: DayOrder[]): { subject: stri
         `NAROČILO #${o.orderNumber}`,
         `Kupec: ${o.customerName}`,
         addressOf(o) ? `Naslov: ${addressOf(o)}` : "",
+        o.vatId ? `Davčna številka: ${o.vatId}` : "",
         `Dostava: ${when}`,
         o.deliveryNotes ? `Opomba kupca: ${o.deliveryNotes}` : "",
         o.driverNote ? `Opomba: ${o.driverNote}` : "",
@@ -65,6 +66,7 @@ export function buildPrintMail(day: string, orders: DayOrder[]): { subject: stri
           `<div style="font-size:12px;color:#555">Naročilo #${o.orderNumber} · dostava ${when}</div>` +
           `<h1 style="font-size:26px;margin:6px 0 2px">${esc(o.customerName)}</h1>` +
           (addressOf(o) ? `<div style="font-size:15px">${esc(addressOf(o))}</div>` : "") +
+          (o.vatId ? `<div style="font-size:15px">Davčna številka: ${esc(o.vatId)}</div>` : "") +
           (o.deliveryNotes ? `<div style="font-size:13px;margin-top:6px">Opomba kupca: ${esc(o.deliveryNotes)}</div>` : "") +
           (o.driverNote ? `<div style="font-size:13px;margin-top:2px">Opomba: ${esc(o.driverNote)}</div>` : "") +
           `<table style="border-collapse:collapse;margin-top:16px;width:100%;max-width:560px">` +

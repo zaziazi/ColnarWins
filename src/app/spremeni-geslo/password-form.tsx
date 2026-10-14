@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldLabel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 import { changePassword } from "./actions";
 
 export function PasswordForm() {
@@ -48,6 +49,16 @@ export function PasswordForm() {
       <Button type="submit" size="lg" loading={pending}>
         Shrani geslo
       </Button>
+      <button
+        type="button"
+        className="w-full text-center text-[13px] font-semibold text-ink-muted hover:text-ink"
+        onClick={async () => {
+          await createClient().auth.signOut();
+          window.location.href = "/prijava";
+        }}
+      >
+        Odjava
+      </button>
     </form>
   );
 }

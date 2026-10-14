@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import {
   Briefcase,
   CalendarCheck,
@@ -9,6 +10,7 @@ import {
   ClipboardCheck,
   Landmark,
   LayoutDashboard,
+  LogOut,
   Warehouse,
   Wine,
   X,
@@ -99,10 +101,21 @@ export function Drawer({
             );
           })}
         </nav>
-        <div className="border-t border-line px-4 py-3">
+        <div className="border-t border-line px-4 py-3 flex items-center justify-between gap-3">
           <Link href="/spremeni-geslo" onClick={onClose} className="text-[13px] font-semibold text-ink-muted hover:text-ink">
             Spremeni geslo
           </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              await createClient().auth.signOut();
+              // full reload so no signed-in page state is left behind
+              window.location.href = "/prijava";
+            }}
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-wine hover:underline"
+          >
+            <LogOut className="size-4" /> Odjava
+          </button>
         </div>
       </div>
     </>

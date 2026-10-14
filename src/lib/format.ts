@@ -38,6 +38,17 @@ export function plural(n: number, one: string, two: string, few: string, many: s
 export const kupci = (n: number) => plural(n, "kupec", "kupca", "kupci", "kupcev");
 export const steklenice = (n: number) =>
   plural(n, "steklenica", "steklenici", "steklenice", "steklenic");
+export const kartoni = (n: number) => plural(n, "karton", "kartona", "kartoni", "kartonov");
+
+/** "2 kartona", "2 kartona + 3 steklenice", "manj kot karton" - for a quantity of bottles. */
+export function inCartons(bottles: number, caseSize: number): string {
+  if (bottles <= 0 || caseSize <= 0) return "";
+  const full = Math.floor(bottles / caseSize);
+  const rest = bottles % caseSize;
+  if (full === 0) return "manj kot karton";
+  return rest === 0 ? kartoni(full) : `${kartoni(full)} + ${steklenice(rest)}`;
+}
+
 export const narocila = (n: number) =>
   plural(n, "naro\u010dilo", "naro\u010dili", "naro\u010dila", "naro\u010dil");
 

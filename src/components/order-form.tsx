@@ -11,7 +11,7 @@ import { Card, FieldLabel } from "@/components/ui/card";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Input, Textarea } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
-import { eur, dateSl } from "@/lib/format";
+import { eur, dateSl, inCartons, kartoni, steklenice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Customer, Driver, Product, StandingOrder, StandingOrderLine } from "@/lib/types";
 import { createOrder } from "@/app/pisarna/novo/actions";
@@ -107,6 +107,10 @@ export function OrderForm({
   const lines = products
     .map((p) => ({ product: p, quantity: quantities[p.id] ?? 0 }))
     .filter((l) => l.quantity > 0);
+
+  const totalBottles = lines.reduce((s, l) => s + l.quantity, 0);
+  const totalCartons = lines.reduce((s, l) => s + l.quantity / l.product.caseSize, 0);
+  const cartonsText = Number.isInteger(totalCartons) ? String(totalCartons) : totalCartons.toFixed(1).replace(".", ",");
 
   const net = lines.reduce((s, l) => s + l.quantity * l.product.unitPriceNet, 0);
   const vat = lines.reduce(
@@ -286,6 +290,11 @@ export function OrderForm({
                       label={`${p.name} ${p.vintage ?? ""}`}
                       onChange={(v) => setQuantities((q) => ({ ...q, [p.id]: v }))}
                     />
+                    {qty > 0 && (
+                      <span className="text-[11.5px] font-semibold text-wine tabular">
+                        = {inCartons(qty, p.caseSize)}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -293,6 +302,12 @@ export function OrderForm({
 
             {/* -------------------------------------------------- totals */}
             <div className="border-t-2 border-line mt-1.5 pt-3 pb-3.5">
+              {totalBottles > 0 && (
+                <Row
+                  label="Količina"
+                  value={`${steklenice(totalBottles)} = ${cartonsText} ${Number.isInteger(totalCartons) ? kartoni(totalCartons).replace(/^\d+ /, "") : "kartonov"}`}
+                />
+              )}
               <Row label="Osnova" value={eur(net)} />
               <Row label="DDV 22 %" value={eur(vat)} />
               <div className="flex justify-between items-baseline pt-2 mt-1">

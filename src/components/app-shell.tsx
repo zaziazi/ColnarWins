@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer } from "./drawer";
@@ -84,7 +84,9 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [refreshing, startRefresh] = React.useTransition();
   // Prodaja users only deliver from the Naročila section: Novo, Naročila and Tisk are not for them.
   const allTabs = SECTION_TABS[section];
   const tabs = section === "narocila" && role === "sales" ? allTabs?.filter((t) => t.href === "/dostava") : allTabs;
@@ -107,7 +109,20 @@ export function AppShell({
               Colnix<span className="text-wine">.</span>
             </span>
           </div>
-          {who && <span className="text-xs text-ink-subtle">{who}</span>}
+          <div className="flex items-center gap-2">
+            {who && <span className="text-xs text-ink-subtle">{who}</span>}
+            <button
+              type="button"
+              aria-label="Osveži"
+              title="Osveži podatke"
+              disabled={refreshing}
+              onClick={() => startRefresh(() => router.refresh())}
+              className="h-8 w-8 grid place-items-center rounded-[8px] text-ink-subtle
+                         hover:bg-surface-muted hover:text-ink transition-colors disabled:opacity-60"
+            >
+              <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+            </button>
+          </div>
         </div>
         <h1 className="mt-2.5 text-xl font-bold tracking-[-0.02em]">{title}</h1>
         {subtitle && <p className="text-[12.5px] text-ink-muted mt-0.5">{subtitle}</p>}

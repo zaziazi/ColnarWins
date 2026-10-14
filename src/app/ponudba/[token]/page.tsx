@@ -36,6 +36,7 @@ export default async function OfferPage({ params }: { params: Promise<{ token: s
             <span className="text-wine">.</span>
           </div>
           <h1 className="mt-3 text-[26px] font-bold tracking-[-0.02em] leading-tight">Ponudba vin</h1>
+          <p className="mt-1 text-[12.5px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">Cenik za gostince</p>
           {offer.venue && <p className="mt-1 text-[14px] text-ink-muted">Pripravljeno za: {offer.venue}</p>}
         </header>
 

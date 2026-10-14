@@ -247,6 +247,9 @@ export function OrderForm({
           )}
 
           {/* ---------------------------------------------------- lines */}
+          <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-ink-subtle px-1 -mb-1">
+            Cenik za gostince · cene brez DDV
+          </p>
           <Card className="px-3.5">
             {products.map((p, i) => {
               const qty = quantities[p.id] ?? 0;
@@ -268,7 +271,7 @@ export function OrderForm({
                       {p.name} {p.vintage}
                     </p>
                     <p className="text-[11.5px] text-ink-subtle">
-                      {p.volumeL?.toLocaleString("sl-SI")} l · {eur(p.unitPriceNet)}
+                      {p.volumeL?.toLocaleString("sl-SI")} l · {eur(p.unitPriceNet)} + DDV
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">

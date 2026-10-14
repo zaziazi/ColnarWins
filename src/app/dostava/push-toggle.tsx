@@ -43,6 +43,7 @@ function isStandalone(): boolean {
   );
 }
 
+// NEXT_PUBLIC_VAPID_PUBLIC_KEY is inlined at build time: set it in Vercel and redeploy before this can subscribe.
 export function PushToggle({
   swPath = "/dostava-sw.js",
   scope = "/dostava/",

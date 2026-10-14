@@ -86,7 +86,7 @@ export async function getProducts(): Promise<Product[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("product")
-    .select("id,name,vintage,volume_l,unit_price_net,vat_rate,case_size")
+    .select("id,name,vintage,volume_l,unit_price_net,vat_rate,case_size,retail_price_gross")
     .eq("active", true)
     .order("name");
 
@@ -94,6 +94,7 @@ export async function getProducts(): Promise<Product[]> {
 
   return (data ?? []).map((p) => ({
     id: p.id,
+    retailPriceGross: p.retail_price_gross === null ? null : Number(p.retail_price_gross),
     name: p.name,
     vintage: p.vintage,
     volumeL: p.volume_l,
@@ -135,7 +136,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,assigned_driver_name,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
+        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
       );
 
   // Open work, soonest delivery first (no delivery date sinks to the bottom).
@@ -181,6 +182,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
       createdByName: (o.creator as unknown as { full_name: string } | null)?.full_name ?? null,
       assignedDriverId: o.assigned_driver_id,
       assignedDriverName: (o.assigned_driver_name as string | null) ?? null,
+      priceList: (o.price_list as "gostinci" | "fizicne") ?? "gostinci",
       reviewNote: (o.review_note as string | null) ?? null,
       routedDriverName:
         (
@@ -226,7 +228,7 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
   const { data, error } = await supabase
     .from("sales_order")
     .select(
-      "id,customer_id,status,delivery_date,driver_note,assigned_driver_id,assigned_driver_name,customer(name),order_line(product_id,quantity_ordered)",
+      "id,customer_id,status,delivery_date,driver_note,assigned_driver_id,assigned_driver_name,price_list,customer(name),order_line(product_id,quantity_ordered)",
     )
     .eq("id", id)
     .single();
@@ -242,6 +244,7 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
     note: data.driver_note ?? "",
     driverId: data.assigned_driver_id,
     driverName: (data.assigned_driver_name as string | null) ?? null,
+    priceList: (data.price_list as "gostinci" | "fizicne") ?? "gostinci",
     lines: (data.order_line ?? []).map((l) => ({
       productId: l.product_id,
       quantity: l.quantity_ordered,

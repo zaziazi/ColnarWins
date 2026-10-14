@@ -77,6 +77,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
           note: order.note,
           driverId: order.driverId,
           driverName: order.driverName,
+          priceList: order.priceList,
           lines: order.lines,
         }}
       />

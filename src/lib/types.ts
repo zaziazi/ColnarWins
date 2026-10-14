@@ -40,7 +40,11 @@ export interface Product {
   unitPriceNet: number;
   vatRate: number;
   caseSize: number;
+  /** Shelf price incl. VAT for private persons (null = not sold to them). */
+  retailPriceGross?: number | null;
 }
+
+export type PriceList = "gostinci" | "fizicne";
 
 export interface StandingOrderLine {
   productId: string;
@@ -68,6 +72,7 @@ export interface OrderListItem {
   assignedDriverId: string | null;
   /** One-off driver typed by hand (when someone not on the list delivers). */
   assignedDriverName: string | null;
+  priceList: PriceList;
   /** Set on orders that need the office to look at them (e.g. new customer from the field). */
   reviewNote?: string | null;
   /** Set once this order is a stop on a route — the route's driver, read-only. */
@@ -90,6 +95,7 @@ export interface OrderForEdit {
   note: string;
   driverId: string | null;
   driverName: string | null;
+  priceList: PriceList;
   lines: StandingOrderLine[];
 }
 

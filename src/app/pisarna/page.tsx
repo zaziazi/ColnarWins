@@ -193,6 +193,7 @@ function OrderCard({
               #{order.orderNumber} · {SOURCE_LABEL[order.source] ?? order.source}
               {order.deliveryDate && ` · dostava ${dateShort(order.deliveryDate)}`}
               {order.createdByName && ` · vnesel/a ${order.createdByName}`}
+              {order.priceList === "fizicne" && " · cene za fizične osebe"}
             </p>
             {order.reviewNote && order.status === "draft" && (
               <p className="text-[12px] text-warn font-semibold mt-1">{order.reviewNote}</p>

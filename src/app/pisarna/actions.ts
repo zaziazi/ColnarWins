@@ -151,6 +151,7 @@ const UpdateOrderInput = z.object({
   note: z.string().max(500).optional().default(""),
   driverId: z.string().min(1).nullable().optional(),
   driverName: z.string().trim().max(80).nullable().optional(),
+  priceList: z.enum(["gostinci", "fizicne"]).default("gostinci"),
   lines: z
     .array(
       z.object({
@@ -184,7 +185,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
   if (!parsed.success) {
     return { ok: false, error: "Naročilo ni veljavno." };
   }
-  const { orderId, deliveryDate, note, lines, driverId, driverName } = parsed.data;
+  const { orderId, deliveryDate, note, lines, driverId, driverName, priceList } = parsed.data;
 
   if (isDemoMode) {
     await new Promise((r) => setTimeout(r, 400));
@@ -195,7 +196,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   const { data: existing, error: fetchError } = await supabase
     .from("sales_order")
-    .select("status")
+    .select("status,price_list")
     .eq("id", orderId)
     .single();
 
@@ -208,7 +209,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   const { error: updateError } = await supabase
     .from("sales_order")
-    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null, assigned_driver_name: driverId ? null : driverName || null })
+    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null, assigned_driver_name: driverId ? null : driverName || null, price_list: priceList })
     .eq("id", orderId);
 
   if (updateError) return { ok: false, error: updateError.message };
@@ -228,7 +229,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
   );
 
   const resolvedLines = lines.map((l) => {
-    const prior = existing.status === "confirmed" ? priorByProduct.get(l.productId) : undefined;
+    // switching the price list re-prices every line; otherwise confirmed lines keep their snapshot
+    const prior = existing.status === "confirmed" && existing.price_list === priceList ? priorByProduct.get(l.productId) : undefined;
     return {
       order_id: orderId,
       product_id: l.productId,

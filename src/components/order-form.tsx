@@ -13,7 +13,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
 import { eur, dateSl, inCartons, kartoni, steklenice } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Customer, Driver, Product, StandingOrder, StandingOrderLine } from "@/lib/types";
+import type { Customer, Driver, PriceList, Product, StandingOrder, StandingOrderLine } from "@/lib/types";
 import { createOrder } from "@/app/pisarna/novo/actions";
 import { updateOrder } from "@/app/pisarna/actions";
 
@@ -26,6 +26,7 @@ interface EditOrder {
   note: string;
   driverId: string | null;
   driverName: string | null;
+  priceList: PriceList;
   lines: StandingOrderLine[];
 }
 
@@ -72,6 +73,7 @@ export function OrderForm({
     editOrder?.deliveryDate ?? deliveryDates[0] ?? "",
   );
   const [note, setNote] = React.useState(editOrder?.note ?? "");
+  const [priceList, setPriceList] = React.useState<PriceList>(editOrder?.priceList ?? "gostinci");
   // "__other" = someone not on the list, typed by hand.
   const [driverId, setDriverId] = React.useState(editOrder?.driverId ?? (editOrder?.driverName ? "__other" : ""));
   const [driverName, setDriverName] = React.useState(editOrder?.driverName ?? "");
@@ -104,7 +106,18 @@ export function OrderForm({
     toast("Vrnjeno na običajno naročilo");
   }
 
-  const lines = products
+  /** Net unit price on the chosen list (private-person prices are shelf prices incl. VAT). */
+  const priceNet = (p: Product): number =>
+    priceList === "fizicne" && p.retailPriceGross != null
+      ? Math.round((p.retailPriceGross / (1 + p.vatRate)) * 10000) / 10000
+      : p.unitPriceNet;
+  const priceGross = (p: Product): number =>
+    priceList === "fizicne" && p.retailPriceGross != null ? p.retailPriceGross : p.unitPriceNet * (1 + p.vatRate);
+
+  // On the private-person list only products with a shelf price can be ordered.
+  const visibleProducts = priceList === "fizicne" ? products.filter((p) => p.retailPriceGross != null) : products;
+
+  const lines = visibleProducts
     .map((p) => ({ product: p, quantity: quantities[p.id] ?? 0 }))
     .filter((l) => l.quantity > 0);
 
@@ -112,11 +125,8 @@ export function OrderForm({
   const totalCartons = lines.reduce((s, l) => s + l.quantity / l.product.caseSize, 0);
   const cartonsText = Number.isInteger(totalCartons) ? String(totalCartons) : totalCartons.toFixed(1).replace(".", ",");
 
-  const net = lines.reduce((s, l) => s + l.quantity * l.product.unitPriceNet, 0);
-  const vat = lines.reduce(
-    (s, l) => s + l.quantity * l.product.unitPriceNet * l.product.vatRate,
-    0,
-  );
+  const net = lines.reduce((s, l) => s + l.quantity * priceNet(l.product), 0);
+  const vat = lines.reduce((s, l) => s + l.quantity * priceNet(l.product) * l.product.vatRate, 0);
 
   const blocked = Boolean(customer && (customer.creditHold || customer.daysOverdue > 30));
 
@@ -136,7 +146,7 @@ export function OrderForm({
     const orderLines = lines.map((l) => ({
       productId: l.product.id,
       quantity: l.quantity,
-      unitPriceNet: l.product.unitPriceNet,
+      unitPriceNet: priceNet(l.product),
       vatRate: l.product.vatRate,
     }));
 
@@ -148,6 +158,7 @@ export function OrderForm({
           note,
           driverId: driverId && driverId !== "__other" ? driverId : null,
           driverName: driverId === "__other" ? driverName.trim() || null : null,
+          priceList,
           lines: orderLines,
         });
 
@@ -167,6 +178,7 @@ export function OrderForm({
         note,
         driverId: driverId && driverId !== "__other" ? driverId : null,
         driverName: driverId === "__other" ? driverName.trim() || null : null,
+        priceList,
         lines: orderLines,
         holdForReview: blocked,
       });
@@ -251,11 +263,38 @@ export function OrderForm({
           )}
 
           {/* ---------------------------------------------------- lines */}
-          <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-ink-subtle px-1 -mb-1">
-            Cenik za gostince · cene brez DDV
-          </p>
+          <div className="flex items-center justify-between gap-3 px-1 -mb-1">
+            <div
+              className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5"
+              role="group"
+              aria-label="Cenik"
+            >
+              {(
+                [
+                  ["gostinci", "Za gostince"],
+                  ["fizicne", "Za fizične osebe"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={priceList === key}
+                  onClick={() => setPriceList(key)}
+                  className={cn(
+                    "h-8 px-3 rounded-[8px] text-[12.5px] font-semibold transition-colors",
+                    priceList === key ? "bg-wine text-white" : "text-ink-muted hover:text-ink",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11.5px] text-ink-subtle">
+              {priceList === "gostinci" ? "cene brez DDV" : "cene z DDV"}
+            </span>
+          </div>
           <Card className="px-3.5">
-            {products.map((p, i) => {
+            {visibleProducts.map((p, i) => {
               const qty = quantities[p.id] ?? 0;
               const mode = unitModes[p.id] ?? "case";
               return (
@@ -263,7 +302,7 @@ export function OrderForm({
                   key={p.id}
                   className={
                     "flex items-center gap-3 py-2.5" +
-                    (i < products.length - 1 ? " border-b border-line" : "")
+                    (i < visibleProducts.length - 1 ? " border-b border-line" : "")
                   }
                 >
                   <div className="flex-1 min-w-0">
@@ -275,7 +314,7 @@ export function OrderForm({
                       {p.name} {p.vintage}
                     </p>
                     <p className="text-[11.5px] text-ink-subtle">
-                      {p.volumeL?.toLocaleString("sl-SI")} l · {eur(p.unitPriceNet)} + DDV
+                      {p.volumeL?.toLocaleString("sl-SI")} l · {priceList === "fizicne" ? `${eur(priceGross(p))} z DDV` : `${eur(p.unitPriceNet)} + DDV`}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">

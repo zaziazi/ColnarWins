@@ -123,13 +123,23 @@ export function PushToggle({
     }
   }
 
-  if (state === "loading" || state === "unsupported") return null;
+  if (state === "loading") return null;
+
+  if (state === "unsupported") {
+    return (
+      <Card className="p-3 mb-4 text-[12.5px] text-ink-muted leading-relaxed">
+        Ta brskalnik ne omogoča obvestil. Na iPhonu mora biti iOS 16.4 ali novejši, aplikacija pa dodana na začetni zaslon
+        iz Safarija.
+      </Card>
+    );
+  }
 
   if (state === "needs-install") {
     return (
       <Card className="p-3 mb-4 text-[12.5px] text-ink-muted leading-relaxed">
-        Za obvestila na iPhonu: v Safariju tapni »Deli« → »Dodaj na začetni zaslon«, nato odpri
-        aplikacijo od tam.
+        Za obvestila na iPhonu: odpri aplikacijo v <strong>Safariju</strong>, tapni »Deli« (kvadrat s puščico) →
+        »Dodaj na začetni zaslon«, nato <strong>odpri Colnix s ikone na začetnem zaslonu</strong> (ne iz Safarija) in tam
+        tapni »Vklopi obvestila«.
       </Card>
     );
   }
@@ -137,7 +147,9 @@ export function PushToggle({
   if (state === "denied") {
     return (
       <Card className="p-3 mb-4 text-[12.5px] text-ink-muted leading-relaxed">
-        Obvestila so v nastavitvah telefona izklopljena za to aplikacijo.
+        Obvestila so za to aplikacijo izklopljena. iPhone: Nastavitve → Obvestila → Colnix → Dovoli obvestila. Če Colnix
+        ni na seznamu, izbriši ikono z začetnega zaslona, jo ponovno dodaj iz Safarija in tapni »Vklopi obvestila«
+        (ko vpraša, izberi »Dovoli«).
       </Card>
     );
   }

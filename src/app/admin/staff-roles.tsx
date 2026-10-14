@@ -232,7 +232,7 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
             </Button>
           </div>
           <p className="text-[12px] text-ink-muted leading-relaxed">
-            Sporoči mu uporabniško ime in to geslo. Ob prvi prijavi bo moral izbrati svoje geslo.
+            Sporoči mu uporabniško ime in to geslo. Ob prvi prijavi bo moral izbrati svoje geslo, ki ga ne poznaš ne ti ne aplikacija.
           </p>
           <div className="flex gap-2">
             <Button
@@ -244,6 +244,7 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
                 setBusy(false);
                 if (!r.ok) return void toast.error(r.error);
                 toast.success(panel === "create" ? "Prijava ustvarjena" : "Geslo ponastavljeno");
+                setTempPassword(""); // the temporary password is not kept on screen after saving
                 setPanel(null);
                 router.refresh();
               }}

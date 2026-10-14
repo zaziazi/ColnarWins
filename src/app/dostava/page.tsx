@@ -29,7 +29,7 @@ export default async function DostavaPage() {
       subtitle="Današnja dostava"
       who={staff.fullName}
       role={staff.role}
-      seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="narocila"
     >
       <PushToggle />

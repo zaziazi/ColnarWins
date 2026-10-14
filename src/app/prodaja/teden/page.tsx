@@ -31,7 +31,7 @@ export default async function WeekPage({ searchParams }: { searchParams: Promise
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
 
   return (
-    <AppShell title="Načrt" subtitle="Obiski po dnevih" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} section="prodaja">
+    <AppShell title="Načrt" subtitle="Obiski po dnevih" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied} section="prodaja">
       <WeekPlanner
         today={today}
         start={start}

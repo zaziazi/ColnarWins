@@ -19,7 +19,7 @@ export default async function RepliesPage() {
   ]);
 
   return (
-    <AppShell title="Odgovori" subtitle="Vse, kar čaka na odgovor" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} section="degustacije">
+    <AppShell title="Odgovori" subtitle="Vse, kar čaka na odgovor" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied} section="degustacije">
       <ReplyInbox
         tasks={tasks}
         web={web}

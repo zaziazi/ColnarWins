@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   const [settings, people, persons] = await Promise.all([getDrustvaSettings(), getStaffChoices(), getPersons()]);
 
   return (
-    <AppShell title="Degustacije" subtitle="Osebe, informacijski list, kapaciteta" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} section="admin">
+    <AppShell title="Degustacije" subtitle="Osebe, informacijski list, kapaciteta" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied} section="admin">
       <SettingsForm settings={settings} people={people} persons={persons} />
     </AppShell>
   );

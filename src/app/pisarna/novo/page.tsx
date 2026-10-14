@@ -36,7 +36,7 @@ export default async function NewOrderPage() {
       title="Novo naročilo"
       subtitle="Vnos med telefonskim klicem"
       who={staff?.fullName ?? "Prijava potrebna"}
-      role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin}
+      role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin} denied={staff?.denied}
       section="narocila"
     >
       <OrderForm

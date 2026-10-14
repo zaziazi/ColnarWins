@@ -38,7 +38,7 @@ export default async function DostavaPage() {
       title="Voznik"
       subtitle="Tvoja pot za danes (s podpisom)"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="narocilaAc"
     >
       <PushToggle />

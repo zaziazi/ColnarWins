@@ -16,7 +16,7 @@ const BUCKET_LABEL: Record<string, string> = {
 export default async function FinancePage() {
   const staff = await getCurrentStaff();
 
-  if (!staff || staff.role !== "manager") {
+  if (!staff || staff.role !== "manager" || staff.denied.includes("finance")) {
     return (
       <AppShell title="Finance" who="Prijava potrebna" section="finance">
         <Card className="p-7 text-center">
@@ -39,7 +39,7 @@ export default async function FinancePage() {
       title="Finance"
       subtitle="Terjatve"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="finance"
     >
       <SectionHeading>Odprte terjatve</SectionHeading>

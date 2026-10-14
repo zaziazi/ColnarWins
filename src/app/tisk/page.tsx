@@ -31,7 +31,7 @@ export default async function TiskPage() {
       subtitle="Potrjeni dnevi dostave"
       who={staff.fullName}
       role={staff.role}
-      seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="narocila"
     >
       <PrintPanel days={days} today={todayIso()} mailTo={printMailTo()} />

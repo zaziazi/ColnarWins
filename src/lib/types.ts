@@ -178,6 +178,8 @@ export interface CurrentStaff {
   seesAc: boolean;
   /** May open Admin (users, roles, tasting settings). A manager without it sees everything else. */
   isAdmin: boolean;
+  /** Sections this manager must not open ("klet", "zaloge", "finance"), set in Admin. */
+  denied: string[];
 }
 
 export interface ReceivablesAgeingBucket {

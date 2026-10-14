@@ -41,7 +41,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc}
-      isAdmin={staff.isAdmin}
+      isAdmin={staff.isAdmin} denied={staff.denied}
       section="admin"
     >
       <AuditFilters

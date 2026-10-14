@@ -134,6 +134,32 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
         />
         Dostavlja (na seznamu voznikov, dobi obvestilo ob 17:00)
       </label>
+      {m.role === "manager" && (
+        <div className="mt-2">
+          <p className="text-[12px] text-ink-subtle mb-1">Brez dostopa do:</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {(["klet", "zaloge", "finance"] as const).map((s) => (
+              <label key={s} className="flex items-center gap-1.5 text-[13px] font-semibold">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--color-wine)]"
+                  checked={m.denied.includes(s)}
+                  disabled={busy}
+                  onChange={(e) =>
+                    void save(
+                      {
+                        denied: (e.target.checked ? [...m.denied, s] : m.denied.filter((x) => x !== s)) as ("klet" | "zaloge" | "finance")[],
+                      },
+                      "Dostop spremenjen",
+                    )
+                  }
+                />
+                {s === "klet" ? "Klet" : s === "zaloge" ? "Zaloge" : "Finance"}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save({ active: !m.active }, m.active ? "Deaktivirano" : "Aktivirano")}>

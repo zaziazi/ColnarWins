@@ -21,6 +21,7 @@ const Patch = z.object({
   active: z.boolean().optional(),
   phone: z.string().max(40).nullable().optional(),
   delivers: z.boolean().optional(),
+  denied: z.array(z.enum(["klet", "zaloge", "finance"])).optional(),
 });
 
 /**
@@ -41,6 +42,7 @@ export async function updateStaff(id: string, patch: z.infer<typeof Patch>): Pro
   if (p.active !== undefined) row.active = p.active;
   if (p.phone !== undefined) row.phone = p.phone?.trim() || null;
   if (p.delivers !== undefined) row.delivers = p.delivers;
+  if (p.denied !== undefined) row.denied_sections = p.denied;
   if (Object.keys(row).length === 0) return { ok: true };
 
   const supabase = await createClient();

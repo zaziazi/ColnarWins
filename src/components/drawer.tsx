@@ -24,7 +24,7 @@ const SECTIONS: {
   href: string;
   label: string;
   icon: typeof ClipboardList;
-  visible: (role?: StaffRole, seesAc?: boolean, isAdmin?: boolean) => boolean;
+  visible: (role?: StaffRole, seesAc?: boolean, isAdmin?: boolean, denied?: string[]) => boolean;
 }[] = [
   { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: (r) => r === "manager" },
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
@@ -32,9 +32,9 @@ const SECTIONS: {
   { key: "prodaja",   href: "/prodaja",  label: "Prodaja",  icon: Briefcase,       visible: (r) => r === "sales" || r === "manager" },
   { key: "degustacije", href: "/degustacije", label: "Degustacije", icon: CalendarCheck, visible: (r) => r === "manager" || r === "events" || r === "sales" },
   { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r, _ac, admin) => r === "manager" && admin === true },
-  { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r) => r === "manager" },
-  { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r) => r === "manager" },
-  { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r) => r === "manager" },
+  { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r, _a, _m, d) => r === "manager" && !d?.includes("klet") },
+  { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r, _a, _m, d) => r === "manager" && !d?.includes("zaloge") },
+  { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r, _a, _m, d) => r === "manager" && !d?.includes("finance") },
 ];
 
 export function Drawer({
@@ -44,6 +44,7 @@ export function Drawer({
   role,
   seesAc,
   isAdmin,
+  denied,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,10 +52,11 @@ export function Drawer({
   role?: StaffRole;
   seesAc?: boolean;
   isAdmin?: boolean;
+  denied?: string[];
 }) {
   if (!open) return null;
 
-  const visibleSections = SECTIONS.filter((s) => s.visible(role, seesAc, isAdmin));
+  const visibleSections = SECTIONS.filter((s) => s.visible(role, seesAc, isAdmin, denied));
 
   return (
     <>

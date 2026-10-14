@@ -13,7 +13,7 @@ const STOCK_MOVEMENT_LABEL: Record<string, string> = {
 
 export default async function InventoryPage() {
   const staff = await getCurrentStaff();
-  if (!staff || staff.role !== "manager") {
+  if (!staff || staff.role !== "manager" || staff.denied.includes("zaloge")) {
     return (
       <AppShell title="Zaloge" who="Prijava potrebna" section="zaloge">
         <Card className="p-7 text-center">
@@ -35,7 +35,7 @@ export default async function InventoryPage() {
       title="Zaloge"
       subtitle="Stanje steklenic"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="zaloge"
     >
       <SectionHeading>Steklenice</SectionHeading>

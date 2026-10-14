@@ -28,7 +28,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
       title="Prodaja"
       subtitle="Lokali in naše stranke"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="prodaja"
     >
       <SalesExplorer points={points} initialView={v === "list" ? "list" : "map"} />

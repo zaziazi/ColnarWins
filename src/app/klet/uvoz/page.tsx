@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ImportReadingsPage() {
   const staff = await getCurrentStaff();
 
-  if (!staff || staff.role !== "manager") {
+  if (!staff || staff.role !== "manager" || staff.denied.includes("klet")) {
     return (
       <AppShell title="Klet" who="Prijava potrebna" section="klet">
         <Card className="p-7 text-center">
@@ -27,7 +27,7 @@ export default async function ImportReadingsPage() {
       title="Uvoz meritev"
       subtitle="Datoteke iz FOSS naprave"
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="klet"
     >
       <ImportShell lots={lots} />

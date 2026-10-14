@@ -523,13 +523,13 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
 
   const { data, error } = await supabase
     .from("staff")
-    .select("id,full_name,role,sees_ac,is_admin")
+    .select("id,full_name,role,sees_ac,is_admin,denied_sections")
     .eq("auth_user_id", user.id)
     .single();
 
   if (error || !data) return null;
 
-  return { id: data.id, fullName: data.full_name, role: data.role, seesAc: data.sees_ac, isAdmin: data.role === "manager" && Boolean(data.is_admin) };
+  return { id: data.id, fullName: data.full_name, role: data.role, seesAc: data.sees_ac, isAdmin: data.role === "manager" && Boolean(data.is_admin), denied: (data.denied_sections as string[] | null) ?? [] };
 }
 
 /** Receivables bucketed by age, for the manager dashboard. RLS makes this manager-only. */

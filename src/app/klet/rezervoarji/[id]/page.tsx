@@ -24,7 +24,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const staff = await getCurrentStaff();
 
-  if (!staff || staff.role !== "manager") {
+  if (!staff || staff.role !== "manager" || staff.denied.includes("klet")) {
     return (
       <AppShell title="Klet" who="Prijava potrebna" section="klet">
         <Card className="p-7 text-center">
@@ -40,7 +40,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
 
   if (!vessel) {
     return (
-      <AppShell title="Klet" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} section="klet">
+      <AppShell title="Klet" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied} section="klet">
         <BackLink />
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">Rezervoar ne obstaja.</p>
@@ -54,7 +54,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
       title={vessel.name}
       subtitle={CATEGORY_LABEL[vessel.category]}
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="klet"
     >
       <BackLink />

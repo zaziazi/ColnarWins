@@ -47,7 +47,7 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const staff = await getCurrentStaff();
 
-  if (!staff || staff.role !== "manager") {
+  if (!staff || staff.role !== "manager" || staff.denied.includes("klet")) {
     return (
       <AppShell title="Klet" who="Prijava potrebna" section="klet">
         <Card className="p-7 text-center">
@@ -68,7 +68,7 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
 
   if (!lot) {
     return (
-      <AppShell title="Klet" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} section="klet">
+      <AppShell title="Klet" who={staff.fullName} role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied} section="klet">
         <BackLink />
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">Vino ne obstaja.</p>
@@ -81,7 +81,7 @@ export default async function WineLotDetailPage({ params }: { params: Promise<{ 
     <AppShell
       title={lot.lotNumber}
       who={staff.fullName}
-      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin}
+      role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="klet"
     >
       <BackLink />

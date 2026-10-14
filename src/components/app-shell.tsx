@@ -69,6 +69,7 @@ export function AppShell({
   role,
   seesAc,
   isAdmin,
+  denied,
   section,
   children,
 }: {
@@ -78,6 +79,7 @@ export function AppShell({
   role?: StaffRole;
   seesAc?: boolean;
   isAdmin?: boolean;
+  denied?: string[];
   section: SectionKey;
   children: React.ReactNode;
 }) {
@@ -135,7 +137,7 @@ export function AppShell({
         </nav>
       )}
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} section={section} role={role} seesAc={seesAc} isAdmin={isAdmin} />
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} section={section} role={role} seesAc={seesAc} isAdmin={isAdmin} denied={denied} />
     </div>
   );
 }

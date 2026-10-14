@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer } from "./drawer";
@@ -44,6 +44,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   admin: [
     { href: "/admin",             label: "Uporabniki in vloge", icon: UserCog, exact: true },
     { href: "/admin/degustacije", label: "Degustacije",         icon: CalendarCheck },
+    { href: "/admin/dnevnik",     label: "Dnevnik",             icon: History },
   ],
   klet: [
     { href: "/klet",             label: "Vina",         icon: FlaskConical, exact: true },

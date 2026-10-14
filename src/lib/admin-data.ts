@@ -12,6 +12,7 @@ export interface StaffMember {
   email: string | null;
   username: string | null;
   delivers: boolean;
+  notifyPrint: boolean;
   denied: string[];
   hasLogin: boolean;
 }
@@ -19,7 +20,7 @@ export interface StaffMember {
 export async function getStaffMembers(): Promise<StaffMember[]> {
   if (isDemoMode) return [];
   const supabase = await createClient();
-  const { data, error } = await supabase.from("staff").select("id,full_name,role,active,phone,email,username,delivers,denied_sections,auth_user_id").order("full_name");
+  const { data, error } = await supabase.from("staff").select("id,full_name,role,active,phone,email,username,delivers,notify_print,denied_sections,auth_user_id").order("full_name");
   if (error) throw error;
   return (data ?? []).map((s) => ({
     id: s.id as string,
@@ -30,6 +31,7 @@ export async function getStaffMembers(): Promise<StaffMember[]> {
     email: (s.email as string | null) ?? null,
     username: (s.username as string | null) ?? null,
     delivers: Boolean(s.delivers),
+    notifyPrint: Boolean(s.notify_print),
     denied: (s.denied_sections as string[] | null) ?? [],
     hasLogin: Boolean(s.auth_user_id),
   }));

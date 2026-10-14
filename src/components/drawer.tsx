@@ -104,9 +104,14 @@ export function Drawer({
           })}
         </nav>
         <div className="border-t border-line px-4 py-3 flex items-center justify-between gap-3">
-          <Link href="/spremeni-geslo" onClick={onClose} className="text-[13px] font-semibold text-ink-muted hover:text-ink">
-            Spremeni geslo
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/obvestila" onClick={onClose} className="text-[13px] font-semibold text-ink-muted hover:text-ink">
+              Obvestila
+            </Link>
+            <Link href="/spremeni-geslo" onClick={onClose} className="text-[13px] font-semibold text-ink-muted hover:text-ink">
+              Geslo
+            </Link>
+          </div>
           <button
             type="button"
             onClick={async () => {

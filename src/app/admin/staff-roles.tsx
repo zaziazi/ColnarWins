@@ -134,6 +134,16 @@ function MemberCard({ m, isMe }: { m: StaffMember; isMe: boolean }) {
         />
         Dostavlja (na seznamu voznikov, dobi obvestilo ob 17:00)
       </label>
+      <label className="mt-1.5 flex items-center gap-2 text-[13px] font-semibold">
+        <input
+          type="checkbox"
+          className="size-4 accent-[var(--color-wine)]"
+          checked={m.notifyPrint}
+          disabled={busy}
+          onChange={(e) => void save({ notifyPrint: e.target.checked }, e.target.checked ? "Dobi obvestilo za tisk" : "Obvestila za tisk izklopljena")}
+        />
+        Obvestilo, ko je dan potrjen za tisk
+      </label>
       {m.role === "manager" && (
         <div className="mt-2">
           <p className="text-[12px] text-ink-subtle mb-1">Brez dostopa do:</p>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoMode } from "@/lib/demo";
+import { notifyStaff } from "@/lib/notify";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -31,10 +32,37 @@ export async function confirmDay(day: string): Promise<ActionResult> {
     ? await supabase.from("staff").select("id").eq("auth_user_id", user.id).single()
     : { data: null };
 
+  const { data: already } = await supabase.from("delivery_day").select("day").eq("day", parsed.data).maybeSingle();
+
   const { error } = await supabase
     .from("delivery_day")
     .upsert({ day: parsed.data, confirmed_by: staff?.id ?? null, confirmed_at: new Date().toISOString() }, { onConflict: "day", ignoreDuplicates: true });
   if (error) return { ok: false, error: error.message };
+
+  // tell the people who print that this day is ready (not the one who just confirmed it, and only the first time)
+  if (already) {
+    refresh();
+    return { ok: true };
+  }
+  const [{ data: printers }, { count }] = await Promise.all([
+    supabase.from("staff").select("id").eq("active", true).eq("notify_print", true),
+    supabase
+      .from("sales_order")
+      .select("id", { count: "exact", head: true })
+      .eq("delivery_date", parsed.data)
+      .in("status", ["confirmed", "planned", "delivered", "invoiced"]),
+  ]);
+  const [, mm, dd] = parsed.data.split("-").map(Number);
+  await notifyStaff(
+    (printers ?? []).map((p: { id: string }) => p.id),
+    {
+      title: "Dostava potrjena, za tisk",
+      body: `${dd}. ${mm}.: ${count ?? 0} ${count === 1 ? "naročilo" : "naročil"} je pripravljenih za tisk.`,
+      url: "/tisk",
+      tag: `print-${parsed.data}`,
+    },
+    { exceptStaffId: staff?.id ?? null },
+  );
 
   refresh();
   return { ok: true };

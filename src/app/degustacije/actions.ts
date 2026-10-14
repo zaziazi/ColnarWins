@@ -13,6 +13,7 @@ import { ljubljanaInstant, normalizePhone } from "@/lib/degustacije/messages";
 import { notifyBooking, type NotifyResult } from "@/lib/degustacije/people";
 import type { DrustvoMessage } from "@/lib/types";
 import { canUseDrustva } from "./constants";
+import { notifyStaff } from "@/lib/notify";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -260,6 +261,17 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     web_reservation_id: b.webReservationId ?? null,
   };
 
+  // what it looked like before: decides who needs a phone notification afterwards
+  const before = b.id
+    ? (
+        await supabase
+          .from("group_booking")
+          .select("presenter_id,visit_date,arrival_time,status")
+          .eq("id", b.id)
+          .maybeSingle()
+      ).data
+    : null;
+
   let id = b.id;
   if (id) {
     const { error } = await supabase.from("group_booking").update(row).eq("id", id);
@@ -277,6 +289,18 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
   if (b.webReservationId) {
     await supabase.from("web_reservation").update({ status: b.status === "cancelled" ? "declined" : "confirmed" }).eq("id", b.webReservationId);
   }
+
+  await notifyPresenters({
+    supabase,
+    actorId: staff.id,
+    groupName: b.groupName,
+    visitDate: b.visitDate,
+    startTime: b.startTime,
+    people: b.peoplePlanned ?? null,
+    status: b.status,
+    presenterId,
+    before: before as { presenter_id: string | null; visit_date: string; arrival_time: string; status: string } | null,
+  });
 
   // starts within 24 hours: do not wait for the evening-before job
   if (b.status === "confirmed" && (presenterId || (b.food && kitchenId))) {
@@ -573,4 +597,52 @@ export async function retryWebParse(id: string): Promise<ActionResult> {
   const r = await parseWebReservation(supabase, id);
   refresh();
   return r.status === "parsed" ? { ok: true } : { ok: false, error: r.error ?? "Branje ni uspelo." };
+}
+
+/**
+ * Phone push to the presenter when a tasting is assigned to them, moved or cancelled (and to the
+ * previous presenter when they are taken off). Skips the person who made the change themselves.
+ */
+async function notifyPresenters(a: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  actorId: string;
+  groupName: string;
+  visitDate: string;
+  startTime: string;
+  people: number | null;
+  status: string;
+  presenterId: string | null;
+  before: { presenter_id: string | null; visit_date: string; arrival_time: string; status: string } | null;
+}) {
+  const ids = [a.presenterId, a.before?.presenter_id].filter((x): x is string => Boolean(x));
+  if (ids.length === 0) return;
+  const { data } = await a.supabase.from("degustacija_person").select("id,staff_id").in("id", ids);
+  const staffOf = new Map((data ?? []).map((p: { id: string; staff_id: string | null }) => [p.id, p.staff_id]));
+
+  const [, m, d] = a.visitDate.split("-").map(Number);
+  const when = `${d}. ${m}. ob ${a.startTime.slice(0, 5)}`;
+  const details = `${a.groupName}, ${when}${a.people ? ` · ${a.people} oseb` : ""}`;
+  const url = `/degustacije/koledar?d=${a.visitDate}`;
+
+  const live = a.status !== "cancelled";
+  const wasLive = a.before ? a.before.status !== "cancelled" : false;
+  const newStaff = a.presenterId ? staffOf.get(a.presenterId) : null;
+  const oldStaff = a.before?.presenter_id ? staffOf.get(a.before.presenter_id) : null;
+  const moved = Boolean(a.before && (a.before.visit_date !== a.visitDate || a.before.arrival_time.slice(0, 5) !== a.startTime.slice(0, 5)));
+
+  if (newStaff && live) {
+    const assigned = !a.before || !wasLive || a.before.presenter_id !== a.presenterId;
+    if (assigned) {
+      await notifyStaff([newStaff], { title: "Nova degustacija zate", body: details, url, tag: `tasting-${a.visitDate}` }, { exceptStaffId: a.actorId });
+    } else if (moved) {
+      await notifyStaff([newStaff], { title: "Degustacija prestavljena", body: details, url, tag: `tasting-${a.visitDate}` }, { exceptStaffId: a.actorId });
+    }
+  }
+  if (a.before && wasLive && oldStaff) {
+    if (!live) {
+      await notifyStaff([oldStaff], { title: "Degustacija preklicana", body: details, url, tag: `tasting-${a.visitDate}` }, { exceptStaffId: a.actorId });
+    } else if (a.before.presenter_id !== a.presenterId) {
+      await notifyStaff([oldStaff], { title: "Degustacija ni več tvoja", body: details, url, tag: `tasting-${a.visitDate}` }, { exceptStaffId: a.actorId });
+    }
+  }
 }

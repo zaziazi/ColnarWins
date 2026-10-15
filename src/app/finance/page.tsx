@@ -23,9 +23,9 @@ export default async function FinancePage() {
   const staff = await getCurrentStaff();
   if (!staff || !canUseFinance(staff.role, staff.denied)) return <FinanceNoAccess />;
 
-  const [ageing, customers, o] = await Promise.all([getReceivablesAgeing(), getCustomers(), getMoneyOverview()]);
+  const [ageing, customers, o] = await Promise.all([getReceivablesAgeing(), getCustomers(), staff.isAdmin ? getMoneyOverview() : Promise.resolve(null)]);
   const overdue = customers.filter((c) => c.daysOverdue > 0).sort((a, b) => b.daysOverdue - a.daysOverdue);
-  const maxWeek = Math.max(1, ...o.weeks.flatMap((w) => [w.inAmount, w.outAmount]), o.overdueIn, o.overdueOut);
+  const maxWeek = o ? Math.max(1, ...o.weeks.flatMap((w) => [w.inAmount, w.outAmount]), o.overdueIn, o.overdueOut) : 1;
 
   return (
     <AppShell
@@ -36,6 +36,8 @@ export default async function FinancePage() {
       section="finance"
       wide
     >
+      {o && (
+      <>
       <div className="grid grid-cols-2 min-[900px]:grid-cols-4 gap-2.5 mb-6">
         <Stat label="Odprte terjatve" value={eur(o.receivablesTotal)} hint={o.receivablesOverdue > 0 ? `od tega zapadlo ${eur(o.receivablesOverdue)}` : "nič ni zapadlo"} href="/finance/racuni" />
         <Stat label="Računi za potrditev" value={String(o.billsToApprove.count)} hint={eur(o.billsToApprove.amount)} href="/finance/dobavitelji" tone={o.billsToApprove.count > 0 ? "warn" : undefined} />
@@ -55,6 +57,9 @@ export default async function FinancePage() {
           Prejemki so odprti računi kupcev po roku plačila, odhodki so računi dobaviteljev, ki še niso plačani. Napoved je ocena, ne knjigovodstvo.
         </p>
       </Card>
+
+      </>
+      )}
 
       <SectionHeading>Odprte terjatve</SectionHeading>
       <Card className="mb-6">

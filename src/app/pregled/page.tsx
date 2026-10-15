@@ -39,7 +39,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const [brief, monthly] = await Promise.all([getBrief(), getMonthlyOrderTotals()]);
+  const [brief, monthly] = await Promise.all([getBrief({ showOffice: staff.isAdmin }), getMonthlyOrderTotals()]);
   const n = brief.numbers;
   const date = dateSl(new Date(`${brief.today}T12:00:00`));
 

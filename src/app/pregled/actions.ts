@@ -8,7 +8,7 @@ import { getBrief } from "@/lib/brief";
 export async function refreshBrief(): Promise<{ ok: true } | { ok: false; error: string }> {
   const staff = await getCurrentStaff();
   if (!staff || staff.role !== "manager") return { ok: false, error: "Ni dostopa." };
-  await getBrief({ force: true });
+  await getBrief({ force: true, showOffice: staff.isAdmin });
   revalidatePath("/pregled");
   return { ok: true };
 }

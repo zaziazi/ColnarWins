@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { getCurrentStaff } from "@/lib/data";
-import { canUseFinance } from "@/lib/office";
+import { canUseFinance, canUseOfficeTools } from "@/lib/office";
 import { createClient } from "@/lib/supabase/server";
 import { mailConfigured } from "@/lib/documents/email";
 import { FinanceNoAccess } from "../gate";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SupplierBillsPage() {
   const staff = await getCurrentStaff();
-  if (!staff || !canUseFinance(staff.role, staff.denied)) return <FinanceNoAccess />;
+  if (!staff || !canUseOfficeTools(staff.isAdmin, staff.role) || !canUseFinance(staff.role, staff.denied)) return <FinanceNoAccess />;
 
   const supabase = await createClient();
   const [{ data }, { data: set }] = await Promise.all([

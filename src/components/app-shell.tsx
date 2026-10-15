@@ -99,7 +99,12 @@ export function AppShell({
   const [refreshing, startRefresh] = React.useTransition();
   // Prodaja users only deliver from the Naročila section: Novo, Naročila and Tisk are not for them.
   const allTabs = SECTION_TABS[section];
-  const tabs = section === "narocila" && role === "sales" ? allTabs?.filter((t) => t.href === "/dostava") : allTabs;
+  const tabs =
+    section === "narocila" && role === "sales"
+      ? allTabs?.filter((t) => t.href === "/dostava")
+      : section === "finance" && !isAdmin
+        ? undefined // the new Finance tools are for the admin only for now
+        : allTabs;
 
   const sections = visibleSections(role, seesAc, isAdmin, denied);
 

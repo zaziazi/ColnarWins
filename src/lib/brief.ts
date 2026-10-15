@@ -44,7 +44,7 @@ function plus(iso: string, days: number): string {
 }
 
 /** Facts for the morning screen, all from data Colnix already holds. */
-async function collect(): Promise<Omit<Brief, "summary">> {
+async function collect(showOffice: boolean): Promise<Omit<Brief, "summary">> {
   const supabase = await createClient();
   const today = todayIso();
   const tomorrow = plus(today, 1);
@@ -112,7 +112,8 @@ async function collect(): Promise<Omit<Brief, "summary">> {
     });
   }
 
-  const mails = (inboxRes.data ?? []) as { label: string; summary: string | null; from_name: string | null; extracted: { urgent?: boolean } | null }[];
+  // Pošta, bills and payments are admin-only for now
+  const mails = showOffice ? (inboxRes.data ?? []) as { label: string; summary: string | null; from_name: string | null; extracted: { urgent?: boolean } | null }[] : [];
   const shownMails = mails.filter((m) => m.label !== "bill").slice(0, 8);
   for (const m of shownMails) {
     items.push({
@@ -125,7 +126,7 @@ async function collect(): Promise<Omit<Brief, "summary">> {
   if (mails.length > shownMails.length + mails.filter((m) => m.label === "bill").length) {
     items.push({ kind: "inbox", title: "Še več pošte", detail: `V poštnem predalu je ${mails.length} sporočil za pregled`, href: "/posta" });
   }
-  const bills = (billsRes.data ?? []) as { supplier_name: string; amount_gross: number; status: string }[];
+  const bills = showOffice ? ((billsRes.data ?? []) as { supplier_name: string; amount_gross: number; status: string }[]) : [];
   if (bills.length > 0) {
     const flagged = bills.filter((b) => b.status === "flagged").length;
     items.push({
@@ -135,7 +136,7 @@ async function collect(): Promise<Omit<Brief, "summary">> {
       href: "/finance/dobavitelji",
     });
   }
-  if ((txRes.count ?? 0) > 0) {
+  if (showOffice && (txRes.count ?? 0) > 0) {
     items.push({ kind: "payment", title: "Plačila za pregled", detail: `${txRes.count} bančnih vrstic čaka na potrditev`, href: "/finance/placila" });
   }
 
@@ -206,8 +207,8 @@ function fallbackText(f: Omit<Brief, "summary">): string {
   return parts.join(" ");
 }
 
-export async function getBrief(opts: { force?: boolean } = {}): Promise<Brief> {
-  const facts = await collect();
+export async function getBrief(opts: { force?: boolean; showOffice?: boolean } = {}): Promise<Brief> {
+  const facts = await collect(opts.showOffice === true);
   const supabase = await createClient();
   const { data: cached } = await supabase.from("daily_brief").select("body,model,generated_at").eq("day", facts.today).maybeSingle();
   const fresh = cached && Date.now() - new Date(cached.generated_at as string).getTime() < 3 * 3600_000;
@@ -223,7 +224,12 @@ export async function getBrief(opts: { force?: boolean } = {}): Promise<Brief> {
           "You write a short morning summary in Slovenian for the manager of a small winery. " +
           "Use only the facts in the JSON. 3 to 5 plain sentences, no greeting, no lists, no invented numbers. " +
           "Mention first what needs a decision, then money, then deliveries. Write amounts as 1.234,56 €.",
-        user: JSON.stringify({ numbers: facts.numbers, needs_a_human: facts.items.slice(0, 12), deliveries: facts.deliveries }),
+        user: JSON.stringify({
+          // the cached summary is shared, so it never mentions admin-only items (mail, bills, payments)
+          numbers: { ...facts.numbers, needs: facts.items.filter((i) => !["inbox", "bill", "payment"].includes(i.kind)).length },
+          needs_a_human: facts.items.filter((i) => !["inbox", "bill", "payment"].includes(i.kind)).slice(0, 12),
+          deliveries: facts.deliveries,
+        }),
       });
       await supabase.from("daily_brief").upsert({ day: facts.today, body: text, model, generated_at: new Date().toISOString() });
       return { ...facts, summary: { text, ai: true, generatedAt: new Date().toISOString() } };

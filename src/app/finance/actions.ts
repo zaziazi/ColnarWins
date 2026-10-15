@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getCurrentStaff } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
-import { canUseFinance } from "@/lib/office";
+import { canUseFinance, canUseOfficeTools } from "@/lib/office";
 import { mailConfigured, sendMail } from "@/lib/documents/email";
 import { LEVEL_ORDER, LEVEL_TEXT, reminderText, type DunningLevel } from "@/lib/finance/dunning";
 import { parseStatement, suggestMatch, txHashes, type BillCandidate, type InvoiceCandidate } from "@/lib/finance/bank";
@@ -19,7 +19,7 @@ const Id = z.string().uuid();
 
 async function guard() {
   const staff = await getCurrentStaff();
-  return staff && canUseFinance(staff.role, staff.denied) ? staff : null;
+  return staff && canUseOfficeTools(staff.isAdmin, staff.role) && canUseFinance(staff.role, staff.denied) ? staff : null;
 }
 
 function refresh() {

@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
-import { canUseOffice } from "@/lib/office";
+import { canUseOfficeTools } from "@/lib/office";
 import { createClient } from "@/lib/supabase/server";
 import { Inbox, type InboxItem } from "./inbox";
 
@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function PostaPage() {
   const staff = await getCurrentStaff();
-  if (!staff || !canUseOffice(staff.role)) {
+  if (!staff || !canUseOfficeTools(staff.isAdmin, staff.role)) {
     return (
       <AppShell title="Pošta" who="Prijava potrebna" section="posta">
         <Card className="p-7 text-center">
-          <p className="text-[13.5px] text-ink-muted leading-relaxed">Ta stran je na voljo samo vodstvu in pisarni.</p>
+          <p className="text-[13.5px] text-ink-muted leading-relaxed">Ta stran še ni na voljo.</p>
         </Card>
       </AppShell>
     );

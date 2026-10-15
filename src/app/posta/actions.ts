@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getCurrentStaff } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/server";
-import { canUseOffice } from "@/lib/office";
+import { canUseOfficeTools } from "@/lib/office";
 import { INBOX_LABELS } from "@/lib/inbox/labels";
 import { triageInboxEmail } from "@/lib/inbox/triage";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -18,7 +18,7 @@ const Id = z.string().uuid();
 
 async function guard() {
   const staff = await getCurrentStaff();
-  return staff && canUseOffice(staff.role) ? staff : null;
+  return staff && canUseOfficeTools(staff.isAdmin, staff.role) ? staff : null;
 }
 
 function refresh() {

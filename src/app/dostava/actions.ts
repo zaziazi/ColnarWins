@@ -112,3 +112,32 @@ export async function setDelivered(input: z.infer<typeof DeliveredInput>): Promi
   refresh();
   return { ok: true };
 }
+
+const TakeInput = z.object({ orderIds: z.array(z.string().min(1)).min(1).max(100) });
+
+/** The signed-in driver takes orders that have no driver yet ("Prevzemam"). Orders that already have one are left alone. */
+export async function takeOrders(orderIds: string[]): Promise<ActionResult> {
+  const parsed = TakeInput.safeParse({ orderIds });
+  if (!parsed.success) return { ok: false, error: "Neveljavna naročila." };
+  if (isDemoMode) return { ok: true };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: staff } = user
+    ? await supabase.from("staff").select("id").eq("auth_user_id", user.id).single()
+    : { data: null };
+  if (!staff) return { ok: false, error: "Prijava potrebna." };
+
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ assigned_driver_id: staff.id, assigned_driver_name: null })
+    .in("id", parsed.data.orderIds)
+    .is("assigned_driver_id", null)
+    .is("assigned_driver_name", null);
+  if (error) return { ok: false, error: error.message };
+
+  refresh();
+  return { ok: true };
+}

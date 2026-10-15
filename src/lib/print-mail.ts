@@ -28,12 +28,17 @@ function flagOf(o: DayOrder): string | null {
 }
 
 /** Plain-text + HTML body; every order starts on its own printed page. */
-export function buildPrintMail(day: string, orders: DayOrder[]): { subject: string; text: string; html: string } {
+export function buildPrintMail(
+  day: string,
+  orders: DayOrder[],
+  driverLabel?: string,
+): { subject: string; text: string; html: string } {
   const when = dateSl(day);
+  const who = driverLabel ? ` · ${driverLabel}` : "";
   const subject =
     orders.length === 1
-      ? `Za tisk: naročilo #${orders[0].orderNumber} – ${orders[0].customerName} (${when})`
-      : `Za tisk: dostava ${when} (${narocila(orders.length)})`;
+      ? `Za tisk: naročilo #${orders[0].orderNumber} – ${orders[0].customerName} (${when}${who})`
+      : `Za tisk: dostava ${when}${who} (${narocila(orders.length)})`;
 
   const text = orders
     .map((o) => {

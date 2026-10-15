@@ -37,22 +37,42 @@ export async function sendToPrint(input: z.infer<typeof Input>): Promise<PrintRe
   const orders = day.orders.filter((o) => !o.cancelled && (!wanted || wanted.has(o.orderId)));
   if (orders.length === 0) return { ok: false, error: "Ni naročil za tisk." };
 
-  const { subject, text, html } = buildPrintMail(day.date, orders);
+  // One mail per driver, so each person's papers print together; orders without a driver go last.
+  const groups = new Map<string, typeof orders>();
+  for (const o of orders) {
+    const k = o.driverName ?? "";
+    groups.set(k, [...(groups.get(k) ?? []), o]);
+  }
+  const names = [...groups.keys()].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b, "sl")));
+  const split = names.length > 1;
   const to = printMailTo();
-  const result = await sendMail({ to, subject, text, html, internal: true });
-  if (!result.ok) return { ok: false, error: result.error };
-
   const supabase = await createClient();
   const now = new Date().toISOString();
-  await Promise.all(
-    orders.map((o) =>
-      supabase.from("sales_order").update({ print_sent_at: now, print_hash: o.hash }).eq("id", o.orderId),
-    ),
-  );
+  let sent = 0;
+  let failure: string | null = null;
+
+  for (const name of names) {
+    const part = groups.get(name)!;
+    const label = split ? (name === "" ? "brez voznika" : `voznik ${name}`) : undefined;
+    const { subject, text, html } = buildPrintMail(day.date, part, label);
+    const result = await sendMail({ to, subject, text, html, internal: true });
+    if (!result.ok) {
+      failure = result.error;
+      continue;
+    }
+    sent += part.length;
+    await Promise.all(
+      part.map((o) =>
+        supabase.from("sales_order").update({ print_sent_at: now, print_hash: o.hash }).eq("id", o.orderId),
+      ),
+    );
+  }
 
   revalidatePath("/tisk");
   revalidatePath("/dostava");
-  return { ok: true, sent: orders.length, to };
+  if (failure && sent === 0) return { ok: false, error: failure };
+  if (failure) return { ok: false, error: `Poslano je ${sent}, ostalo ni uspelo: ${failure}` };
+  return { ok: true, sent, to };
 }
 
 /**

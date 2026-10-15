@@ -33,7 +33,7 @@ export default async function DostavaPage() {
       section="narocila"
     >
       <PushToggle />
-      <DeliveryList day={day} date={today} canEdit={staff.role !== "sales"} />
+      <DeliveryList day={day} date={today} canEdit={staff.role !== "sales"} meId={staff.id} />
     </AppShell>
   );
 }

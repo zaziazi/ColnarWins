@@ -17,11 +17,14 @@ export function DayConfirm({
   word,
   confirmed,
   printed,
+  noDriver = 0,
 }: {
   date: string;
   word: string | null;
   confirmed: boolean;
   printed: boolean;
+  /** Orders of this day that have no driver yet. */
+  noDriver?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -39,9 +42,16 @@ export function DayConfirm({
 
   if (!confirmed) {
     return (
-      <Button size="sm" className="h-8 px-2.5 text-[12px]" loading={pending} onClick={() => run(confirmDay)}>
-        <CalendarCheck className="size-3.5" /> Potrdi dostavo{word ? ` za ${word}` : ""}
-      </Button>
+      <div className="flex items-center gap-2">
+        {noDriver > 0 && (
+          <span className="text-[11.5px] font-semibold text-warn">
+            {noDriver} brez voznika
+          </span>
+        )}
+        <Button size="sm" className="h-8 px-2.5 text-[12px]" loading={pending} onClick={() => run(confirmDay)}>
+          <CalendarCheck className="size-3.5" /> Potrdi dostavo{word ? ` za ${word}` : ""}
+        </Button>
+      </div>
     );
   }
 
@@ -50,6 +60,7 @@ export function DayConfirm({
       <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-good">
         <Check className="size-3.5" strokeWidth={3} /> Potrjeno
       </span>
+      {noDriver > 0 && <span className="text-[11.5px] font-semibold text-warn">{noDriver} brez voznika</span>}
       {!printed && (
         <button
           type="button"

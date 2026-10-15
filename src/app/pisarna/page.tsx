@@ -81,7 +81,13 @@ export default async function OrdersPage() {
 
       {days.map((day) => (
         <div key={day.date ?? "brez"} className="mb-6">
-          <DayHeading date={day.date} today={today} count={day.orders.length} state={dayStates.get(day.date ?? "")} />
+          <DayHeading
+            date={day.date}
+            today={today}
+            count={day.orders.length}
+            state={dayStates.get(day.date ?? "")}
+            noDriver={day.orders.filter((o) => !o.assignedDriverId && !o.assignedDriverName && !o.routedDriverName).length}
+          />
           <div className="space-y-2.5">
             {day.orders.map((o) => (
               <OrderCard key={o.id} order={o} drivers={drivers} />
@@ -131,11 +137,13 @@ function DayHeading({
   today,
   count,
   state,
+  noDriver,
 }: {
   date: string | null;
   today: string;
   count: number;
   state?: DayState;
+  noDriver: number;
 }) {
   if (!date) {
     return <SectionHeading>Brez datuma dostave · {count}</SectionHeading>;
@@ -161,7 +169,7 @@ function DayHeading({
         {label}
         {overdue && " · zamuja"} · {count}
       </h2>
-      <DayConfirm date={date} word={word} confirmed={state?.confirmed ?? false} printed={state?.printed ?? false} />
+      <DayConfirm date={date} word={word} confirmed={state?.confirmed ?? false} printed={state?.printed ?? false} noDriver={noDriver} />
     </div>
   );
 }

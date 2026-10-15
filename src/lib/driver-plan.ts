@@ -4,15 +4,28 @@ import { narocila } from "@/lib/format";
 import type { PushPayload } from "@/lib/push";
 
 interface OrderRow {
+  assigned_driver_id: string | null;
+  assigned_driver_name: string | null;
   order_line: { product_id: string; quantity_ordered: number; product: { name: string } | null }[];
 }
 
+const load = (orders: OrderRow[]) => {
+  const m = new Map<string, { name: string; n: number }>();
+  for (const o of orders) {
+    for (const l of o.order_line) {
+      const cur = m.get(l.product_id) ?? { name: l.product?.name ?? "?", n: 0 };
+      cur.n += l.quantity_ordered;
+      m.set(l.product_id, cur);
+    }
+  }
+  return m;
+};
+
 /**
- * Builds tomorrow's push message: how many orders, what to load, whether
- * stock covers it, and a nudge to confirm the day in Dostava (skipped once
- * the driver has confirmed it). Takes any Supabase client - the cron passes
- * the service-role one; RLS would hide stock from drivers. Every active
- * staff member marked "Dostavlja" gets the same message; only those with push on receive it.
+ * Builds tomorrow's push per driver: their own orders and what to load, how many orders still have no
+ * driver, whether stock covers the whole day, and (until the day is confirmed) a nudge to confirm it.
+ * A driver with no orders of their own still hears about orders that nobody has taken.
+ * Takes any Supabase client - the cron passes the service-role one; RLS would hide stock from drivers.
  */
 export async function buildDriverPlan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -22,11 +35,11 @@ export async function buildDriverPlan(
   const [ordersRes, dayRes, staffRes, stockRes] = await Promise.all([
     admin
       .from("sales_order")
-      .select("order_line(product_id,quantity_ordered,product(name))")
+      .select("assigned_driver_id,assigned_driver_name,order_line(product_id,quantity_ordered,product(name))")
       .eq("delivery_date", forDate)
       .in("status", ["confirmed", "planned"]),
     admin.from("delivery_day").select("day").eq("day", forDate),
-    admin.from("staff").select("id").eq("active", true).eq("delivers", true),
+    admin.from("staff").select("id,delivers").eq("active", true),
     admin.from("product_stock").select("product_id,quantity_on_hand"),
   ]);
   if (ordersRes.error) throw ordersRes.error;
@@ -36,36 +49,43 @@ export async function buildDriverPlan(
 
   const orders = (ordersRes.data ?? []) as unknown as OrderRow[];
   const messages = new Map<string, PushPayload>();
-  if (orders.length === 0 || (dayRes.data ?? []).length > 0) return messages;
+  if (orders.length === 0) return messages;
 
-  const load = new Map<string, { name: string; n: number }>();
-  for (const o of orders) {
-    for (const l of o.order_line) {
-      const cur = load.get(l.product_id) ?? { name: l.product?.name ?? "?", n: 0 };
-      cur.n += l.quantity_ordered;
-      load.set(l.product_id, cur);
-    }
-  }
+  const confirmed = (dayRes.data ?? []).length > 0;
   const onHand = new Map<string, number>(
     (stockRes.data ?? []).map((r: { product_id: string; quantity_on_hand: number }) => [r.product_id, Number(r.quantity_on_hand)]),
   );
-
-  const items = [...load.values()].map((l) => `${l.n}× ${l.name}`);
-  const short = [...load.entries()]
+  const demand = load(orders);
+  const short = [...demand.entries()]
     .filter(([id, l]) => (onHand.get(id) ?? 0) < l.n)
     .map(([id, l]) => `${l.name} (potrebno ${l.n}, na zalogi ${onHand.get(id) ?? 0})`);
 
-  const body = [
-    `Jutri: ${narocila(orders.length)}.`,
-    items.length ? `Naloži: ${items.slice(0, 6).join(", ")}${items.length > 6 ? ", …" : ""}.` : "",
-    short.length ? `⚠ Manjka: ${short.join(", ")}.` : "Vse imaš na zalogi.",
-    "V Naročilih potrdi dostavo za jutri.",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const free = orders.filter((o) => !o.assigned_driver_id && !o.assigned_driver_name);
+  const staff = (staffRes.data ?? []) as { id: string; delivers: boolean }[];
+  const recipients = staff.filter((s) => s.delivers || orders.some((o) => o.assigned_driver_id === s.id));
 
-  for (const s of (staffRes.data ?? []) as { id: string }[]) {
-    messages.set(s.id, { title: "Dostava za jutri", body, url: "/dostava", tag: `driver-plan-${forDate}` });
+  for (const s of recipients) {
+    const own = orders.filter((o) => o.assigned_driver_id === s.id);
+    if (own.length === 0 && free.length === 0) continue; // nothing for this person
+
+    const parts: string[] = [];
+    if (own.length > 0) {
+      const items = [...load(own).values()].map((l) => `${l.n}× ${l.name}`);
+      parts.push(`Jutri: ${narocila(own.length)}.`);
+      if (items.length) parts.push(`Naloži: ${items.slice(0, 6).join(", ")}${items.length > 6 ? ", …" : ""}.`);
+    }
+    if (free.length > 0) {
+      parts.push(`${narocila(free.length)} še nima voznika, v Dostavi jih lahko prevzameš.`);
+    }
+    parts.push(short.length ? `⚠ Manjka: ${short.join(", ")}.` : "Zaloga zadošča.");
+    if (!confirmed) parts.push("V Naročilih potrdi dostavo za jutri.");
+
+    messages.set(s.id, {
+      title: own.length > 0 ? "Dostava za jutri" : "Naročila brez voznika",
+      body: parts.join(" "),
+      url: "/dostava",
+      tag: `driver-plan-${forDate}`,
+    });
   }
   return messages;
 }

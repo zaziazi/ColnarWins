@@ -1,4 +1,5 @@
 import "server-only";
+import { aiTool } from "@/lib/ai/desk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { freeDates } from "./capacity";
@@ -110,33 +111,8 @@ export function buildPrompt(input: {
   return { system, user };
 }
 
-interface AnthropicResponse {
-  content?: { type: string; name?: string; input?: unknown }[];
-  error?: { message?: string };
-}
-
 async function callClaude(system: string, user: string, tool: { name: string } = TOOL): Promise<{ input: unknown; model: string }> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
-  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1200,
-      system,
-      messages: [{ role: "user", content: user }],
-      tools: [tool],
-      tool_choice: { type: "tool", name: tool.name },
-    }),
-    cache: "no-store",
-  });
-  const json = (await res.json().catch(() => ({}))) as AnthropicResponse;
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${json.error?.message ?? "napaka"}`);
-  const block = json.content?.find((b) => b.type === "tool_use" && b.name === tool.name);
-  if (!block) throw new Error(`Model did not return the ${tool.name} tool call`);
-  return { input: block.input, model };
+  return aiTool("drustva_triage", { system, user, tool: tool as { name: string } & Record<string, unknown> });
 }
 
 type Row = Record<string, unknown>;

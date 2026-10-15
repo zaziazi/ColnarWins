@@ -30,6 +30,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
       who={staff.fullName}
       role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="prodaja"
+      wide
     >
       <SalesExplorer points={points} initialView={v === "list" ? "list" : "map"} />
     </AppShell>

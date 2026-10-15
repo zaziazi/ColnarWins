@@ -324,3 +324,17 @@ export async function deleteDeliveredOrder(orderId: string): Promise<ActionResul
   revalidatePath("/finance");
   return { ok: true };
 }
+
+/** Confirms several drafts in one go (the web table). Each one keeps the same checks as a single confirmation. */
+export async function confirmOrders(orderIds: string[]): Promise<{ ok: true; confirmed: number; skipped: number } | { ok: false; error: string }> {
+  const ids = z.array(z.string().min(1)).min(1).max(100).safeParse(orderIds);
+  if (!ids.success) return { ok: false, error: "Neveljavna izbira." };
+  let confirmed = 0;
+  let skipped = 0;
+  for (const id of ids.data) {
+    const r = await confirmOrder(id);
+    if (r.ok) confirmed++;
+    else skipped++;
+  }
+  return { ok: true, confirmed, skipped };
+}

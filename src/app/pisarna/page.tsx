@@ -15,6 +15,7 @@ import { DeleteDelivered } from "./delete-delivered";
 import { DeliveryDocs } from "./delivery-docs";
 import { DriverAssign } from "./driver-assign";
 import { OrderActions } from "./order-actions";
+import { OrdersTable } from "./orders-table";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,7 @@ export default async function OrdersPage() {
       who={staff?.fullName ?? "Prijava potrebna"}
       role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin} denied={staff?.denied}
       section="narocila"
+      wide
     >
       {isDemoMode && (
         <Callout tone="wine" className="mb-4">
@@ -56,11 +58,17 @@ export default async function OrdersPage() {
         </Callout>
       )}
 
-      <Button asChild size="lg" className="mb-5">
+      <Button asChild size="lg" className="mb-5 min-[900px]:w-auto min-[900px]:px-6 min-[900px]:h-11">
         <Link href="/pisarna/novo">
           <Plus /> Novo naročilo
         </Link>
       </Button>
+
+      {/* Laptop: one table with filters and bulk confirm. Phones keep the day-by-day cards below. */}
+      <div className="hidden min-[900px]:block">
+        <OrdersTable orders={orders.filter((o) => o.status !== "cancelled")} />
+      </div>
+      <div className="min-[900px]:hidden">
 
       {drafts.length > 0 && (
         <>
@@ -108,6 +116,7 @@ export default async function OrdersPage() {
           </div>
         </details>
       )}
+      </div>
     </AppShell>
   );
 }

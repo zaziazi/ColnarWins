@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import type { SectionKey } from "./app-shell";
 
-const SECTIONS: {
+export const SECTIONS: {
   key: SectionKey;
   href: string;
   label: string;
@@ -36,6 +36,10 @@ const SECTIONS: {
   { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r, _a, _m, d) => r === "manager" && !d?.includes("zaloge") },
   { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r, _a, _m, d) => r === "manager" && !d?.includes("finance") },
 ];
+
+export function visibleSections(role?: StaffRole, seesAc?: boolean, isAdmin?: boolean, denied?: string[]) {
+  return SECTIONS.filter((s) => s.visible(role, seesAc, isAdmin, denied));
+}
 
 export function Drawer({
   open,

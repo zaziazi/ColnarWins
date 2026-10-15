@@ -148,7 +148,7 @@ export function SalesExplorer({ points, initialView }: { points: SalesMapPoint[]
       </p>
 
       {view === "map" ? (
-        <div className="relative h-[58vh] min-h-[360px] rounded-[var(--radius-card)] overflow-hidden border border-line bg-surface-muted">
+        <div className="relative h-[58vh] min-[900px]:h-[68vh] min-h-[360px] rounded-[var(--radius-card)] overflow-hidden border border-line bg-surface-muted">
           <SalesMap
             points={filtered}
             onSelect={setSelected}

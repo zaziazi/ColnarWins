@@ -1,4 +1,5 @@
 import "server-only";
+import { aiTool } from "@/lib/ai/desk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { freeDates } from "@/lib/drustva/capacity";
@@ -91,23 +92,8 @@ export async function parseWebReservation(db: Db, id: string): Promise<{ status:
     `\n\n<email_from_outsider from="${w.from_email ?? ""}" name="${(w.from_name as string | null) ?? ""}" subject="${((w.subject as string | null) ?? "").replace(/"/g, "'")}">\n${((w.body_text as string | null) ?? "").slice(0, 6000)}\n</email_from_outsider>`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
-        max_tokens: 1200,
-        system,
-        messages: [{ role: "user", content: user }],
-        tools: [TOOL],
-        tool_choice: { type: "tool", name: TOOL.name },
-      }),
-      cache: "no-store",
-    });
-    const json = (await res.json().catch(() => ({}))) as { content?: { type: string; name?: string; input?: unknown }[]; error?: { message?: string } };
-    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${json.error?.message ?? "napaka"}`);
-    const block = json.content?.find((b) => b.type === "tool_use" && b.name === TOOL.name);
-    if (!block) throw new Error("Model did not return the tool call");
+    const { input } = await aiTool("web_reservation", { system, user, tool: TOOL as { name: string } & Record<string, unknown> });
+    const block = { input };
     const p = Parsed.safeParse(block.input);
     if (!p.success) throw new Error(`Neveljaven izhod modela: ${p.error.issues[0]?.message}`);
     const o = p.data;

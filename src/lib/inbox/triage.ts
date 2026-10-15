@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { aiTool } from "@/lib/ai/desk";
 import { createSupplierBill } from "@/lib/finance/bills";
+import { fileInvoice } from "@/lib/finance/archive";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any, any, any>;
@@ -143,21 +144,40 @@ export async function triageInboxEmail(db: Db, id: string): Promise<{ status: "d
 
     let linkedKind: string | null = null;
     let linkedId: string | null = null;
-    if (o.label === "bill" && o.bill?.amount_gross && o.bill.amount_gross > 0 && !m.linked_id) {
-      const res = await createSupplierBill(db, {
-        supplierName: o.bill.supplier_name ?? ((m.from_name as string | null) || from || "Neznan dobavitelj"),
-        number: o.bill.number,
-        issuedOn: o.bill.issued_on,
-        dueDate: o.bill.due_date,
-        amountNet: o.bill.amount_net,
-        amountGross: o.bill.amount_gross,
-        iban: o.bill.iban,
-        reference: o.bill.reference,
-        sourceEmailId: id,
-        attachmentPath: readable?.path ?? null,
-      });
-      linkedKind = "bill";
-      linkedId = res.id;
+    if (o.label === "bill" && !m.linked_id) {
+      // every invoice file in the mail goes to the permanent archive (deduplicated by file hash)
+      const fileable = atts.filter((a) => /^(application\/pdf|image\/(png|jpe?g))$/i.test(a.type) && a.size <= MAX_DOC_BYTES).slice(0, 3);
+      for (const a of fileable) {
+        const { data: blob } = await db.storage.from("inbox-attachments").download(a.path);
+        if (!blob) continue;
+        const r = await fileInvoice(db, {
+          bytes: new Uint8Array(await blob.arrayBuffer()),
+          fileName: a.name,
+          mediaType: a.type,
+          source: "mail",
+          sourceEmailId: id,
+          fallbackSupplier: o.bill?.supplier_name ?? ((m.from_name as string | null) || from || null),
+        });
+        linkedKind = "bill";
+        linkedId = r.billId;
+      }
+      // no file, but the bill is written in the mail itself
+      if (!linkedId && o.bill?.amount_gross && o.bill.amount_gross > 0) {
+        const res = await createSupplierBill(db, {
+          supplierName: o.bill.supplier_name ?? ((m.from_name as string | null) || from || "Neznan dobavitelj"),
+          number: o.bill.number,
+          issuedOn: o.bill.issued_on,
+          dueDate: o.bill.due_date,
+          amountNet: o.bill.amount_net,
+          amountGross: o.bill.amount_gross,
+          iban: o.bill.iban,
+          reference: o.bill.reference,
+          sourceEmailId: id,
+          source: "mail",
+        });
+        linkedKind = "bill";
+        linkedId = res.id;
+      }
     }
 
     await db

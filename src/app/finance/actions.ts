@@ -12,6 +12,8 @@ import { parseStatement, suggestMatch, txHashes, type BillCandidate, type Invoic
 import { parseInvoiceExport } from "@/lib/finance/invoice-import";
 import { norm } from "@/lib/finance/csv";
 import { eur } from "@/lib/format";
+import { ARCHIVE_BUCKET, fileInvoice } from "@/lib/finance/archive";
+import { updateSupplierBill } from "@/lib/finance/bills";
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -394,21 +396,23 @@ export async function sendBillsToAccountant(ids: string[]): Promise<Result> {
 
   const { data: bills } = await supabase
     .from("supplier_bill")
-    .select("id,supplier_name,number,issued_on,due_date,amount_gross,iban,reference,attachment_path,status")
+    .select("id,supplier_name,number,issued_on,due_date,amount_gross,iban,reference,attachment_path,archive_path,status")
     .in("id", ids)
     .eq("status", "approved");
-  const list = (bills ?? []) as { id: string; supplier_name: string; number: string | null; issued_on: string | null; due_date: string | null; amount_gross: number; iban: string | null; reference: string | null; attachment_path: string | null }[];
+  const list = (bills ?? []) as { id: string; supplier_name: string; number: string | null; issued_on: string | null; due_date: string | null; amount_gross: number; iban: string | null; reference: string | null; attachment_path: string | null; archive_path: string | null }[];
   if (list.length === 0) return { ok: false, error: "Nobeden od izbranih računov ni potrjen." };
 
   const attachments: { filename: string; content: Uint8Array }[] = [];
   for (const b of list) {
-    if (!b.attachment_path || !/\.pdf$/i.test(b.attachment_path)) continue;
-    const { data: blob } = await supabase.storage.from("inbox-attachments").download(b.attachment_path);
-    if (blob) attachments.push({ filename: b.attachment_path.split("/").pop() ?? "racun.pdf", content: new Uint8Array(await blob.arrayBuffer()) });
+    const bucket = b.archive_path ? ARCHIVE_BUCKET : "inbox-attachments";
+    const path = b.archive_path ?? b.attachment_path;
+    if (!path || !/\.pdf$/i.test(path)) continue;
+    const { data: blob } = await supabase.storage.from(bucket).download(path);
+    if (blob) attachments.push({ filename: path.split("/").pop() ?? "racun.pdf", content: new Uint8Array(await blob.arrayBuffer()) });
   }
-  const total = list.reduce((s, b) => s + Number(b.amount_gross), 0);
+  const total = list.reduce((s, b) => s + Number(b.amount_gross ?? 0), 0);
   const lines = list.map(
-    (b) => `• ${b.supplier_name}${b.number ? `, št. ${b.number}` : ""}: ${eur(Number(b.amount_gross))}${b.due_date ? `, rok ${new Date(`${b.due_date}T12:00:00`).toLocaleDateString("sl-SI")}` : ""}${b.iban ? `, TRR ${b.iban}` : ""}${b.reference ? `, sklic ${b.reference}` : ""}`,
+    (b) => `• ${b.supplier_name}${b.number ? `, št. ${b.number}` : ""}: ${b.amount_gross != null ? eur(Number(b.amount_gross)) : "znesek ni vpisan"}${b.due_date ? `, rok ${new Date(`${b.due_date}T12:00:00`).toLocaleDateString("sl-SI")}` : ""}${b.iban ? `, TRR ${b.iban}` : ""}${b.reference ? `, sklic ${b.reference}` : ""}`,
   );
   const r = await sendMail({
     to,
@@ -421,4 +425,87 @@ export async function sendBillsToAccountant(ids: string[]): Promise<Result> {
   await supabase.from("supplier_bill").update({ status: "sent_to_accountant", sent_to_accountant_at: new Date().toISOString() }).in("id", list.map((b) => b.id));
   refresh();
   return { ok: true };
+}
+
+// ----------------------------------------------------- invoice archive
+
+export interface FiledReport {
+  name: string;
+  outcome: "filed" | "duplicate" | "error";
+  supplier?: string;
+  read?: boolean;
+  billId?: string;
+  error?: string;
+}
+
+/**
+ * The browser has put the file in invoice-archive/incoming/ (direct upload, so big PDFs are no problem).
+ * Here it is read, filed under its final name and turned into a bill waiting for a person.
+ */
+export async function fileUploadedInvoice(incomingPath: string, originalName: string, mediaType: string): Promise<Result<{ report: FiledReport }>> {
+  if (!incomingPath.startsWith("incoming/") || incomingPath.includes("..")) return { ok: false, error: "Neveljavna datoteka." };
+  if (isDemoMode) return { ok: false, error: "Demo." };
+  const staff = await guard();
+  if (!staff) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { data: blob, error } = await supabase.storage.from(ARCHIVE_BUCKET).download(incomingPath);
+  if (error || !blob) return { ok: false, error: "Naložene datoteke ni mogoče prebrati." };
+  try {
+    const r = await fileInvoice(supabase, {
+      bytes: new Uint8Array(await blob.arrayBuffer()),
+      fileName: originalName,
+      mediaType: mediaType || "application/pdf",
+      source: "upload",
+      createdBy: staff.id,
+    });
+    await supabase.storage.from(ARCHIVE_BUCKET).remove([incomingPath]); // the temporary copy only
+    refresh();
+    return r.status === "duplicate"
+      ? { ok: true, report: { name: originalName, outcome: "duplicate", supplier: r.supplier, billId: r.billId } }
+      : { ok: true, report: { name: originalName, outcome: "filed", supplier: r.supplier, read: r.read, billId: r.billId } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Shranjevanje ni uspelo." };
+  }
+}
+
+const BillFields = z.object({
+  supplierName: z.string().trim().min(1).max(200),
+  number: z.string().trim().max(80).nullable(),
+  issuedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  amountNet: z.number().min(0).max(10_000_000).nullable(),
+  amountGross: z.number().positive().max(10_000_000).nullable(),
+  iban: z.string().trim().max(60).nullable(),
+  reference: z.string().trim().max(80).nullable(),
+  note: z.string().trim().max(500).nullable(),
+});
+
+export async function updateBill(id: string, fields: z.infer<typeof BillFields>): Promise<Result> {
+  const p = BillFields.safeParse(fields);
+  if (!Id.safeParse(id).success || !p.success) return { ok: false, error: "Preverite vnos." };
+  if (isDemoMode) return { ok: true };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  try {
+    await updateSupplierBill(supabase, id, p.data);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Shranjevanje ni uspelo." };
+  }
+  refresh();
+  return { ok: true };
+}
+
+/** Short-lived link to the filed invoice (archive copy, or the mail attachment of older rows). */
+export async function billFileUrl(id: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  if (!Id.safeParse(id).success) return { ok: false, error: "Neveljaven vnos." };
+  if (isDemoMode) return { ok: false, error: "Demo." };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { data: b } = await supabase.from("supplier_bill").select("archive_path,attachment_path").eq("id", id).maybeSingle();
+  const bucket = b?.archive_path ? ARCHIVE_BUCKET : "inbox-attachments";
+  const path = (b?.archive_path ?? b?.attachment_path) as string | null | undefined;
+  if (!path) return { ok: false, error: "Račun nima priložene datoteke." };
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 300);
+  if (error || !data) return { ok: false, error: "Datoteke ni mogoče odpreti." };
+  return { ok: true, url: data.signedUrl };
 }

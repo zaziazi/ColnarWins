@@ -10,6 +10,7 @@ import { INBOX_LABELS } from "@/lib/inbox/labels";
 import { triageInboxEmail } from "@/lib/inbox/triage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSupplierBill } from "@/lib/finance/bills";
+import { fileInvoice } from "@/lib/finance/archive";
 import { mailConfigured, sendMail } from "@/lib/documents/email";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
@@ -31,11 +32,36 @@ export async function setLabel(id: string, label: string): Promise<ActionResult>
   if (isDemoMode) return { ok: true };
   if (!(await guard())) return { ok: false, error: "Ni dostopa." };
   const supabase = await createClient();
+  const { data: m } = await supabase.from("inbox_email").select("attachments,linked_id,from_name,from_email").eq("id", id).maybeSingle();
   const { error } = await supabase
     .from("inbox_email")
     .update({ label, label_confirmed: true, status: label === "newsletter" ? "ignored" : "needs_decision" })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // relabelled as a bill by hand: its invoice files go to the archive now
+  if (label === "bill" && m && !m.linked_id) {
+    const atts = ((m.attachments as { name: string; path: string; type: string; size: number }[] | null) ?? []).filter((a) => /pdf|image/i.test(a.type)).slice(0, 3);
+    let last: string | null = null;
+    for (const a of atts) {
+      const { data: blob } = await supabase.storage.from("inbox-attachments").download(a.path);
+      if (!blob) continue;
+      try {
+        const r = await fileInvoice(supabase, {
+          bytes: new Uint8Array(await blob.arrayBuffer()),
+          fileName: a.name,
+          mediaType: a.type,
+          source: "mail",
+          sourceEmailId: id,
+          fallbackSupplier: ((m.from_name as string | null) || (m.from_email as string | null)) ?? null,
+        });
+        last = r.billId;
+      } catch {
+        /* the person can still add the bill by hand */
+      }
+    }
+    if (last) await supabase.from("inbox_email").update({ linked_kind: "bill", linked_id: last }).eq("id", id);
+  }
   refresh();
   return { ok: true };
 }
@@ -129,7 +155,7 @@ export async function addSupplierBill(input: z.infer<typeof BillForm>, emailId?:
     attachmentPath = atts.find((a) => /pdf|image/i.test(a.type))?.path ?? null;
   }
   try {
-    const r = await createSupplierBill(supabase, { ...p.data, amountGross: p.data.amountGross, sourceEmailId: emailId ?? null, attachmentPath, createdBy: staff.id });
+    const r = await createSupplierBill(supabase, { ...p.data, amountGross: p.data.amountGross, sourceEmailId: emailId ?? null, attachmentPath, source: emailId ? "mail" : "manual", createdBy: staff.id });
     if (emailId) await supabase.from("inbox_email").update({ linked_kind: "bill", linked_id: r.id, status: "done" }).eq("id", emailId);
     refresh();
     return { ok: true, id: r.id };

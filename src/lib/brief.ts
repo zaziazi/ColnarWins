@@ -51,7 +51,7 @@ async function collect(showOffice: boolean): Promise<Omit<Brief, "summary">> {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
 
-  const [draftsRes, tasks, webRes, tomorrowRes, tomorrowDay, newRes, ageing, days, jobsRes, inboxRes, billsRes, txRes] = await Promise.all([
+  const [draftsRes, tasks, webRes, tomorrowRes, tomorrowDay, newRes, ageing, days, jobsRes, inboxRes, billsRes, txRes, dueRes] = await Promise.all([
     supabase
       .from("sales_order")
       .select("id,order_number,review_note,delivery_date,customer(name)")
@@ -78,6 +78,13 @@ async function collect(showOffice: boolean): Promise<Omit<Brief, "summary">> {
     supabase.from("inbox_email").select("id,label,summary,from_name,extracted").in("status", ["new", "needs_decision"]).order("received_at", { ascending: false }).limit(30),
     supabase.from("supplier_bill").select("id,supplier_name,amount_gross,status").in("status", ["to_approve", "flagged"]).limit(50),
     supabase.from("bank_transaction").select("id", { count: "exact", head: true }).in("match_status", ["suggested", "unmatched"]),
+    supabase
+      .from("supplier_bill")
+      .select("supplier_name,amount_gross,due_date,status")
+      .in("status", ["to_approve", "flagged", "approved", "sent_to_accountant"])
+      .not("due_date", "is", null)
+      .lte("due_date", plus(today, 7))
+      .limit(100),
   ]);
 
   const items: BriefItem[] = [];
@@ -133,6 +140,17 @@ async function collect(showOffice: boolean): Promise<Omit<Brief, "summary">> {
       kind: "bill",
       title: `${bills.length} ${bills.length === 1 ? "račun dobavitelja" : "računov dobaviteljev"}`,
       detail: `Skupaj ${eur(bills.reduce((s, b) => s + Number(b.amount_gross), 0))}${flagged > 0 ? `, od tega ${flagged} za posebej preveriti` : ""}`,
+      href: "/finance/dobavitelji",
+    });
+  }
+  const due = showOffice ? ((dueRes.data ?? []) as { amount_gross: number | null; due_date: string }[]) : [];
+  if (due.length > 0) {
+    const late = due.filter((b) => b.due_date < today);
+    const total = due.reduce((s, b) => s + Number(b.amount_gross ?? 0), 0);
+    items.push({
+      kind: "bill",
+      title: `${due.length} ${due.length === 1 ? "račun dobavitelja zapade" : "računov dobaviteljev zapade"} v 7 dneh`,
+      detail: `Skupaj ${eur(total)}${late.length > 0 ? `, od tega ${late.length} že zapadlih` : ""}`,
       href: "/finance/dobavitelji",
     });
   }

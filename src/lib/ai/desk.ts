@@ -9,7 +9,8 @@ export type AiTask =
   | "drustva_triage" // classify a reply from a društvo and draft an answer
   | "web_reservation" // read a reservation e-mail from the website form
   | "morning_brief" // short plain-language summary of the day for the manager
-  | "inbox_triage"; // label an incoming e-mail, summarise it, draft an answer, read a bill attached to it
+  | "inbox_triage" // label an incoming e-mail, summarise it, draft an answer, read a bill attached to it
+  | "bill_extract"; // read the figures printed on one supplier invoice (PDF or photo)
 
 interface TaskConfig {
   /** Environment variable that can override the model for this task only. */
@@ -22,6 +23,7 @@ const TASKS: Record<AiTask, TaskConfig> = {
   web_reservation: { modelEnv: "ANTHROPIC_MODEL_RESERVATION", maxTokens: 1200 },
   morning_brief: { modelEnv: "ANTHROPIC_MODEL_BRIEF", maxTokens: 700 },
   inbox_triage: { modelEnv: "ANTHROPIC_MODEL_INBOX", maxTokens: 1800 },
+  bill_extract: { modelEnv: "ANTHROPIC_MODEL_BILL", maxTokens: 900 },
 };
 
 const DEFAULT_MODEL = "claude-sonnet-5-5";

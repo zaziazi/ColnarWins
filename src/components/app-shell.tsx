@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
-import { Drawer, visibleSections } from "./drawer";
+import { Drawer, visibleGroups } from "./drawer";
 import { createClient } from "@/lib/supabase/client";
 
 export type SectionKey = "dashboard" | "narocila" | "narocilaAc" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance" | "posta";
@@ -106,7 +106,7 @@ export function AppShell({
         ? undefined // the new Finance tools are for the admin only for now
         : allTabs;
 
-  const sections = visibleSections(role, seesAc, isAdmin, denied);
+  const { home, groups } = visibleGroups(role, seesAc, isAdmin, denied);
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -124,39 +124,91 @@ export function AppShell({
           {who && <p className="text-[12px] text-ink-subtle mt-0.5">{who}</p>}
         </div>
         <nav className="flex-1 overflow-y-auto -mx-1 px-1 space-y-0.5">
-          {sections.map(({ key, href, label, icon: Icon }) => {
-            const active = key === section;
-            const subs = active ? tabs : undefined;
+          {home && (
+            <Link
+              href={home.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-[10px] text-[14px] font-semibold transition-colors",
+                section === "dashboard" ? "text-wine bg-wine-soft" : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+              )}
+              aria-current={section === "dashboard" ? "page" : undefined}
+            >
+              <home.icon className="size-[18px]" strokeWidth={1.8} />
+              {home.label}
+            </Link>
+          )}
+          {groups.map((g) => {
+            const open = g.sections.some((x) => x.key === section);
+            const Icon = g.icon;
+            const single = g.sections.length === 1;
+            const tabList = (
+              <div className={cn("mt-0.5 mb-1.5 pl-3 border-l border-line space-y-0.5", single ? "ml-5" : "ml-9")}>
+                {(tabs ?? []).map(({ href: h, label: l, exact }) => {
+                  const on = exact ? pathname === h : pathname.startsWith(h);
+                  return (
+                    <Link
+                      key={h}
+                      href={h}
+                      className={cn(
+                        "block px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-colors",
+                        on ? "text-wine font-semibold" : "text-ink-subtle hover:text-ink",
+                      )}
+                    >
+                      {l}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
             return (
-              <div key={key}>
+              <div key={g.key}>
                 <Link
-                  href={key === "narocila" && role === "sales" ? "/dostava" : href}
+                  href={g.sections[0].href}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-[10px] text-[14px] font-semibold transition-colors",
-                    active ? "text-wine bg-wine-soft" : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                    open ? "text-wine bg-wine-soft" : "text-ink-muted hover:bg-surface-muted hover:text-ink",
                   )}
-                  aria-current={active ? "page" : undefined}
+                  aria-current={open && single ? "page" : undefined}
                 >
                   <Icon className="size-[18px]" strokeWidth={1.8} />
-                  {label}
+                  {g.label}
                 </Link>
-                {subs && (
+                {open && single && tabs && tabList}
+                {open && !single && (
                   <div className="ml-5 mt-0.5 mb-1.5 pl-3 border-l border-line space-y-0.5">
-                    {subs.map(({ href: h, label: l, exact }) => {
-                      const on = exact ? pathname === h : pathname.startsWith(h);
-                      return (
+                    {g.sections.map((x) => (
+                      <div key={x.key}>
                         <Link
-                          key={h}
-                          href={h}
+                          href={x.href}
                           className={cn(
-                            "block px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-colors",
-                            on ? "text-wine font-semibold" : "text-ink-subtle hover:text-ink",
+                            "block px-3 py-1.5 rounded-[8px] text-[13.5px] font-semibold transition-colors",
+                            x.key === section ? "text-wine" : "text-ink-muted hover:text-ink",
                           )}
+                          aria-current={x.key === section ? "page" : undefined}
                         >
-                          {l}
+                          {x.label}
                         </Link>
-                      );
-                    })}
+                        {x.key === section && tabs && (
+                          <div className="ml-3 mb-1 pl-3 border-l border-line space-y-0.5">
+                            {tabs.map(({ href: h, label: l, exact }) => {
+                              const on = exact ? pathname === h : pathname.startsWith(h);
+                              return (
+                                <Link
+                                  key={h}
+                                  href={h}
+                                  className={cn(
+                                    "block px-2.5 py-1 rounded-[8px] text-[12.5px] font-medium transition-colors",
+                                    on ? "text-wine font-semibold" : "text-ink-subtle hover:text-ink",
+                                  )}
+                                >
+                                  {l}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

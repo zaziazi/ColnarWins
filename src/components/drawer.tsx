@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   Briefcase,
+  Building2,
   CalendarCheck,
   ShieldCheck,
   ClipboardList,
@@ -44,6 +45,42 @@ export function visibleSections(role?: StaffRole, seesAc?: boolean, isAdmin?: bo
   return SECTIONS.filter((s) => s.visible(role, seesAc, isAdmin, denied));
 }
 
+export interface NavGroup {
+  key: string;
+  label: string;
+  icon: typeof ClipboardList;
+  /** Sections of this group the person may open; labels can differ inside a group. */
+  sections: { key: SectionKey; href: string; label: string; icon: typeof ClipboardList }[];
+}
+
+const GROUPS: { key: string; label: string; icon: typeof ClipboardList; sections: SectionKey[]; inner?: Partial<Record<SectionKey, string>> }[] = [
+  { key: "prodaja", label: "Prodaja", icon: Briefcase, sections: ["prodaja", "narocila", "narocilaAc"], inner: { prodaja: "Zemljevid in obiski" } },
+  { key: "pisarna", label: "Pisarna", icon: Building2, sections: ["posta", "finance", "admin"] },
+  { key: "klet", label: "Klet", icon: Warehouse, sections: ["klet", "zaloge"], inner: { klet: "Klet", zaloge: "Zaloge" } },
+  { key: "degustacije", label: "Degustacije", icon: CalendarCheck, sections: ["degustacije"] },
+];
+
+/** Pregled stands alone on top; everything else sits in four groups. Empty groups disappear. */
+export function visibleGroups(role?: StaffRole, seesAc?: boolean, isAdmin?: boolean, denied?: string[]): { home: (typeof SECTIONS)[number] | null; groups: NavGroup[] } {
+  const ok = visibleSections(role, seesAc, isAdmin, denied);
+  const byKey = new Map(ok.map((s) => [s.key, s]));
+  const groups: NavGroup[] = [];
+  for (const g of GROUPS) {
+    const sections = g.sections
+      .map((k) => byKey.get(k))
+      .filter((x): x is (typeof SECTIONS)[number] => Boolean(x))
+      .map((x) => ({
+        key: x.key,
+        // a salesperson only has the Dostava tab in Naročila
+        href: x.key === "narocila" && role === "sales" ? "/dostava" : x.href,
+        label: g.inner?.[x.key] ?? x.label,
+        icon: x.icon,
+      }));
+    if (sections.length > 0) groups.push({ key: g.key, label: g.label, icon: g.icon, sections });
+  }
+  return { home: byKey.get("dashboard") ?? null, groups };
+}
+
 export function Drawer({
   open,
   onClose,
@@ -63,7 +100,7 @@ export function Drawer({
 }) {
   if (!open) return null;
 
-  const visibleSections = SECTIONS.filter((s) => s.visible(role, seesAc, isAdmin, denied));
+  const { home, groups } = visibleGroups(role, seesAc, isAdmin, denied);
 
   return (
     <>
@@ -88,25 +125,57 @@ export function Drawer({
           </button>
         </div>
 
-        <nav className="flex-1 py-2">
-          {visibleSections.map(({ key, href: baseHref, label, icon: Icon }) => {
-            // A salesperson only has the Dostava tab in Naročila.
-            const href = key === "narocila" && role === "sales" ? "/dostava" : baseHref;
-            const active = key === section;
+        <nav className="flex-1 overflow-y-auto py-2">
+          {home && (
+            <Link
+              href={home.href}
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 text-[14.5px] font-semibold transition-colors",
+                section === "dashboard" ? "text-wine bg-wine-soft" : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+              )}
+              aria-current={section === "dashboard" ? "page" : undefined}
+            >
+              <home.icon className="size-5" strokeWidth={1.8} />
+              {home.label}
+            </Link>
+          )}
+          {groups.map((g) => {
+            const open = g.sections.some((x) => x.key === section);
+            const Icon = g.icon;
             return (
-              <Link
-                key={key}
-                href={href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 text-[14.5px] font-semibold transition-colors",
-                  active ? "text-wine bg-wine-soft" : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+              <div key={g.key}>
+                <Link
+                  href={g.sections[0].href}
+                  onClick={onClose}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 text-[14.5px] font-semibold transition-colors",
+                    open ? "text-wine bg-wine-soft" : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                  )}
+                  aria-current={open && g.sections.length === 1 ? "page" : undefined}
+                >
+                  <Icon className="size-5" strokeWidth={1.8} />
+                  {g.label}
+                </Link>
+                {open && g.sections.length > 1 && (
+                  <div className="bg-surface-muted/50 py-1">
+                    {g.sections.map((x) => (
+                      <Link
+                        key={x.key}
+                        href={x.href}
+                        onClick={onClose}
+                        className={cn(
+                          "block pl-12 pr-4 py-2.5 text-[14px] font-semibold transition-colors",
+                          x.key === section ? "text-wine" : "text-ink-muted hover:text-ink",
+                        )}
+                        aria-current={x.key === section ? "page" : undefined}
+                      >
+                        {x.label}
+                      </Link>
+                    ))}
+                  </div>
                 )}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon className="size-5" strokeWidth={1.8} />
-                {label}
-              </Link>
+              </div>
             );
           })}
         </nav>

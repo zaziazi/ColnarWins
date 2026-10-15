@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, ChevronRight, Mail, ShoppingBasket, Truck, Wallet } from "lucide-react";
+import { AlertTriangle, ChevronRight, ShoppingBasket, Truck, Wallet } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,9 @@ const KIND_LABEL: Record<BriefItem["kind"], string> = {
   web: "Spletna rezervacija",
   nodriver: "Dostava",
   unconfirmed: "Dostava",
+  inbox: "Pošta",
+  bill: "Račun dobavitelja",
+  payment: "Plačila",
 };
 
 function greeting(): string {
@@ -141,9 +144,6 @@ export default async function DashboardPage() {
           </section>
         </div>
       </div>
-      <p className="mt-6 text-[11.5px] text-ink-subtle flex items-center gap-1.5">
-        <Mail className="size-3.5" /> Poštni nabiralnik (Inbox) in dobaviteljski računi še niso v Colnixu.
-      </p>
     </AppShell>
   );
 }

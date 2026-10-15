@@ -8,7 +8,8 @@ import "server-only";
 export type AiTask =
   | "drustva_triage" // classify a reply from a društvo and draft an answer
   | "web_reservation" // read a reservation e-mail from the website form
-  | "morning_brief"; // short plain-language summary of the day for the manager
+  | "morning_brief" // short plain-language summary of the day for the manager
+  | "inbox_triage"; // label an incoming e-mail, summarise it, draft an answer, read a bill attached to it
 
 interface TaskConfig {
   /** Environment variable that can override the model for this task only. */
@@ -20,6 +21,7 @@ const TASKS: Record<AiTask, TaskConfig> = {
   drustva_triage: { modelEnv: "ANTHROPIC_MODEL_TRIAGE", maxTokens: 1200 },
   web_reservation: { modelEnv: "ANTHROPIC_MODEL_RESERVATION", maxTokens: 1200 },
   morning_brief: { modelEnv: "ANTHROPIC_MODEL_BRIEF", maxTokens: 700 },
+  inbox_triage: { modelEnv: "ANTHROPIC_MODEL_INBOX", maxTokens: 1800 },
 };
 
 const DEFAULT_MODEL = "claude-sonnet-5-5";
@@ -55,11 +57,28 @@ async function call(task: AiTask, body: Record<string, unknown>): Promise<{ json
 /** Structured answer: the model must call the given tool exactly once and its input is returned. */
 export async function aiTool(
   task: AiTask,
-  args: { system: string; user: string; tool: { name: string } & Record<string, unknown> },
+  args: {
+    system: string;
+    user: string;
+    tool: { name: string } & Record<string, unknown>;
+    /** PDFs or images the model should read together with the text (e.g. a bill attached to an e-mail). */
+    files?: { mediaType: string; base64: string }[];
+  },
 ): Promise<{ input: unknown; model: string }> {
+  const content: unknown =
+    args.files && args.files.length > 0
+      ? [
+          ...args.files.map((f) =>
+            f.mediaType === "application/pdf"
+              ? { type: "document", source: { type: "base64", media_type: f.mediaType, data: f.base64 } }
+              : { type: "image", source: { type: "base64", media_type: f.mediaType, data: f.base64 } },
+          ),
+          { type: "text", text: args.user },
+        ]
+      : args.user;
   const { json, model } = await call(task, {
     system: args.system,
-    messages: [{ role: "user", content: args.user }],
+    messages: [{ role: "user", content }],
     tools: [args.tool],
     tool_choice: { type: "tool", name: args.tool.name },
   });

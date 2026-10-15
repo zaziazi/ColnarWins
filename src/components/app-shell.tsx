@@ -3,13 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, RefreshCw, LogOut, Bell, KeyRound } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { Drawer, visibleSections } from "./drawer";
 import { createClient } from "@/lib/supabase/client";
 
-export type SectionKey = "dashboard" | "narocila" | "narocilaAc" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance";
+export type SectionKey = "dashboard" | "narocila" | "narocilaAc" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance" | "posta";
 
 type NavItem = {
   href: string;
@@ -46,6 +46,12 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/admin",             label: "Uporabniki in vloge", icon: UserCog, exact: true },
     { href: "/admin/degustacije", label: "Degustacije",         icon: CalendarCheck },
     { href: "/admin/dnevnik",     label: "Dnevnik",             icon: History },
+  ],
+  finance: [
+    { href: "/finance",            label: "Pregled denarja",     icon: Banknote, exact: true },
+    { href: "/finance/racuni",     label: "Računi kupcev",       icon: FileText },
+    { href: "/finance/dobavitelji", label: "Računi dobaviteljev", icon: ReceiptText },
+    { href: "/finance/placila",    label: "Plačila",             icon: ArrowLeftRight },
   ],
   klet: [
     { href: "/klet",             label: "Vina",         icon: FlaskConical, exact: true },

@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { eur, narocila } from "@/lib/format";
 
 export interface BriefItem {
-  kind: "draft" | "drustvo" | "web" | "nodriver" | "unconfirmed";
+  kind: "draft" | "drustvo" | "web" | "nodriver" | "unconfirmed" | "inbox" | "bill" | "payment";
   title: string;
   detail: string;
   href: string;
@@ -51,7 +51,7 @@ async function collect(): Promise<Omit<Brief, "summary">> {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
 
-  const [draftsRes, tasks, webRes, tomorrowRes, tomorrowDay, newRes, ageing, days, jobsRes] = await Promise.all([
+  const [draftsRes, tasks, webRes, tomorrowRes, tomorrowDay, newRes, ageing, days, jobsRes, inboxRes, billsRes, txRes] = await Promise.all([
     supabase
       .from("sales_order")
       .select("id,order_number,review_note,delivery_date,customer(name)")
@@ -75,6 +75,9 @@ async function collect(): Promise<Omit<Brief, "summary">> {
     getReceivablesAgeing().catch(() => []),
     getDeliveryDays().catch(() => []),
     supabase.from("job_run").select("job_name,ok,finished_at,started_at").order("started_at", { ascending: false }).limit(40),
+    supabase.from("inbox_email").select("id,label,summary,from_name,extracted").in("status", ["new", "needs_decision"]).order("received_at", { ascending: false }).limit(30),
+    supabase.from("supplier_bill").select("id,supplier_name,amount_gross,status").in("status", ["to_approve", "flagged"]).limit(50),
+    supabase.from("bank_transaction").select("id", { count: "exact", head: true }).in("match_status", ["suggested", "unmatched"]),
   ]);
 
   const items: BriefItem[] = [];
@@ -107,6 +110,33 @@ async function collect(): Promise<Omit<Brief, "summary">> {
       detail: w.summary || w.subject || "Zahteva čaka odgovor",
       href: "/degustacije",
     });
+  }
+
+  const mails = (inboxRes.data ?? []) as { label: string; summary: string | null; from_name: string | null; extracted: { urgent?: boolean } | null }[];
+  const shownMails = mails.filter((m) => m.label !== "bill").slice(0, 8);
+  for (const m of shownMails) {
+    items.push({
+      kind: "inbox",
+      title: m.from_name || "Pošta",
+      detail: `${m.extracted?.urgent ? "Nujno: " : ""}${m.summary ?? "Sporočilo čaka"}`,
+      href: "/posta",
+    });
+  }
+  if (mails.length > shownMails.length + mails.filter((m) => m.label === "bill").length) {
+    items.push({ kind: "inbox", title: "Še več pošte", detail: `V poštnem predalu je ${mails.length} sporočil za pregled`, href: "/posta" });
+  }
+  const bills = (billsRes.data ?? []) as { supplier_name: string; amount_gross: number; status: string }[];
+  if (bills.length > 0) {
+    const flagged = bills.filter((b) => b.status === "flagged").length;
+    items.push({
+      kind: "bill",
+      title: `${bills.length} ${bills.length === 1 ? "račun dobavitelja" : "računov dobaviteljev"}`,
+      detail: `Skupaj ${eur(bills.reduce((s, b) => s + Number(b.amount_gross), 0))}${flagged > 0 ? `, od tega ${flagged} za posebej preveriti` : ""}`,
+      href: "/finance/dobavitelji",
+    });
+  }
+  if ((txRes.count ?? 0) > 0) {
+    items.push({ kind: "payment", title: "Plačila za pregled", detail: `${txRes.count} bančnih vrstic čaka na potrditev`, href: "/finance/placila" });
   }
 
   const tomorrowOrders = (tomorrowRes.data ?? []) as { assigned_driver_id: string | null; assigned_driver_name: string | null }[];

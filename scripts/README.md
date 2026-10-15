@@ -137,3 +137,15 @@ python3 scripts/fill-city.py slovenia.osm.pbf places.json && python3 scripts/fil
 
 Then `select match_venues_to_customers('slovenija'); select match_venues_to_customers('dolenjska');`.
 Region is `dolenjska` inside the old test box and `slovenija` elsewhere.
+
+## Colnix Web: Pošta (inbox) and Finance
+
+- **Inbox intake:** `inbox-gmail-forwarder.gs` (Apps Script on the office mailbox, setup
+  steps at the top of the file) posts every new mail, with up to 3 PDF/image attachments,
+  to `/api/inbox/inbound`. Needs `INBOX_INBOUND_SECRET` in Vercel (same value as the script's
+  `SECRET`). Optional `ANTHROPIC_MODEL_INBOX`. Without `ANTHROPIC_API_KEY` mails are still
+  stored and shown, just without label/summary/draft.
+- **Replies and bills to the accountant** go out through the normal `SMTP_*` / `MAIL_FROM`
+  settings. The accountant's address is entered on Finance → Računi dobaviteljev.
+- **Bank statements:** Finance → Plačila takes CSV (columns found by name) or camt.053 XML.
+  **Customer invoices:** Finance → Računi kupcev → Uvoz (CSV export from e-računi).

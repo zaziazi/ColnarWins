@@ -11,11 +11,13 @@ import {
   Landmark,
   LayoutDashboard,
   LogOut,
+  Mail,
   Warehouse,
   Wine,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canUseFinance, canUseOffice } from "@/lib/office";
 import type { StaffRole } from "@/lib/types";
 import type { SectionKey } from "./app-shell";
 
@@ -29,12 +31,13 @@ export const SECTIONS: {
   { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: (r) => r === "manager" },
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
   { key: "narocilaAc", href: "/nacrt", label: "Naročila AC", icon: ClipboardCheck, visible: (_r, ac) => ac === true },
+  { key: "posta",     href: "/posta",    label: "Pošta",    icon: Mail,            visible: (r) => canUseOffice(r) },
   { key: "prodaja",   href: "/prodaja",  label: "Prodaja",  icon: Briefcase,       visible: (r) => r === "sales" || r === "manager" },
   { key: "degustacije", href: "/degustacije", label: "Degustacije", icon: CalendarCheck, visible: (r) => r === "manager" || r === "events" || r === "sales" },
   { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r, _ac, admin) => r === "manager" && admin === true },
   { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r, _a, _m, d) => r === "manager" && !d?.includes("klet") },
   { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r, _a, _m, d) => r === "manager" && !d?.includes("zaloge") },
-  { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r, _a, _m, d) => r === "manager" && !d?.includes("finance") },
+  { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r, _a, _m, d) => canUseFinance(r, d) },
 ];
 
 export function visibleSections(role?: StaffRole, seesAc?: boolean, isAdmin?: boolean, denied?: string[]) {

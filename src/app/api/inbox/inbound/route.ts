@@ -1,7 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, after } from "next/server";
-import { notifyStaff } from "@/lib/notify";
-import { triageInboxEmail } from "@/lib/inbox/triage";
+import { ingestEmail, triagePending } from "@/lib/inbox/ingest";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +13,6 @@ function sameSecret(given: string | null, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-const safeName = (s: string) => s.replace(/[^\w.\- ]+/g, "_").slice(0, 120) || "priloga";
-const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 /**
  * Mail for the office arrives here from a small script on the office mailbox
@@ -44,60 +41,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "No database access" }, { status: 503 });
   }
 
-  const { data: existing } = await admin.from("inbox_email").select("id").eq("message_id", messageId).maybeSingle();
-  if (existing) return NextResponse.json({ status: "duplicate", id: existing.id });
-
-  const { data: row, error } = await admin
-    .from("inbox_email")
-    .insert({
-      message_id: messageId,
-      from_email: str(body.from_email, 200),
-      from_name: str(body.from_name, 200),
-      to_email: str(body.to_email, 200),
-      subject: str(body.subject, 300),
-      body_text: str(body.text, 30000) ?? "",
-      received_at: str(body.received_at, 40) ?? new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-  if (error || !row) return NextResponse.json({ error: error?.message ?? "insert failed" }, { status: 500 }); // sender retries
-  const id = row.id as string;
-
-  // attachments → private bucket
-  const stored: { name: string; path: string; type: string; size: number }[] = [];
+  const attachments: { filename: string; contentType: string; content: Buffer }[] = [];
   const list = Array.isArray(body.attachments) ? (body.attachments as Record<string, unknown>[]).slice(0, 6) : [];
   for (const a of list) {
     const b64 = typeof a.data_base64 === "string" ? a.data_base64 : "";
     if (!b64) continue;
-    const buf = Buffer.from(b64, "base64");
-    if (buf.length === 0 || buf.length > MAX_ATTACHMENT_BYTES) continue;
-    const name = safeName(str(a.filename, 200) ?? "priloga");
-    const type = str(a.content_type, 100) ?? "application/octet-stream";
-    const path = `${id}/${stored.length}-${name}`;
-    const up = await admin.storage.from("inbox-attachments").upload(path, buf, { contentType: type, upsert: true });
-    if (!up.error) stored.push({ name, path, type, size: buf.length });
+    attachments.push({
+      filename: str(a.filename, 200) ?? "priloga",
+      contentType: str(a.content_type, 100) ?? "application/octet-stream",
+      content: Buffer.from(b64, "base64"),
+    });
   }
-  if (stored.length > 0) await admin.from("inbox_email").update({ attachments: stored }).eq("id", id);
+
+  let result;
+  try {
+    result = await ingestEmail(admin, {
+      messageId,
+      fromEmail: str(body.from_email, 200),
+      fromName: str(body.from_name, 200),
+      toEmail: str(body.to_email, 200),
+      subject: str(body.subject, 300),
+      text: str(body.text, 30000) ?? "",
+      receivedAt: str(body.received_at, 40),
+      attachments,
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "insert failed" }, { status: 500 }); // sender retries
+  }
+  if (result.status !== "stored") return NextResponse.json({ status: result.status, id: result.id });
 
   after(async () => {
     try {
-      await triageInboxEmail(admin, id);
-      const { data: m } = await admin.from("inbox_email").select("label,summary,from_name,from_email,extracted,status").eq("id", id).single();
-      if (!m || m.status === "ignored") return;
-      const urgent = Boolean((m.extracted as { urgent?: boolean } | null)?.urgent);
-      if (!(urgent || m.label === "order" || m.label === "complaint")) return;
-      const { data: admins } = await admin.from("staff").select("id").eq("is_admin", true);
-      const who = (m.from_name as string | null) ?? (m.from_email as string | null) ?? "";
-      const text = ((m.summary as string | null) ?? "Nova pošta").slice(0, 120);
-      await notifyStaff(((admins ?? []) as { id: string }[]).map((s) => s.id), {
-        title: `Pošta · ${m.label === "order" ? "naročilo" : m.label === "complaint" ? "pritožba" : "nujno"} · ${who}`.trim(),
-        body: text,
-        url: "/posta",
-        tag: `inbox-${id}`,
-      });
+      await triagePending(admin, { deadline: Date.now() + 55_000 });
     } catch (e) {
       console.error("inbox processing failed", e);
     }
   });
-  return NextResponse.json({ status: "stored", id });
+  return NextResponse.json({ status: "stored", id: result.id });
 }

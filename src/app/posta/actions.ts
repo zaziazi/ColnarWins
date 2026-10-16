@@ -9,6 +9,7 @@ import { canUseOfficeTools } from "@/lib/office";
 import { INBOX_LABELS } from "@/lib/inbox/labels";
 import { triageInboxEmail } from "@/lib/inbox/triage";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pollAll } from "@/lib/inbox/imap";
 import { createSupplierBill } from "@/lib/finance/bills";
 import { fileInvoice } from "@/lib/finance/archive";
 import { mailConfigured, sendMail } from "@/lib/documents/email";
@@ -172,4 +173,21 @@ export async function attachmentUrl(path: string): Promise<{ ok: true; url: stri
   const { data, error } = await supabase.storage.from("inbox-attachments").createSignedUrl(path, 300);
   if (error || !data) return { ok: false, error: "Priloge ni mogoče odpreti." };
   return { ok: true, url: data.signedUrl };
+}
+
+/** "Preveri pošto zdaj": reads the mailboxes under the admin's own session (same code as the scheduled job). */
+export async function pollInboxNow(): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  if (isDemoMode) return { ok: false, error: "Demo." };
+  if (!(await guard())) return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const r = await pollAll(supabase, { budgetMs: 50_000, maxMessages: 25 });
+  refresh();
+  const errs = r.accounts.filter((a) => a.error).map((a) => `${a.label}: ${a.error}`);
+  if (errs.length > 0) return { ok: false, error: errs.join(" · ") };
+  const stored = r.accounts.reduce((s, a) => s + a.stored, 0);
+  const left = r.accounts.reduce((s, a) => s + a.left, 0);
+  return {
+    ok: true,
+    text: `${stored} novih sporočil, prebranih ${r.triage.done}${left > 0 ? `, še ${left} čaka v nabiralniku` : ""}${r.triage.left > 0 ? `, ${r.triage.left} še čaka na branje` : ""}`,
+  };
 }

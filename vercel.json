@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/sales-weekly",
       "schedule": "30 6 * * 1"
+    },
+    {
+      "path": "/api/cron/inbox-poll",
+      "schedule": "0 4 * * *"
     }
   ]
 }

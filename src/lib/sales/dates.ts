@@ -35,6 +35,21 @@ export function dayMonth(iso: string): string {
   return DAYMONTH.format(new Date(`${iso}T12:00:00Z`));
 }
 
+/** First day of the month containing `iso`, and the same day-of-month shifted by whole months (clamped). */
+export function monthStart(iso: string): string {
+  return `${iso.slice(0, 7)}-01`;
+}
+export function addMonths(iso: string, n: number): string {
+  const d = new Date(`${monthStart(iso)}T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + n);
+  return d.toISOString().slice(0, 10);
+}
+const MONTH_YEAR = new Intl.DateTimeFormat("sl-SI", { month: "long", year: "numeric", timeZone: "UTC" });
+export function monthTitle(iso: string): string {
+  const s = MONTH_YEAR.format(new Date(`${iso}T12:00:00Z`));
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /** Next working day (Mon–Fri) strictly after `iso`. */
 export function nextWorkday(iso: string): string {
   let d = addDays(iso, 1);

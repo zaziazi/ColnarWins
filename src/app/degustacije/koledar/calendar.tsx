@@ -4,8 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Users, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { addDays, dayMonth, weekdayName } from "@/lib/sales/dates";
-import type { DegustacijaPerson, GroupBooking } from "@/lib/types";
+import { addDays, addMonths, dayMonth, monthTitle, weekdayName } from "@/lib/sales/dates";
+import { LOCATION_LABEL, type DegustacijaPerson, type GroupBooking } from "@/lib/types";
 import { BookingDialog } from "./booking-dialog";
 
 const PX_PER_HOUR = 56;
@@ -90,11 +90,15 @@ export function Calendar({
   persons: DegustacijaPerson[];
   hostingWeekdays: number[];
   blackoutDates: string[];
-  initialView: "day" | "week" | null;
+  initialView: "day" | "week" | "month" | null;
 }) {
   const router = useRouter();
-  const [view, setView] = React.useState<"day" | "week">(initialView ?? "week");
+  const [view, setView] = React.useState<"day" | "week" | "month">(initialView ?? "week");
   const [open, setOpen] = React.useState<GroupBooking | null>(null);
+
+  React.useEffect(() => {
+    if (initialView) setView(initialView);
+  }, [initialView]);
 
   // phones start on the day view, larger screens on the week
   React.useEffect(() => {
@@ -102,7 +106,7 @@ export function Calendar({
   }, [initialView]);
 
   const visible = bookings.filter((b) => b.status !== "cancelled");
-  const shownDays = view === "week" ? days : [days.includes(anchor) ? anchor : days[0]];
+  const shownDays = view === "month" ? days : view === "week" ? days : [days.includes(anchor) ? anchor : days[0]];
 
   let startHour = 8;
   let endHour = 20;
@@ -116,6 +120,17 @@ export function Calendar({
 
   const go = (iso: string) => router.push(`/degustacije/koledar?d=${iso}&v=${view}`);
   const step = view === "week" ? 7 : 1;
+  // the month grid starts on a Monday before the 1st: the real month is the one of the middle of the grid
+  const monthAnchor = view === "month" ? days[14] : anchor;
+  function switchView(v: "day" | "week" | "month") {
+    if (v === view) return;
+    if (v === "month" || view === "month") {
+      // the data for a month differs from a week: load it, the view follows the page
+      router.push(`/degustacije/koledar?d=${view === "month" ? (today.slice(0, 7) === monthAnchor.slice(0, 7) ? today : monthAnchor) : (days.includes(anchor) ? anchor : days[0])}&v=${v}`);
+      return;
+    }
+    setView(v);
+  }
 
   function newAt(date: string, e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -125,18 +140,20 @@ export function Calendar({
   }
 
   const title =
-    view === "week"
-      ? `${dayMonth(days[0])} – ${dayMonth(days[6])}`
-      : `${weekdayName(shownDays[0])}, ${dayMonth(shownDays[0])}`;
+    view === "month"
+      ? monthTitle(monthAnchor)
+      : view === "week"
+        ? `${dayMonth(days[0])} – ${dayMonth(days[6])}`
+        : `${weekdayName(shownDays[0])}, ${dayMonth(shownDays[0])}`;
 
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-1.5">
-          <Button variant="secondary" size="sm" onClick={() => go(addDays(shownDays[0], -step))} aria-label="Nazaj">
+          <Button variant="secondary" size="sm" onClick={() => go(view === "month" ? addMonths(monthAnchor, -1) : addDays(shownDays[0], -step))} aria-label="Nazaj">
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => go(addDays(shownDays[0], step))} aria-label="Naprej">
+          <Button variant="secondary" size="sm" onClick={() => go(view === "month" ? addMonths(monthAnchor, 1) : addDays(shownDays[0], step))} aria-label="Naprej">
             <ChevronRight className="size-4" />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => go(today)}>
@@ -144,21 +161,71 @@ export function Calendar({
           </Button>
         </div>
         <div className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5" role="group" aria-label="Pogled">
-          {(["day", "week"] as const).map((v) => (
+          {(["day", "week", "month"] as const).map((v) => (
             <button
               key={v}
               type="button"
-              onClick={() => setView(v)}
+              onClick={() => switchView(v)}
               aria-pressed={view === v}
               className={`h-8 px-3 rounded-[8px] text-[12.5px] font-semibold ${view === v ? "bg-wine text-white" : "text-ink-muted"}`}
             >
-              {v === "day" ? "Dan" : "Teden"}
+              {v === "day" ? "Dan" : v === "week" ? "Teden" : "Mesec"}
             </button>
           ))}
         </div>
       </div>
       <div className="text-[15px] font-bold mb-2">{title}</div>
 
+      {view === "month" && (
+        <div className="rounded-[var(--radius-card)] border border-line bg-surface overflow-hidden">
+          <div className="grid grid-cols-7 bg-surface-muted border-b border-line text-[11px] uppercase tracking-[0.06em] text-ink-subtle text-center">
+            {days.slice(0, 7).map((d) => (
+              <div key={d} className="py-2">
+                {weekdayName(d).slice(0, 3)}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {days.map((d) => {
+              const inMonth = d.slice(0, 7) === monthAnchor.slice(0, 7);
+              const list = visible.filter((b) => b.visitDate === d).sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+              const closed = !hostingWeekdays.includes(dowOf(d)) || blackoutDates.includes(d);
+              return (
+                <div
+                  key={d}
+                  className={`min-h-[84px] min-[900px]:min-h-[112px] border-t border-l border-line p-1 ${inMonth ? "" : "bg-surface-muted/60 text-ink-subtle"} ${closed && inMonth ? "bg-[repeating-linear-gradient(135deg,transparent,transparent_6px,rgba(0,0,0,0.03)_6px,rgba(0,0,0,0.03)_12px)]" : ""}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/degustacije/nova?datum=${d}`)}
+                    className={`text-[12px] font-bold ${d === today ? "inline-grid place-items-center size-6 rounded-full bg-wine text-white" : ""}`}
+                    aria-label={`Nova degustacija ${d}`}
+                  >
+                    {new Date(`${d}T12:00:00Z`).getUTCDate()}
+                  </button>
+                  <div className="mt-0.5 space-y-0.5">
+                    {list.slice(0, 3).map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setOpen(b)}
+                        className={`w-full text-left rounded-[5px] border-l-[3px] px-1 py-0.5 text-[10.5px] leading-tight truncate ${STATUS_STYLE[b.status] ?? STATUS_STYLE.confirmed}`}
+                        title={`${b.startTime ?? ""} ${b.groupName} (${LOCATION_LABEL[b.location]})`}
+                      >
+                        <span className="font-bold">{b.startTime}</span> {b.location === "zidanica" ? "Z · " : ""}
+                        {b.groupName}
+                      </button>
+                    ))}
+                    {list.length > 3 && <p className="text-[10.5px] text-ink-subtle px-1">+ še {list.length - 3}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {view !== "month" && (
       <div className="rounded-[var(--radius-card)] border border-line bg-surface overflow-hidden">
         <div className="overflow-x-auto">
           <div style={{ minWidth: view === "week" ? 720 : undefined }}>
@@ -220,7 +287,10 @@ export function Calendar({
                           {b.startTime}
                           {b.endTime && `–${b.endTime}`}
                         </div>
-                        <div className="text-[11.5px] font-semibold leading-tight truncate">{b.groupName}</div>
+                        <div className="text-[11.5px] font-semibold leading-tight truncate">
+                          {b.location === "zidanica" && <span className="text-wine">Z · </span>}
+                          {b.groupName}
+                        </div>
                         {h > 52 && (
                           <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-ink-muted">
                             {b.peoplePlanned !== null && (
@@ -241,9 +311,10 @@ export function Calendar({
           </div>
         </div>
       </div>
+      )}
 
       <p className="text-[11.5px] text-ink-subtle mt-2">
-        Tapni na prosto polje za novo degustacijo ob tisti uri. Črtkana ozadja so dnevi brez skupin. Okvirne rezervacije so črtkane.
+        Tapni na prosto polje za novo degustacijo ob tisti uri. Črtkana ozadja so dnevi brez skupin. Okvirne rezervacije so črtkane. Z = zidanica.
       </p>
 
       {open && <BookingDialog key={open.id} booking={open} persons={persons} onClose={() => setOpen(null)} />}

@@ -566,7 +566,19 @@ export interface GroupBooking {
   wineSalesEur: number | null;
   notes: string | null;
   webReservationId: string | null;
+  /** Where the tasting takes place. */
+  location: "klet" | "zidanica";
+  /** Agreed price per person. */
+  tastingPriceEur: number | null;
+  /** What the tasting itself brought in (people × price, or a package price). */
+  tastingFeeEur: number | null;
+  otherIncomeEur: number | null;
+  incomePaymentMethod: PaymentMethod | null;
+  incomePaidAt: string | null;
+  incomeNote: string | null;
 }
+
+export const LOCATION_LABEL = { klet: "Klet", zidanica: "Zidanica" } as const;
 
 export interface DegustacijaPerson {
   id: string;

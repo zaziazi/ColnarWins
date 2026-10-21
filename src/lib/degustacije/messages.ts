@@ -39,7 +39,7 @@ function when(b: GroupBooking): string {
 /** What the presenter needs to know the day before. */
 export function presenterMessage(b: GroupBooking): string {
   const lines = [
-    `Degustacija ${when(b)}`,
+    `Degustacija ${when(b)}${b.location === "zidanica" ? " · ZIDANICA" : ""}`,
     `Skupina: ${b.groupName}${b.peoplePlanned ? `, ${b.peoplePlanned} oseb` : ""}`,
     b.winePreferences ? `Želje glede vin: ${b.winePreferences}` : "Vina izberete na licu mesta",
     b.food ? `Hrana: da${b.foodNotes ? ` (${b.foodNotes})` : ""}` : "Hrana: ne",
@@ -52,7 +52,7 @@ export function presenterMessage(b: GroupBooking): string {
 /** What the kitchen (bread) needs: when, how many, and the notes. */
 export function kitchenMessage(b: GroupBooking): string {
   const lines = [
-    `Priprava hrane za degustacijo ${when(b)}`,
+    `Priprava hrane za degustacijo ${when(b)}${b.location === "zidanica" ? " · ZIDANICA" : ""}`,
     `Skupina: ${b.groupName}${b.peoplePlanned ? `, ${b.peoplePlanned} oseb` : ""}`,
     "Pripravi svež kruh.",
   ];

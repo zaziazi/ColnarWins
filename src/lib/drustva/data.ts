@@ -135,7 +135,7 @@ export async function getBookingsBetween(from: string, to: string): Promise<Grou
   const { data, error } = await supabase
     .from("group_booking")
     .select(
-      "id,drustvo_id,group_name,source,visit_date,arrival_time,end_time,people_planned,people_actual,wine_preferences,food,food_notes,contact_name,contact_phone,contact_email,presenter_id,kitchen_id,presenter_notified_at,kitchen_notified_at,status,wine_sales_eur,notes,web_reservation_id,drustvo(name)",
+      "id,drustvo_id,group_name,source,visit_date,arrival_time,end_time,people_planned,people_actual,wine_preferences,food,food_notes,contact_name,contact_phone,contact_email,presenter_id,kitchen_id,presenter_notified_at,kitchen_notified_at,status,wine_sales_eur,notes,web_reservation_id,location,tasting_price_eur,tasting_fee_eur,other_income_eur,income_payment_method,income_paid_at,income_note,drustvo(name)",
     )
     .gte("visit_date", from)
     .lte("visit_date", to)

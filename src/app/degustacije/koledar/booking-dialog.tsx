@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FieldLabel } from "@/components/ui/card";
 import { dateSl, kitchenMessage, manualLink, presenterMessage } from "@/lib/degustacije/messages";
-import type { DegustacijaPerson, GroupBooking } from "@/lib/types";
+import { PAYMENT_LABEL, type DegustacijaPerson, type GroupBooking } from "@/lib/types";
 import { markNotified, notifyBookingNow, setBookingStatus } from "../actions";
 import { BookingForm, emptyDraft } from "../booking-form";
 import { BOOKING_LABEL } from "../constants";
@@ -93,6 +93,13 @@ export function BookingDialog({
               notes: b.notes ?? "",
               peopleActual: b.status === "visited" ? (b.peopleActual?.toString() ?? "") : undefined,
               wineSalesEur: b.status === "visited" ? (b.wineSalesEur?.toString() ?? "") : undefined,
+              location: b.location,
+              priceEur: b.tastingPriceEur?.toString().replace(".", ",") ?? "",
+              feeEur: b.status === "visited" ? (b.tastingFeeEur?.toString().replace(".", ",") ?? "") : undefined,
+              otherIncomeEur: b.status === "visited" ? (b.otherIncomeEur?.toString().replace(".", ",") ?? "") : undefined,
+              paymentMethod: b.incomePaymentMethod ?? "",
+              paid: Boolean(b.incomePaidAt),
+              incomeNote: b.incomeNote ?? "",
             })}
             persons={persons}
             submitLabel="Shrani spremembe"
@@ -117,6 +124,7 @@ export function BookingDialog({
             <Badge tone={TONE[b.status]}>{BOOKING_LABEL[b.status]}</Badge>
             {b.source === "web" && <Badge tone="info">Spletna rezervacija</Badge>}
             {b.source === "drustvo" && <Badge>Društvo</Badge>}
+            {b.location === "zidanica" && <Badge tone="wine">Zidanica</Badge>}
           </div>
 
           <Row label="Kdaj">
@@ -185,6 +193,12 @@ export function BookingDialog({
           {b.status === "visited" && (
             <Row label="Po obisku">
               Prišlo: {b.peopleActual ?? "—"} · Prodano vino: {b.wineSalesEur !== null ? `${b.wineSalesEur} €` : "—"}
+              <div className="text-[12.5px] text-ink-muted">
+                Degustacija: {b.tastingFeeEur !== null ? `${b.tastingFeeEur} €` : "—"}
+                {b.otherIncomeEur ? ` · drugo ${b.otherIncomeEur} €` : ""}
+                {b.incomePaymentMethod ? ` · ${PAYMENT_LABEL[b.incomePaymentMethod]}` : ""}
+                {b.incomePaidAt ? " · plačano" : " · še ni plačano"}
+              </div>
             </Row>
           )}
 

@@ -30,6 +30,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/pisarna",      label: "Naročila",   icon: ClipboardList, exact: true },
     { href: "/dostava",      label: "Dostava",    icon: Truck },
     { href: "/tisk",         label: "Tisk",       icon: Printer },
+    { href: "/pisarna/koledar", label: "Koledar",   icon: CalendarDays },
   ],
   // The advanced flow (route planner, loading lists, signature + documents).
   // Only for staff with sees_ac - Novo and Naročila are shared with "narocila".
@@ -47,6 +48,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/degustacije",            label: "Odgovori",          icon: MessageSquareReply, exact: true },
     { href: "/degustacije/koledar",    label: "Koledar",           icon: CalendarDays },
     { href: "/degustacije/nova",       label: "Nova degustacija",  icon: CalendarPlus },
+    { href: "/degustacije/dohodek",    label: "Dohodek",           icon: Banknote },
   ],
   admin: [
     { href: "/admin",             label: "Uporabniki in vloge", icon: UserCog, exact: true },

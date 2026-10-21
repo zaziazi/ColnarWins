@@ -1,4 +1,4 @@
-import type { BookingStatus, GroupBooking } from "@/lib/types";
+import type { BookingStatus, GroupBooking, PaymentMethod } from "@/lib/types";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v === null || v === undefined ? null : String(v));
@@ -30,5 +30,12 @@ export function mapBooking(b: Row): GroupBooking {
     wineSalesEur: n(b.wine_sales_eur),
     notes: s(b.notes),
     webReservationId: s(b.web_reservation_id),
+    location: b.location === "zidanica" ? "zidanica" : "klet",
+    tastingPriceEur: n(b.tasting_price_eur),
+    tastingFeeEur: n(b.tasting_fee_eur),
+    otherIncomeEur: n(b.other_income_eur),
+    incomePaymentMethod: (s(b.income_payment_method) as PaymentMethod | null) ?? null,
+    incomePaidAt: s(b.income_paid_at),
+    incomeNote: s(b.income_note),
   };
 }

@@ -179,6 +179,13 @@ const Booking = z.object({
   status: z.enum(["tentative", "confirmed", "visited", "cancelled"]),
   wineSalesEur: z.number().min(0).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  location: z.enum(["klet", "zidanica"]).default("klet"),
+  tastingPriceEur: z.number().min(0).max(100000).nullable().optional(),
+  tastingFeeEur: z.number().min(0).max(1000000).nullable().optional(),
+  otherIncomeEur: z.number().min(0).max(1000000).nullable().optional(),
+  incomePaymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo"]).nullable().optional(),
+  incomePaid: z.boolean().optional(),
+  incomeNote: z.string().max(300).nullable().optional(),
   /** Save even though the day is full / not a hosting day / blocked. */
   force: z.boolean().optional(),
 });
@@ -209,7 +216,8 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     if (st) {
       if ((st.blackout_dates as string[]).includes(b.visitDate)) return { ok: false, warning: true, error: "Ta datum je med blokiranimi (Nastavitve)." };
       if (!(st.hosting_weekdays as number[]).includes(dowOf(b.visitDate))) return { ok: false, warning: true, error: "Ta dan v tednu ni na seznamu dni za skupine (Nastavitve)." };
-      let q = supabase.from("group_booking").select("id", { count: "exact", head: true }).eq("visit_date", b.visitDate).neq("status", "cancelled");
+      // the zidanica and the cellar are separate places: each has its own limit of groups per day
+      let q = supabase.from("group_booking").select("id", { count: "exact", head: true }).eq("visit_date", b.visitDate).eq("location", b.location).neq("status", "cancelled");
       if (b.id) q = q.neq("id", b.id);
       const { count } = await q;
       if ((count ?? 0) >= (st.max_groups_per_day as number)) return { ok: false, warning: true, error: "Ta dan je že poln (največ skupin na dan v Nastavitvah)." };
@@ -257,6 +265,12 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     kitchen_id: b.food ? kitchenId : null,
     status: b.status,
     wine_sales_eur: b.wineSalesEur ?? null,
+    location: b.location,
+    tasting_price_eur: b.tastingPriceEur ?? null,
+    tasting_fee_eur: b.tastingFeeEur ?? null,
+    other_income_eur: b.otherIncomeEur ?? null,
+    income_payment_method: b.incomePaymentMethod ?? null,
+    income_note: b.incomeNote?.trim() || null,
     notes: b.notes?.trim() || null,
     web_reservation_id: b.webReservationId ?? null,
   };
@@ -266,18 +280,20 @@ export async function saveBooking(input: BookingInput): Promise<SaveBookingResul
     ? (
         await supabase
           .from("group_booking")
-          .select("presenter_id,visit_date,arrival_time,status")
+          .select("presenter_id,visit_date,arrival_time,status,income_paid_at")
           .eq("id", b.id)
           .maybeSingle()
       ).data
     : null;
 
+  // "paid" keeps the moment it was first ticked
+  const incomePaidAt = b.incomePaid ? ((before as { income_paid_at?: string | null } | null)?.income_paid_at ?? new Date().toISOString()) : null;
   let id = b.id;
   if (id) {
-    const { error } = await supabase.from("group_booking").update(row).eq("id", id);
+    const { error } = await supabase.from("group_booking").update({ ...row, income_paid_at: incomePaidAt }).eq("id", id);
     if (error) return { ok: false, error: error.message };
   } else {
-    const { data, error } = await supabase.from("group_booking").insert({ ...row, created_by: staff.id }).select("id").single();
+    const { data, error } = await supabase.from("group_booking").insert({ ...row, income_paid_at: incomePaidAt, created_by: staff.id }).select("id").single();
     if (error || !data) return { ok: false, error: error?.message ?? "Shranjevanje ni uspelo." };
     id = data.id as string;
   }

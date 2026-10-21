@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import type { BookingStatus, DegustacijaPerson } from "@/lib/types";
+import { LOCATION_LABEL, PAYMENT_LABEL, type BookingStatus, type DegustacijaPerson, type PaymentMethod } from "@/lib/types";
+import { eur } from "@/lib/format";
 import { saveBooking } from "./actions";
 
 export interface BookingDraft {
@@ -33,6 +34,15 @@ export interface BookingDraft {
   notes: string;
   peopleActual?: string;
   wineSalesEur?: string;
+  location: "klet" | "zidanica";
+  /** Agreed price per person (text, so "12,5" can be typed). */
+  priceEur: string;
+  /** Left empty = people × price. */
+  feeEur?: string;
+  otherIncomeEur?: string;
+  paymentMethod: PaymentMethod | "";
+  paid: boolean;
+  incomeNote: string;
 }
 
 export function emptyDraft(over: Partial<BookingDraft> = {}, kitchenDefault: string | null = null): BookingDraft {
@@ -52,6 +62,11 @@ export function emptyDraft(over: Partial<BookingDraft> = {}, kitchenDefault: str
     kitchenId: kitchenDefault,
     status: "confirmed",
     notes: "",
+    location: "klet",
+    priceEur: "",
+    paymentMethod: "",
+    paid: false,
+    incomeNote: "",
     ...over,
   };
 }
@@ -83,6 +98,10 @@ export function BookingForm({
   const [f, setF] = React.useState<BookingDraft>(draft);
   const [busy, setBusy] = React.useState(false);
   const endTouched = React.useRef(Boolean(draft.endTime));
+
+  const numOf = (s: string | undefined) => (s === undefined || s.trim() === "" ? null : Number(s.replace(",", ".")));
+  const autoFee = numOf(f.priceEur) !== null && numOf(f.peopleActual) !== null ? Math.round(numOf(f.priceEur)! * numOf(f.peopleActual)! * 100) / 100 : null;
+  const incomeTotal = (numOf(f.feeEur) ?? autoFee ?? 0) + (numOf(f.wineSalesEur) ?? 0) + (numOf(f.otherIncomeEur) ?? 0);
 
   const presenters = persons.filter((p) => p.active && (p.role === "presenter" || p.role === "both"));
   const kitchens = persons.filter((p) => p.active && (p.role === "kitchen" || p.role === "both"));
@@ -118,6 +137,13 @@ export function BookingForm({
       status: f.status,
       wineSalesEur: num(f.wineSalesEur),
       notes: f.notes || null,
+      location: f.location,
+      tastingPriceEur: num(f.priceEur),
+      tastingFeeEur: num(f.feeEur) ?? (num(f.priceEur) !== null && num(f.peopleActual) !== null ? Math.round(num(f.priceEur)! * num(f.peopleActual)! * 100) / 100 : null),
+      otherIncomeEur: num(f.otherIncomeEur),
+      incomePaymentMethod: f.paymentMethod || null,
+      incomePaid: f.paid,
+      incomeNote: f.incomeNote || null,
       force,
     });
     setBusy(false);
@@ -136,6 +162,22 @@ export function BookingForm({
         <div>
           <FieldLabel>Skupina</FieldLabel>
           <Input value={f.groupName} onChange={(e) => setF({ ...f, groupName: e.target.value })} placeholder="Ime skupine, društva ali podjetja" />
+        </div>
+        <div>
+          <FieldLabel>Kje</FieldLabel>
+          <div className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5">
+            {(["klet", "zidanica"] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setF({ ...f, location: l })}
+                aria-pressed={f.location === l}
+                className={`h-9 px-5 rounded-[8px] text-[13px] font-semibold ${f.location === l ? "bg-wine text-white" : "text-ink-muted"}`}
+              >
+                {LOCATION_LABEL[l]}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -257,16 +299,55 @@ export function BookingForm({
         </div>
       </div>
 
+      <div>
+        <FieldLabel>Dogovorjena cena na osebo (€)</FieldLabel>
+        <Input inputMode="decimal" className="max-w-[160px]" value={f.priceEur} onChange={(e) => setF({ ...f, priceEur: e.target.value })} placeholder="npr. 25" />
+      </div>
+
       {(f.status === "visited" || f.peopleActual !== undefined) && (
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <FieldLabel>Prišlo oseb</FieldLabel>
-            <Input inputMode="numeric" value={f.peopleActual ?? ""} onChange={(e) => setF({ ...f, peopleActual: e.target.value })} />
+        <div className="rounded-[var(--radius-control)] border border-line p-3 space-y-3">
+          <p className="text-[12.5px] font-bold uppercase tracking-[0.06em] text-ink-subtle">Po obisku: kaj smo zaslužili</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <FieldLabel>Prišlo oseb</FieldLabel>
+              <Input inputMode="numeric" value={f.peopleActual ?? ""} onChange={(e) => setF({ ...f, peopleActual: e.target.value })} />
+            </div>
+            <div>
+              <FieldLabel>Prodano vino (€)</FieldLabel>
+              <Input inputMode="decimal" value={f.wineSalesEur ?? ""} onChange={(e) => setF({ ...f, wineSalesEur: e.target.value })} />
+            </div>
+            <div>
+              <FieldLabel>Degustacija (€)</FieldLabel>
+              <Input
+                inputMode="decimal"
+                value={f.feeEur ?? ""}
+                onChange={(e) => setF({ ...f, feeEur: e.target.value })}
+                placeholder={autoFee !== null ? String(autoFee).replace(".", ",") : "osebe × cena"}
+              />
+            </div>
+            <div>
+              <FieldLabel>Drugo, npr. hrana (€)</FieldLabel>
+              <Input inputMode="decimal" value={f.otherIncomeEur ?? ""} onChange={(e) => setF({ ...f, otherIncomeEur: e.target.value })} />
+            </div>
           </div>
-          <div>
-            <FieldLabel>Prodano vino (€)</FieldLabel>
-            <Input inputMode="decimal" value={f.wineSalesEur ?? ""} onChange={(e) => setF({ ...f, wineSalesEur: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2 items-end">
+            <div>
+              <FieldLabel>Način plačila</FieldLabel>
+              <select className={selectCls} value={f.paymentMethod} onChange={(e) => setF({ ...f, paymentMethod: e.target.value as PaymentMethod | "" })}>
+                <option value="">— ni izbran —</option>
+                {(Object.keys(PAYMENT_LABEL) as PaymentMethod[]).map((m) => (
+                  <option key={m} value={m}>
+                    {PAYMENT_LABEL[m]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 h-11 text-[13.5px] font-semibold">
+              <input type="checkbox" checked={f.paid} onChange={(e) => setF({ ...f, paid: e.target.checked })} /> Plačano
+            </label>
           </div>
+          <Input value={f.incomeNote} onChange={(e) => setF({ ...f, incomeNote: e.target.value })} placeholder="Opomba (npr. račun št., plačal vodja skupine)" />
+          <p className="text-[13px] font-semibold">Skupaj: {eur(incomeTotal)}</p>
         </div>
       )}
 

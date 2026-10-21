@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { plural } from "@/lib/format";
 import type { PushPayload } from "@/lib/push";
+import { getFollowUpsWith } from "@/lib/sales/followups";
 
 interface VisitRow {
   staff_id: string;
@@ -21,7 +22,7 @@ export async function buildSalesPlan(
   admin: SupabaseClient<any, any, any>,
   forDate: string,
 ): Promise<Map<string, PushPayload>> {
-  const [visitsRes, labelsRes, overdueRes] = await Promise.all([
+  const [visitsRes, labelsRes, followUps] = await Promise.all([
     admin
       .from("visit")
       .select("staff_id,sort_order,planned_time,venue(name,city),customer(name,city)")
@@ -29,38 +30,47 @@ export async function buildSalesPlan(
       .is("visited_at", null)
       .order("sort_order"),
     admin.from("day_plan").select("staff_id,label").eq("plan_date", forDate),
-    admin
-      .from("visit")
-      .select("staff_id")
-      .eq("outcome", "thinking")
-      .lt("follow_up_on", forDate),
+    // "razmislili bodo" visits that are due today or late and were not followed up since
+    getFollowUpsWith(admin, null, forDate),
   ]);
   if (visitsRes.error) throw visitsRes.error;
   if (labelsRes.error) throw labelsRes.error;
-  if (overdueRes.error) throw overdueRes.error;
 
   const visits = (visitsRes.data ?? []) as unknown as VisitRow[];
   const labels = new Map((labelsRes.data ?? []).map((l: { staff_id: string; label: string | null }) => [l.staff_id, l.label]));
+  const dueToday = new Map<string, string[]>();
   const overdue = new Map<string, number>();
-  for (const o of (overdueRes.data ?? []) as { staff_id: string }[]) overdue.set(o.staff_id, (overdue.get(o.staff_id) ?? 0) + 1);
+  for (const f of followUps) {
+    if (f.followUpOn === forDate) dueToday.set(f.staffId, [...(dueToday.get(f.staffId) ?? []), f.name]);
+    else overdue.set(f.staffId, (overdue.get(f.staffId) ?? 0) + 1);
+  }
 
   const byStaff = new Map<string, VisitRow[]>();
   for (const v of visits) byStaff.set(v.staff_id, [...(byStaff.get(v.staff_id) ?? []), v]);
 
   const messages = new Map<string, PushPayload>();
-  for (const [staffId, stops] of byStaff) {
+  const staffIds = new Set<string>([...byStaff.keys(), ...dueToday.keys(), ...overdue.keys()]);
+  for (const staffId of staffIds) {
+    const stops = byStaff.get(staffId) ?? [];
     const label = labels.get(staffId);
-    const first = stops[0].venue ?? stops[0].customer;
-    const parts = [
-      `Danes: ${plural(stops.length, "obisk", "obiska", "obiski", "obiskov")}${label ? ` (${label})` : ""}.`,
-      first ? `Prvi: ${first.name}${first.city ? `, ${first.city}` : ""}.` : "",
-    ];
+    const parts: string[] = [];
+    if (stops.length > 0) {
+      const first = stops[0].venue ?? stops[0].customer;
+      parts.push(`Danes: ${plural(stops.length, "obisk", "obiska", "obiski", "obiskov")}${label ? ` (${label})` : ""}.`);
+      if (first) parts.push(`Prvi: ${first.name}${first.city ? `, ${first.city}` : ""}.`);
+    }
+    const today = dueToday.get(staffId) ?? [];
+    if (today.length > 0) {
+      const names = today.slice(0, 3).join(", ");
+      parts.push(`Danes pokliči ali obišči (so razmislili): ${names}${today.length > 3 ? ` in še ${today.length - 3}` : ""}.`);
+    }
     const late = overdue.get(staffId) ?? 0;
     if (late > 0) parts.push(`${plural(late, "nadaljnji obisk zamuja", "nadaljnja obiska zamujata", "nadaljnji obiski zamujajo", "nadaljnjih obiskov zamuja")}.`);
+    if (parts.length === 0) continue;
     messages.set(staffId, {
-      title: "Obiski za danes",
-      body: parts.filter(Boolean).join(" "),
-      url: "/prodaja/danes",
+      title: stops.length > 0 ? "Obiski za danes" : "Nadaljnji obiski",
+      body: parts.join(" "),
+      url: stops.length > 0 ? "/prodaja/danes" : "/prodaja/statistika",
       tag: `sales-plan-${forDate}`,
     });
   }

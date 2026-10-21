@@ -27,6 +27,7 @@ import {
   type ActionResult,
 } from "./actions";
 import { KIND_LABEL, SOURCE_LABEL, STATUS_LABEL, STATUS_TONE } from "./constants";
+import { CustomerOrders } from "./customer-orders";
 import { GoogleInfo } from "./google-info";
 import { PlanButton } from "./plan-button";
 
@@ -80,6 +81,7 @@ function CustomerBody({ id }: { id: string }) {
           <a className={linkCls} href={`mailto:${d.email}`}>{d.email}</a>
         </Row>
       )}
+      <CustomerOrders customerId={d.id} defaultOpen />
     </div>
   );
 }
@@ -189,6 +191,8 @@ function VenueBody({ id }: { id: string }) {
           </div>
         </Callout>
       )}
+
+      {d.customer && d.matchStatus !== "auto" && <CustomerOrders customerId={d.customer.id} defaultOpen />}
 
       {d.customer && d.matchStatus === "confirmed" && (
         <Callout tone="good">

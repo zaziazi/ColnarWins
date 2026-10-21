@@ -168,6 +168,8 @@ export async function markAnnounced(visitId: string, via: "sms" | "call" | "what
 // ------------------------------------------------------------------- the visit
 
 const Lines = z.array(z.object({ productId: Id, quantity: z.number().int().positive().max(5000) })).max(40);
+/** Samples count in quarter bottles. */
+const SampleLines = z.array(z.object({ productId: Id, quantity: z.number().min(0.25).max(500).multipleOf(0.25) })).max(40);
 
 const CustomerInput = z.object({
   name: z.string().max(200).optional().default(""),
@@ -193,7 +195,7 @@ const CompleteInput = z.object({
   contact: z.string().max(120).optional().default(""),
   note: z.string().max(1000).optional().default(""),
   followUp: IsoDate.nullable().optional(),
-  samples: Lines.optional().default([]),
+  samples: SampleLines.optional().default([]),
   gps: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   order: OrderPart.nullable().optional(),
 });

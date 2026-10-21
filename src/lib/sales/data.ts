@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoMode } from "@/lib/demo";
+import { getFollowUpsWith } from "@/lib/sales/followups";
 import type { CarStockRow, FollowUp, PlannedVisit, RepMovement, SalesProduct, VenueKind, VisitOutcome } from "@/lib/types";
 
 type Row = Record<string, unknown>;
@@ -92,63 +93,7 @@ export async function getDayLabels(staffId: string, from: string, to: string): P
  */
 export async function getFollowUps(staffId: string, until: string): Promise<FollowUp[]> {
   if (isDemoMode) return [];
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("visit")
-    .select("id,venue_id,customer_id,visited_at,follow_up_on,note,venue(name,city),customer(name,city)")
-    .eq("staff_id", staffId)
-    .eq("outcome", "thinking")
-    .not("follow_up_on", "is", null)
-    .lte("follow_up_on", until)
-    .order("follow_up_on")
-    .limit(100);
-  if (error) throw error;
-  const rows = data ?? [];
-  if (rows.length === 0) return [];
-
-  const venueIds = rows.map((r) => r.venue_id).filter(Boolean) as string[];
-  const customerIds = rows.map((r) => r.customer_id).filter(Boolean) as string[];
-  const since = rows.reduce((m, r) => ((r.visited_at as string) < m ? (r.visited_at as string) : m), rows[0].visited_at as string);
-
-  // Anything planned or visited for the same target after the "thinking" visit supersedes it.
-  const later = new Map<string, string>();
-  const keyOf = (v: string | null, c: string | null) => (v ? `v:${v}` : c ? `c:${c}` : "");
-  const queries = [];
-  if (venueIds.length) queries.push(supabase.from("visit").select("id,venue_id,customer_id,visited_at,created_at").in("venue_id", venueIds).gte("created_at", since));
-  if (customerIds.length) queries.push(supabase.from("visit").select("id,venue_id,customer_id,visited_at,created_at").in("customer_id", customerIds).gte("created_at", since));
-  for (const res of await Promise.all(queries)) {
-    for (const r of res.data ?? []) {
-      const k = keyOf(r.venue_id as string | null, r.customer_id as string | null);
-      const prev = later.get(k);
-      if (!prev || (r.created_at as string) > prev) later.set(k, r.created_at as string);
-      const k2 = r.venue_id && r.customer_id ? `c:${r.customer_id}` : null;
-      if (k2) {
-        const p2 = later.get(k2);
-        if (!p2 || (r.created_at as string) > p2) later.set(k2, r.created_at as string);
-      }
-    }
-  }
-  const seen = new Set<string>();
-  const out: FollowUp[] = [];
-  for (const r of rows) {
-    const k = keyOf(r.venue_id as string | null, r.customer_id as string | null);
-    const newer = [...later.entries()].some(
-      ([lk, at]) => (lk === k || (r.customer_id && lk === `c:${r.customer_id}`)) && at > (r.visited_at as string),
-    );
-    if (newer || seen.has(k)) continue;
-    seen.add(k);
-    const t = ((r.venue ?? r.customer) as unknown as Row | null) ?? {};
-    out.push({
-      visitId: r.id as string,
-      venueId: r.venue_id as string | null,
-      customerId: r.customer_id as string | null,
-      name: (t.name as string) ?? "?",
-      city: (t.city as string | null) ?? null,
-      followUpOn: r.follow_up_on as string,
-      note: r.note as string | null,
-    });
-  }
-  return out;
+  return getFollowUpsWith(await createClient(), staffId, until);
 }
 
 export async function getCarStock(staffId?: string): Promise<CarStockRow[]> {
@@ -182,7 +127,7 @@ export async function getRepMovements(staffId: string, limit = 40): Promise<RepM
     return {
       id: r.id as string,
       kind: r.kind as RepMovement["kind"],
-      quantity: r.quantity as number,
+      quantity: Number(r.quantity),
       productName: (r.product as unknown as { name: string } | null)?.name ?? "?",
       venueName: visit?.venue?.name ?? visit?.customer?.name ?? null,
       createdAt: r.created_at as string,

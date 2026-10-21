@@ -49,6 +49,14 @@ export function inCartons(bottles: number, caseSize: number): string {
   return rest === 0 ? kartoni(full) : `${kartoni(full)} + ${steklenice(rest)}`;
 }
 
+/** Bottles in quarters: 0.25 → "¼", 1.5 → "1½", 2 → "2". Used for samples, where a bottle is often not poured whole. */
+export function flasa(q: number): string {
+  const quarters = Math.round(q * 4);
+  const whole = Math.floor(quarters / 4);
+  const frac = ["", "¼", "½", "¾"][quarters % 4];
+  return `${whole > 0 || frac === "" ? whole : ""}${frac}`;
+}
+
 export const narocila = (n: number) =>
   plural(n, "naro\u010dilo", "naro\u010dili", "naro\u010dila", "naro\u010dil");
 

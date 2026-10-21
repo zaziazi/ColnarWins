@@ -16,6 +16,7 @@ import { RouteButton } from "../route-button";
 import { OUTCOME_LABEL, OUTCOME_TONE } from "../outcome";
 import { markAnnounced } from "../teren-actions";
 import { VisitDialog } from "./visit-dialog";
+import { flasa } from "@/lib/format";
 
 export function TodayView({
   today,
@@ -76,7 +77,7 @@ export function TodayView({
         </div>
         <Link href="/prodaja/zaloga" className="mt-3 flex items-center gap-2 text-[12.5px] text-ink-muted hover:text-ink">
           <Wine className="size-4 text-wine" />
-          {inCar > 0 ? `V avtu: ${inCar} steklenic za vzorce` : "V avtu ni vzorcev"}
+          {inCar > 0 ? `V avtu: ${flasa(inCar)} steklenic za vzorce` : "V avtu ni vzorcev"}
         </Link>
       </div>
 

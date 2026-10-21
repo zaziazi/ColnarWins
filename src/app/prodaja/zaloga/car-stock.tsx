@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
-import { steklenice } from "@/lib/format";
+import { flasa, steklenice } from "@/lib/format";
 import type { CarStockRow, RepMovement } from "@/lib/types";
 import { checkoutStock, returnStock } from "../teren-actions";
 
@@ -53,13 +53,13 @@ export function CarStock({ stock, movements }: { stock: CarStockRow[]; movements
     <div>
       <Card className="p-4">
         <div className="text-[12px] text-ink-subtle">Trenutno v avtu</div>
-        <div className="text-[26px] font-bold tracking-[-0.02em]">{steklenice(totalCar)}</div>
+        <div className="text-[26px] font-bold tracking-[-0.02em]">{Number.isInteger(totalCar) ? steklenice(totalCar) : `${flasa(totalCar)} steklenice`}</div>
         {inCar.length > 0 && (
           <div className="mt-2 space-y-1">
             {inCar.map((r) => (
               <div key={r.productId} className="flex justify-between text-[13.5px]">
                 <span>{r.name}</span>
-                <span className="font-bold tabular">{r.inCar}</span>
+                <span className="font-bold tabular">{flasa(r.inCar)}</span>
               </div>
             ))}
           </div>
@@ -94,9 +94,9 @@ export function CarStock({ stock, movements }: { stock: CarStockRow[]; movements
               <div key={r.productId} className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-line last:border-b-0">
                 <div className="min-w-0">
                   <div className="text-[13.5px] font-semibold truncate">{r.name}</div>
-                  <div className="text-[11.5px] text-ink-subtle">v avtu {r.inCar}</div>
+                  <div className="text-[11.5px] text-ink-subtle">v avtu {flasa(r.inCar)}</div>
                 </div>
-                <Stepper step={1} max={r.inCar} value={back[r.productId] ?? 0} onChange={(q) => setBack((p) => ({ ...p, [r.productId]: q }))} />
+                <Stepper step={1} max={Math.floor(r.inCar)} value={back[r.productId] ?? 0} onChange={(q) => setBack((p) => ({ ...p, [r.productId]: q }))} />
               </div>
             ))}
           </Card>
@@ -115,7 +115,7 @@ export function CarStock({ stock, movements }: { stock: CarStockRow[]; movements
             <div key={m.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-line last:border-b-0">
               <div className="min-w-0">
                 <div className="text-[13.5px] truncate">
-                  {m.quantity}× {m.productName}
+                  {flasa(m.quantity)}× {m.productName}
                 </div>
                 <div className="text-[11.5px] text-ink-subtle truncate">
                   {KIND_LABEL[m.kind]}
@@ -124,7 +124,7 @@ export function CarStock({ stock, movements }: { stock: CarStockRow[]; movements
               </div>
               <span className={`text-[13px] font-bold tabular ${m.kind === "checkout" ? "text-good" : "text-ink-muted"}`}>
                 {m.kind === "checkout" ? "+" : "−"}
-                {m.quantity}
+                {flasa(m.quantity)}
               </span>
             </div>
           ))

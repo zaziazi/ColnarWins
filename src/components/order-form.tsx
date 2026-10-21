@@ -41,6 +41,8 @@ interface Props {
   drivers: Driver[];
   /** When present, edits this existing draft instead of creating a new order. */
   editOrder?: EditOrder;
+  /** A salesperson may add a discount or gratis, but the office confirms such an order. */
+  extrasNeedApproval?: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function OrderForm({
   deliveryDates,
   drivers,
   editOrder,
+  extrasNeedApproval = false,
 }: Props) {
   const router = useRouter();
 
@@ -420,6 +423,9 @@ export function OrderForm({
                 </div>
                 {qty > 0 && extrasOpen[p.id] && (
                   <div className="-mt-1 pb-3 flex flex-wrap items-end gap-3 justify-end">
+                    {extrasNeedApproval && (
+                      <p className="w-full text-right text-[11px] text-ink-subtle">Naročilo s popustom ali gratis potrdi pisarna.</p>
+                    )}
                     <label className="text-[11px] font-semibold text-ink-subtle">
                       Popust %
                       <Input

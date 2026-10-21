@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { OrderForm } from "@/components/order-form";
 import { getCurrentStaff, getCustomers, getDrivers, getProducts, getStandingOrders } from "@/lib/data";
@@ -29,8 +28,6 @@ export default async function NewOrderPage() {
     getCurrentStaff(),
   ]);
 
-  if (staff?.role === "sales") redirect("/dostava");
-
   return (
     <AppShell
       title="Novo naročilo"
@@ -45,6 +42,7 @@ export default async function NewOrderPage() {
         standingOrders={standingOrders}
         deliveryDates={nextDeliveryDates()}
         drivers={drivers}
+        extrasNeedApproval={staff?.role === "sales"}
       />
     </AppShell>
   );

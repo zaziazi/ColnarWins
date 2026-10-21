@@ -70,11 +70,14 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
 
   const { data: staff } = await supabase
     .from("staff")
-    .select("id")
+    .select("id,role")
     .eq("auth_user_id", user.id)
     .single();
 
-  const status = holdForReview ? "draft" : "confirmed";
+  // A salesperson's order with a discount or gratis is only a draft until the office has looked at it.
+  const hasExtras = lines.some((l) => l.discountPct > 0 || l.freeQty > 0);
+  const salesExtras = staff?.role === "sales" && hasExtras;
+  const status = holdForReview || salesExtras ? "draft" : "confirmed";
 
   const { data: order, error: orderError } = await supabase
     .from("sales_order")
@@ -88,6 +91,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
       assigned_driver_name: driverId ? null : driverName || null,
       price_list: priceList,
       payment_method: paymentMethod,
+      review_note: salesExtras ? "Prodajnik je vnesel popust ali gratis: preveri in potrdi." : null,
       created_by: staff?.id ?? null,
       confirmed_by: status === "confirmed" ? (staff?.id ?? null) : null,
       confirmed_at: status === "confirmed" ? new Date().toISOString() : null,

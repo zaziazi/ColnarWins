@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
+import { QuarterStepper } from "@/components/ui/quarter-stepper";
 import { Stepper } from "@/components/ui/stepper";
-import { eur, orderTotals } from "@/lib/format";
+import { eur, flasa, orderTotals } from "@/lib/format";
 import { addDays, nextWorkday } from "@/lib/sales/dates";
 import type { CarStockRow, PlannedVisit, SalesProduct, VisitOutcome } from "@/lib/types";
+import { CustomerOrders } from "../customer-orders";
 import { OUTCOME_LABEL } from "../outcome";
 import { addOrderToVisit, completeVisit } from "../teren-actions";
 
@@ -158,6 +160,7 @@ export function VisitDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent title={orderOnly ? `Naročilo: ${visit.name}` : visit.name}>
         <div className="space-y-4">
+          {visit.customerId && <CustomerOrders customerId={visit.customerId} />}
           {!orderOnly && (
             <div>
               <FieldLabel>Kako je šlo?</FieldLabel>
@@ -194,14 +197,14 @@ export function VisitDialog({
 
           {outcome && !orderOnly && outcome !== "not_there" && (
             <div>
-              <FieldLabel>Vzorci iz avta</FieldLabel>
+              <FieldLabel>Vzorci iz avta (po četrt steklenice)</FieldLabel>
               {samples.map((s) => {
                 const row = carById.get(s.productId)!;
                 return (
                   <div key={s.productId} className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-[13.5px] min-w-0 truncate">{row.name}</span>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Stepper step={1} min={1} max={row.inCar} value={s.quantity} onChange={(q) => setSamples((prev) => prev.map((x) => (x.productId === s.productId ? { ...x, quantity: q } : x)))} />
+                      <QuarterStepper max={row.inCar} value={s.quantity} label={row.name} onChange={(q) => setSamples((prev) => prev.map((x) => (x.productId === s.productId ? { ...x, quantity: q } : x)))} />
                       <button type="button" aria-label="Odstrani" onClick={() => setSamples((prev) => prev.filter((x) => x.productId !== s.productId))} className="text-ink-subtle hover:text-danger">
                         <X className="size-4" />
                       </button>
@@ -215,14 +218,14 @@ export function VisitDialog({
                 <select
                   className={selectCls}
                   value=""
-                  onChange={(e) => e.target.value && setSamples((prev) => [...prev, { productId: e.target.value, quantity: 1 }])}
+                  onChange={(e) => e.target.value && setSamples((prev) => [...prev, { productId: e.target.value, quantity: 0.25 }])}
                 >
                   <option value="">+ Dodaj vzorec…</option>
                   {car
                     .filter((r) => !samples.some((s) => s.productId === r.productId))
                     .map((r) => (
                       <option key={r.productId} value={r.productId}>
-                        {r.name} (v avtu {r.inCar})
+                        {r.name} (v avtu {flasa(r.inCar)})
                       </option>
                     ))}
                 </select>

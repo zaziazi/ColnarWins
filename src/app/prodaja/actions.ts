@@ -6,7 +6,8 @@ import { getCurrentStaff } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { lookupGooglePlace, monthlyCap, type GoogleLookup } from "@/lib/google-places";
 import { createClient } from "@/lib/supabase/server";
-import type { CustomerPointDetail, VenueDetail, VenueKind } from "@/lib/types";
+import { lineGross } from "@/lib/format";
+import type { CustomerPointDetail, OrderStatus, VenueDetail, VenueKind } from "@/lib/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -459,4 +460,46 @@ export async function getGoogleInfo(venueId: string): Promise<GoogleLookup> {
       await supabase.from("venue").update({ google_place_id: placeId }).eq("id", venueId);
     },
   );
+}
+
+export interface CustomerOrderHistory {
+  orderCount: number;
+  lastOrderOn: string | null;
+  /** Gross value of the orders of the last 12 months. */
+  last12MonthsGross: number;
+  orders: { id: string; number: number; date: string | null; status: OrderStatus; gross: number; summary: string }[];
+}
+
+/** What a customer has ordered so far: the last orders with their contents, and a few totals. */
+export async function getCustomerOrderHistory(customerId: string): Promise<CustomerOrderHistory | null> {
+  if (isDemoMode || !Id.safeParse(customerId).success) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sales_order")
+    .select("id,order_number,status,delivery_date,created_at,order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))")
+    .eq("customer_id", customerId)
+    .neq("status", "cancelled")
+    .order("delivery_date", { ascending: false, nullsFirst: false })
+    .limit(60);
+  if (error) return null;
+  const yearAgo = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
+  let last12 = 0;
+  const orders = (data ?? []).map((o) => {
+    const lines = (o.order_line ?? []) as unknown as (Parameters<typeof lineGross>[0] & { product: { name: string } | { name: string }[] | null })[];
+    const gross = lines.reduce((sum, l) => sum + lineGross(l), 0);
+    const date = (o.delivery_date as string | null) ?? (o.created_at as string).slice(0, 10);
+    if (o.status !== "draft" && date >= yearAgo) last12 += gross;
+    return {
+      id: o.id as string,
+      number: o.order_number as number,
+      date,
+      status: o.status as OrderStatus,
+      gross,
+      summary: lines
+        .map((l) => `${l.quantity_delivered ?? l.quantity_ordered}× ${(Array.isArray(l.product) ? l.product[0]?.name : l.product?.name) ?? ""}`)
+        .join(" · "),
+    };
+  });
+  const real = orders.filter((o) => o.status !== "draft");
+  return { orderCount: real.length, lastOrderOn: real[0]?.date ?? null, last12MonthsGross: last12, orders: orders.slice(0, 15) };
 }

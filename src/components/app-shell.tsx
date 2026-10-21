@@ -43,6 +43,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/prodaja/teden",  label: "Načrt",       icon: CalendarDays },
     { href: "/prodaja/danes",  label: "Na terenu",    icon: Footprints },
     { href: "/prodaja/zaloga", label: "Vino v avtu", icon: Wine },
+    { href: "/prodaja/statistika", label: "Statistika", icon: BarChart3 },
   ],
   degustacije: [
     { href: "/degustacije",            label: "Odgovori",          icon: MessageSquareReply, exact: true },
@@ -109,7 +110,7 @@ export function AppShell({
   const allTabs = SECTION_TABS[section];
   const tabs =
     section === "narocila" && role === "sales"
-      ? allTabs?.filter((t) => t.href === "/dostava")
+      ? allTabs?.filter((t) => t.href === "/dostava" || t.href === "/pisarna/novo")
       : section === "finance" && !isAdmin
         ? undefined // the new Finance tools are for the admin only for now
         : section === "klub" && role !== "manager"

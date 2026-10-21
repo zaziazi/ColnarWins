@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import MapGL, { Layer, NavigationControl, Source, type MapRef } from "react-map-gl/maplibre";
+import MapGL, { GeolocateControl, Layer, NavigationControl, Source, type MapRef } from "react-map-gl/maplibre";
 import type { GeoJSONSource, MapLayerMouseEvent } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { SalesMapPoint } from "@/lib/types";
@@ -138,6 +138,7 @@ export default function SalesMap({
       style={{ width: "100%", height: "100%" }}
     >
       <NavigationControl position="top-right" showCompass={false} />
+      <GeolocateControl position="top-right" trackUserLocation showUserLocation showAccuracyCircle positionOptions={{ enableHighAccuracy: true }} />
       <Source id="venues" type="geojson" data={geojson} cluster clusterMaxZoom={13} clusterRadius={44}>
         <Layer
           id="clusters"

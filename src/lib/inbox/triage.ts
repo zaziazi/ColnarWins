@@ -103,7 +103,11 @@ export async function triageInboxEmail(db: Db, id: string): Promise<{ status: "d
     await db.from("inbox_email").update({ ai_error: error.slice(0, 300), attempts: ((m.attempts as number) ?? 0) + 1 }).eq("id", id);
     return { status: "failed" as const, error };
   };
-  if (!process.env.ANTHROPIC_API_KEY) return fail("ANTHROPIC_API_KEY ni nastavljen");
+  if (!process.env.ANTHROPIC_API_KEY) {
+    // a missing key is a setup problem, not this mail's fault: do not use up its retries
+    await db.from("inbox_email").update({ ai_error: "ANTHROPIC_API_KEY ni nastavljen" }).eq("id", id);
+    return { status: "failed", error: "ANTHROPIC_API_KEY ni nastavljen" };
+  }
 
   // who is the sender? a known customer helps the human decide
   let knownCustomer: string | null = null;

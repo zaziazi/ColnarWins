@@ -36,3 +36,27 @@ export async function adjustStock(input: z.infer<typeof AdjustStockInput>): Prom
   revalidatePath("/zaloge");
   return { ok: true };
 }
+
+const WriteOffInput = z.object({
+  productId: z.string().uuid(),
+  qty: z.number().int().min(1).max(100000),
+  reason: z.enum(["Razbitje", "Degustacija", "Poškodovano", "Drugo"]),
+  note: z.string().trim().max(300).optional().default(""),
+});
+
+/** Write-off (breakage, tasting, damage): leaves the stock with a reason, shown in the movement log as "odpis". */
+export async function writeOffStock(input: z.input<typeof WriteOffInput>): Promise<ActionResult> {
+  const p = WriteOffInput.safeParse(input);
+  if (!p.success) return { ok: false, error: "Vnesite količino in razlog." };
+  if (isDemoMode) return { ok: true };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_write_off", {
+    p_product_id: p.data.productId,
+    p_qty: p.data.qty,
+    p_reason: p.data.reason,
+    p_note: p.data.note || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/zaloge");
+  return { ok: true };
+}

@@ -5,6 +5,8 @@ export interface DeliveryDocLine {
   unitNet: number;
   vatRate: number;
   discountPct: number;
+  /** Of the delivered bottles, how many are a gift (not charged). */
+  freeQty?: number;
 }
 
 export interface DeliveryDocData {

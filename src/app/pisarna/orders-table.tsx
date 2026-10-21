@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { dateShort, eur } from "@/lib/format";
 import type { OrderListItem, OrderStatus } from "@/lib/types";
 import { confirmOrders } from "./actions";
+import { MoneyDialog, OrderMoney } from "./order-money";
 
 const SOURCE: Record<string, string> = {
   phone: "telefon",
@@ -35,6 +36,7 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
   const [driver, setDriver] = React.useState("");
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [busy, setBusy] = React.useState(false);
+  const [moneyOpen, setMoneyOpen] = React.useState(false);
 
   const driverOf = (o: OrderListItem) => o.routedDriverName ?? o.assignedDriverName ?? "";
   const drivers = [...new Set(orders.map(driverOf).filter(Boolean))].sort((a, b) => a.localeCompare(b, "sl"));
@@ -46,8 +48,10 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
     return !t || o.customerName.toLowerCase().includes(t) || String(o.orderNumber) === t.replace("#", "");
   });
 
-  const drafts = rows.filter((o) => o.status === "draft");
-  const allDraftsPicked = drafts.length > 0 && drafts.every((o) => picked.has(o.id));
+  const selectable = rows.filter((o) => o.status !== "cancelled");
+  const allPicked = selectable.length > 0 && selectable.every((o) => picked.has(o.id));
+  const pickedOrders = orders.filter((o) => picked.has(o.id));
+  const pickedDrafts = pickedOrders.filter((o) => o.status === "draft");
 
   function toggle(id: string) {
     setPicked((s) => {
@@ -60,7 +64,7 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
 
   async function confirmPicked() {
     setBusy(true);
-    const r = await confirmOrders([...picked]);
+    const r = await confirmOrders(pickedDrafts.map((o) => o.id));
     setBusy(false);
     if (!r.ok) return void toast.error(r.error);
     setPicked(new Set());
@@ -93,11 +97,15 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
           ))}
         </select>
         <span className="text-[12.5px] text-ink-subtle">{rows.length} naročil</span>
-        <div className="ml-auto">
-          <Button size="sm" disabled={picked.size === 0} loading={busy} onClick={() => void confirmPicked()}>
-            <Check className="size-3.5" /> Potrdi izbrane ({picked.size})
+        <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="secondary" disabled={pickedOrders.length === 0} onClick={() => setMoneyOpen(true)}>
+            Račun / plačilo ({pickedOrders.length})
+          </Button>
+          <Button size="sm" disabled={pickedDrafts.length === 0} loading={busy} onClick={() => void confirmPicked()}>
+            <Check className="size-3.5" /> Potrdi izbrane ({pickedDrafts.length})
           </Button>
         </div>
+        <MoneyDialog orders={pickedOrders} open={moneyOpen} onOpenChange={setMoneyOpen} onDone={() => setPicked(new Set())} />
       </div>
 
       <Card className="overflow-hidden">
@@ -108,10 +116,10 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                 <th className="px-3 py-2.5 w-9">
                   <input
                     type="checkbox"
-                    aria-label="Izberi vse osnutke"
-                    checked={allDraftsPicked}
-                    disabled={drafts.length === 0}
-                    onChange={() => setPicked(allDraftsPicked ? new Set() : new Set(drafts.map((o) => o.id)))}
+                    aria-label="Izberi vsa naročila"
+                    checked={allPicked}
+                    disabled={selectable.length === 0}
+                    onChange={() => setPicked(allPicked ? new Set() : new Set(selectable.map((o) => o.id)))}
                   />
                 </th>
                 <th className="px-3 py-2.5 font-bold">#</th>
@@ -121,6 +129,7 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                 <th className="px-3 py-2.5 font-bold">Voznik</th>
                 <th className="px-3 py-2.5 font-bold">Vsebina</th>
                 <th className="px-3 py-2.5 font-bold text-right">Vrednost</th>
+                <th className="px-3 py-2.5 font-bold">Plačilo / račun</th>
                 <th className="px-3 py-2.5 font-bold">Vir</th>
                 <th className="px-3 py-2.5 w-20" />
               </tr>
@@ -129,9 +138,7 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
               {rows.map((o) => (
                 <tr key={o.id} className="border-t border-line align-top hover:bg-surface-muted/60">
                   <td className="px-3 py-2.5">
-                    {o.status === "draft" && (
-                      <input type="checkbox" aria-label={`Izberi #${o.orderNumber}`} checked={picked.has(o.id)} onChange={() => toggle(o.id)} />
-                    )}
+                    <input type="checkbox" aria-label={`Izberi #${o.orderNumber}`} checked={picked.has(o.id)} onChange={() => toggle(o.id)} />
                   </td>
                   <td className="px-3 py-2.5 tabular text-ink-subtle">{o.orderNumber}</td>
                   <td className="px-3 py-2.5 font-semibold">
@@ -148,6 +155,11 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                     {eur(o.totalGross)}
                     {o.priceList === "fizicne" && <p className="text-[11px] font-normal text-ink-subtle">fiz. osebe</p>}
                   </td>
+                  <td className="px-3 py-2.5">
+                    <div className="space-y-1">
+                      <OrderMoney order={o} compact />
+                    </div>
+                  </td>
                   <td className="px-3 py-2.5 text-ink-subtle">{SOURCE[o.source] ?? o.source}</td>
                   <td className="px-3 py-2.5 text-right">
                     {(o.status === "draft" || o.status === "confirmed") && (
@@ -162,7 +174,7 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-ink-muted">
+                  <td colSpan={11} className="px-3 py-8 text-center text-ink-muted">
                     Ni naročil za izbrane filtre.
                   </td>
                 </tr>

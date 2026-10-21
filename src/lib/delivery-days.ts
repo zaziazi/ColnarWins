@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoMode } from "@/lib/demo";
+import { lineGross } from "@/lib/format";
 
 /** One product line as the simple Dostava / Tisk tabs show it. */
 export interface DayLine {
@@ -9,6 +10,10 @@ export interface DayLine {
   productName: string;
   quantity: number;
   delivered: boolean;
+  /** Fraction 0..1. */
+  discountPct: number;
+  /** Of `quantity`, how many go out as a gift. */
+  freeQty: number;
 }
 
 export interface DayOrder {
@@ -28,6 +33,11 @@ export interface DayOrder {
   /** Created after the driver confirmed this day. */
   addedAfterConfirm: boolean;
   printSentAt: string | null;
+  paymentMethod: "trr" | "gotovina" | "kartica" | "drugo";
+  /** Gross value of the order (after discounts and gratis): what the driver collects when paid in cash. */
+  totalGross: number;
+  paidAt: string | null;
+  invoiceWaived: boolean;
   /** Content differs from what was last mailed for printing. */
   changedAfterPrint: boolean;
   /** Fingerprint of the current content; stored when the order is mailed. */
@@ -59,14 +69,15 @@ function fingerprint(o: {
   customer_id: string;
   delivery_date: string | null;
   driver_note: string | null;
-  order_line: { product_id: string; quantity_ordered: number }[];
+  payment_method?: string | null;
+  order_line: { product_id: string; quantity_ordered: number; discount_pct?: string | null; free_qty?: number | null }[];
 }): string {
   const lines = o.order_line
-    .map((l) => `${l.product_id}:${l.quantity_ordered}`)
+    .map((l) => `${l.product_id}:${l.quantity_ordered}:${Number(l.discount_pct ?? 0)}:${l.free_qty ?? 0}`)
     .sort()
     .join(",");
   return createHash("sha1")
-    .update(`${o.customer_id}|${o.delivery_date}|${o.driver_note ?? ""}|${lines}`)
+    .update(`${o.customer_id}|${o.delivery_date}|${o.driver_note ?? ""}|${o.payment_method ?? "trr"}|${lines}`)
     .digest("hex");
 }
 
@@ -87,7 +98,7 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,customer_id,delivery_date,driver_note,assigned_driver_id,assigned_driver_name,driver:staff!sales_order_assigned_driver_id_fkey(full_name),confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,product(name))",
+        "id,order_number,status,customer_id,delivery_date,driver_note,payment_method,paid_at,invoice_waived,assigned_driver_id,assigned_driver_name,driver:staff!sales_order_assigned_driver_id_fkey(full_name),confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))",
       )
       .gte("delivery_date", from)
       .lte("delivery_date", to)
@@ -108,6 +119,9 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
     customer_id: string;
     delivery_date: string;
     driver_note: string | null;
+    payment_method: string | null;
+    paid_at: string | null;
+    invoice_waived: boolean | null;
     assigned_driver_id: string | null;
     assigned_driver_name: string | null;
     driver: { full_name: string } | null;
@@ -122,6 +136,10 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
       product_id: string;
       quantity_ordered: number;
       quantity_delivered: number | null;
+      unit_price_net: string;
+      vat_rate: string;
+      discount_pct: string | null;
+      free_qty: number | null;
       product: { name: string } | null;
     }[];
   };
@@ -156,12 +174,18 @@ export async function getDeliveryDays(): Promise<DeliveryDay[]> {
       printSentAt: o.print_sent_at,
       changedAfterPrint: Boolean(o.print_sent_at && o.print_hash && o.print_hash !== hash),
       hash,
+      paymentMethod: ((o.payment_method as DayOrder["paymentMethod"] | null) ?? "trr"),
+      totalGross: o.order_line.reduce((sum, l) => sum + lineGross({ ...l, quantity_delivered: null }), 0),
+      paidAt: o.paid_at,
+      invoiceWaived: Boolean(o.invoice_waived),
       lines: o.order_line
         .map((l) => ({
           productId: l.product_id,
           productName: l.product?.name ?? "—",
           quantity: l.quantity_ordered,
           delivered: (l.quantity_delivered ?? 0) >= l.quantity_ordered && l.quantity_ordered > 0,
+          discountPct: Number(l.discount_pct ?? 0),
+          freeQty: l.free_qty ?? 0,
         }))
         .sort((a, b) => a.productName.localeCompare(b.productName, "sl")),
     };

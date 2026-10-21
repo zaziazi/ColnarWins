@@ -4,16 +4,18 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, CheckCheck, HandHelping, Pencil, Undo2 } from "lucide-react";
+import { Banknote, Check, CheckCheck, HandHelping, Pencil, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Callout } from "@/components/ui/callout";
 import { cn } from "@/lib/utils";
-import { dateShort } from "@/lib/format";
+import { dateShort, eur } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { markOrdersPaid } from "@/app/pisarna/actions";
 import type { DayOrder, DeliveryDay } from "@/lib/delivery-days";
 import { dismissCancelled } from "@/app/tisk/actions";
-import { setDelivered, takeOrders } from "./actions";
+import { recordBreakage, setDelivered, takeOrders } from "./actions";
 
 type View = "mine" | "all";
 
@@ -39,8 +41,19 @@ export function DeliveryList({
   const router = useRouter();
   const [day, setDay] = React.useState(initial);
   const [busy, setBusy] = React.useState(false);
+  const [breakageFor, setBreakageFor] = React.useState<string | null>(null);
 
   React.useEffect(() => setDay(initial), [initial]);
+
+  async function cashReceived(order: DayOrder) {
+    if (!window.confirm(`Prejeto ${eur(order.totalGross)} v gotovini od ${order.customerName}?`)) return;
+    setDay((d) => (d ? { ...d, orders: d.orders.map((o) => (o.orderId === order.orderId ? { ...o, paidAt: new Date().toISOString() } : o)) } : d));
+    const r = await markOrdersPaid({ orderIds: [order.orderId], method: "gotovina", waiveInvoice: false });
+    if (!r.ok) {
+      toast.error(r.error);
+      router.refresh();
+    }
+  }
 
   const orders = day?.orders ?? [];
   const active = orders.filter((o) => !o.cancelled);
@@ -163,7 +176,14 @@ export function DeliveryList({
               {effectiveView === "all" && order.driverName && ` · voznik ${order.driverName}`}
             </p>
             {order.driverNote && <p className="text-[12px] text-warn font-medium mt-1">{order.driverNote}</p>}
-            <div className="mt-1.5">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {order.paidAt ? (
+                <Badge tone="good">Plačano</Badge>
+              ) : order.paymentMethod === "gotovina" ? (
+                <Badge tone="warn">Gotovina ob dostavi · {eur(order.totalGross)}</Badge>
+              ) : order.paymentMethod === "kartica" ? (
+                <Badge tone="neutral">Kartica</Badge>
+              ) : null}
               {order.changedAfterPrint ? (
                 <Badge tone="warn">Spremenjeno po tisku</Badge>
               ) : order.printSentAt ? (
@@ -191,7 +211,11 @@ export function DeliveryList({
                 >
                   {l.delivered && <Check className="size-4" strokeWidth={3} />}
                 </span>
-                <span className={cn("flex-1 text-[14.5px]", l.delivered && "line-through text-ink-subtle")}>{l.productName}</span>
+                <span className={cn("flex-1 text-[14.5px]", l.delivered && "line-through text-ink-subtle")}>
+                  {l.productName}
+                  {l.freeQty > 0 && <span className="ml-1.5 text-[11.5px] font-semibold text-wine">od tega {l.freeQty} gratis</span>}
+                  {l.discountPct > 0 && <span className="ml-1.5 text-[11.5px] font-semibold text-ink-subtle">popust {Math.round(l.discountPct * 1000) / 10} %</span>}
+                </span>
                 <span className={cn("tabular font-bold text-[15px]", l.delivered && "line-through text-ink-subtle")}>{l.quantity}×</span>
               </button>
             </li>
@@ -218,6 +242,14 @@ export function DeliveryList({
                 )}
               </>
             )}
+            {order.paymentMethod === "gotovina" && !order.paidAt && (
+              <Button size="sm" variant="secondary" onClick={() => void cashReceived(order)}>
+                <Banknote className="size-3.5" /> Prejel gotovino
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => setBreakageFor(breakageFor === order.orderId ? null : order.orderId)}>
+              Razbito
+            </Button>
             {unassigned(order) && !all && (
               <Button variant="secondary" size="sm" loading={busy} onClick={() => void take([order.orderId])}>
                 <HandHelping className="size-3.5" /> Prevzemam
@@ -225,6 +257,7 @@ export function DeliveryList({
             )}
           </div>
         )}
+        {breakageFor === order.orderId && <BreakagePanel order={order} onClose={() => setBreakageFor(null)} />}
       </Card>
     );
   };
@@ -344,6 +377,55 @@ export function DeliveryList({
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+
+/** Broken bottles: pick the wine, how many, and it is written off the stock with the order and customer as the reason. */
+function BreakagePanel({ order, onClose }: { order: DayOrder; onClose: () => void }) {
+  const [productId, setProductId] = React.useState(order.lines[0]?.productId ?? "");
+  const [qty, setQty] = React.useState("1");
+  const [note, setNote] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  async function save() {
+    const n = parseInt(qty, 10);
+    if (!productId || !(n > 0)) return void toast.error("Vpišite količino.");
+    setBusy(true);
+    const r = await recordBreakage({ orderId: order.orderId, productId, qty: n, note });
+    setBusy(false);
+    if (!r.ok) return void toast.error(r.error);
+    onClose();
+  }
+
+  return (
+    <div className="mt-2.5 rounded-[var(--radius-control)] border border-line p-3 space-y-2">
+      <p className="text-[12.5px] font-semibold">Razbite steklenice (odpis iz zaloge)</p>
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={productId}
+          onChange={(e) => setProductId(e.target.value)}
+          className="h-10 min-w-0 flex-1 rounded-[var(--radius-control)] border border-line bg-surface px-2.5 text-[14px]"
+          aria-label="Vino"
+        >
+          {order.lines.map((l) => (
+            <option key={l.productId} value={l.productId}>
+              {l.productName}
+            </option>
+          ))}
+        </select>
+        <Input inputMode="numeric" className="h-10 w-[72px]" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} aria-label="Količina" />
+      </div>
+      <Input className="h-10" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opomba (neobvezno)" />
+      <div className="flex gap-2">
+        <Button size="sm" loading={busy} onClick={() => void save()}>
+          Odpiši
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Zapri
+        </Button>
+      </div>
     </div>
   );
 }

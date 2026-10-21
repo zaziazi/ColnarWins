@@ -141,3 +141,34 @@ export async function takeOrders(orderIds: string[]): Promise<ActionResult> {
   refresh();
   return { ok: true };
 }
+
+
+const BreakageInput = z.object({
+  orderId: z.string().uuid(),
+  productId: z.string().uuid(),
+  qty: z.number().int().min(1).max(1000),
+  note: z.string().trim().max(200).optional().default(""),
+});
+
+/**
+ * Bottles broken on the way or at the door: written off the warehouse stock with a reason, so the stock
+ * count stays true. The order itself is not changed (change the delivered quantity if the customer got fewer).
+ */
+export async function recordBreakage(input: z.input<typeof BreakageInput>): Promise<ActionResult> {
+  const p = BreakageInput.safeParse(input);
+  if (!p.success) return { ok: false, error: "Vpišite količino." };
+  if (isDemoMode) return { ok: true };
+  const supabase = await createClient();
+  const { data: o } = await supabase.from("sales_order").select("order_number,customer(name)").eq("id", p.data.orderId).maybeSingle();
+  if (!o) return { ok: false, error: "Naročilo ne obstaja." };
+  const customer = (o.customer as unknown as { name: string } | null)?.name ?? "";
+  const { error } = await supabase.rpc("record_write_off", {
+    p_product_id: p.data.productId,
+    p_qty: p.data.qty,
+    p_reason: `Razbitje pri dostavi #${o.order_number} ${customer}`.trim(),
+    p_note: p.data.note || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/zaloge");
+  return { ok: true };
+}

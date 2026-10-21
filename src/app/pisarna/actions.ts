@@ -5,7 +5,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isDemoMode } from "@/lib/demo";
+import { saveCustomerEmail } from "@/lib/customer-email";
 import { sendStoredDocuments } from "@/lib/documents/finalize";
+import { lineGross } from "@/lib/format";
 
 const AssignDriverInput = z.object({
   orderId: z.string().min(1),
@@ -152,6 +154,8 @@ const UpdateOrderInput = z.object({
   driverId: z.string().min(1).nullable().optional(),
   driverName: z.string().trim().max(80).nullable().optional(),
   priceList: z.enum(["gostinci", "fizicne"]).default("gostinci"),
+  paymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo"]).default("trr"),
+  customerEmail: z.union([z.literal(""), z.string().trim().email()]).nullable().optional(),
   lines: z
     .array(
       z.object({
@@ -159,6 +163,9 @@ const UpdateOrderInput = z.object({
         quantity: z.number().int().positive(),
         unitPriceNet: z.number().nonnegative(),
         vatRate: z.number().nonnegative(),
+        /** Fraction 0..1. */
+        discountPct: z.number().min(0).max(1).default(0),
+        freeQty: z.number().int().min(0).default(0),
       }),
     )
     .min(1),
@@ -185,7 +192,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
   if (!parsed.success) {
     return { ok: false, error: "Naročilo ni veljavno." };
   }
-  const { orderId, deliveryDate, note, lines, driverId, driverName, priceList } = parsed.data;
+  const { orderId, deliveryDate, note, lines, driverId, driverName, priceList, paymentMethod, customerEmail } = parsed.data;
 
   if (isDemoMode) {
     await new Promise((r) => setTimeout(r, 400));
@@ -196,7 +203,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   const { data: existing, error: fetchError } = await supabase
     .from("sales_order")
-    .select("status,price_list")
+    .select("status,price_list,customer_id")
     .eq("id", orderId)
     .single();
 
@@ -209,7 +216,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   const { error: updateError } = await supabase
     .from("sales_order")
-    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null, assigned_driver_name: driverId ? null : driverName || null, price_list: priceList })
+    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null, assigned_driver_name: driverId ? null : driverName || null, price_list: priceList, payment_method: paymentMethod })
     .eq("id", orderId);
 
   if (updateError) return { ok: false, error: updateError.message };
@@ -237,6 +244,8 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
       quantity_ordered: l.quantity,
       unit_price_net: prior?.unitPriceNet ?? l.unitPriceNet,
       vat_rate: prior?.vatRate ?? l.vatRate,
+      discount_pct: l.discountPct,
+      free_qty: Math.min(l.freeQty, l.quantity),
     };
   });
 
@@ -251,6 +260,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   if (lineError) return { ok: false, error: lineError.message };
 
+  await saveCustomerEmail(supabase, existing.customer_id as string, customerEmail);
   revalidatePath("/pisarna");
   revalidatePath(`/pisarna/${orderId}/uredi`);
   return { ok: true };
@@ -337,4 +347,116 @@ export async function confirmOrders(orderIds: string[]): Promise<{ ok: true; con
     else skipped++;
   }
   return { ok: true, confirmed, skipped };
+}
+
+
+// ------------------------------------------------------------- invoice + payment marks
+
+const IdList = z.array(z.string().uuid()).min(1).max(200);
+export type MarkResult = { ok: true; done: number; skipped: number } | { ok: false; error: string };
+
+function refreshMoney() {
+  revalidatePath("/pisarna");
+  revalidatePath("/dostava");
+  revalidatePath("/tisk");
+  revalidatePath("/finance");
+}
+
+/**
+ * "Račun izdan": the office writes down that the invoice for a delivered order was issued (in e-računi, for now by hand).
+ * Only delivered orders: the invoice follows the delivery, never the order. A single invoice number can be kept.
+ */
+export async function markInvoiced(orderIds: string[], invoiceNumber?: string | null): Promise<MarkResult> {
+  const ids = IdList.safeParse(orderIds);
+  if (!ids.success) return { ok: false, error: "Izberite naročila." };
+  const number = (invoiceNumber ?? "").trim().slice(0, 60) || null;
+  if (number && ids.data.length > 1) return { ok: false, error: "Številko računa vpišite pri posameznem naročilu." };
+  if (isDemoMode) return { ok: true, done: ids.data.length, skipped: 0 };
+
+  const supabase = await createClient();
+  const { data: orders } = await supabase.from("sales_order").select("id,status").in("id", ids.data);
+  const ready = (orders ?? []).filter((o) => o.status === "delivered").map((o) => o.id as string);
+  if (ready.length === 0) return { ok: false, error: "Račun je mogoče označiti šele, ko je naročilo dostavljeno." };
+
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ status: "invoiced", invoiced_at: new Date().toISOString(), invoice_number: number, invoice_waived: false, invoice_waived_note: null })
+    .in("id", ready);
+  if (error) return { ok: false, error: error.message };
+  refreshMoney();
+  return { ok: true, done: ready.length, skipped: ids.data.length - ready.length };
+}
+
+/** Takes the "račun izdan" mark back (a slip of the finger). Refused when the app itself holds an invoice for the order. */
+export async function unmarkInvoiced(orderId: string): Promise<ActionResult> {
+  const p = OrderIdInput.safeParse({ orderId });
+  if (!p.success) return { ok: false, error: "Neveljavno naročilo." };
+  if (isDemoMode) return { ok: true };
+  const supabase = await createClient();
+  const { count } = await supabase.from("invoice").select("id", { count: "exact", head: true }).eq("order_id", p.data.orderId);
+  if ((count ?? 0) > 0) return { ok: false, error: "Za to naročilo obstaja račun v Colnixu, oznake ni mogoče odstraniti." };
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ status: "delivered", invoiced_at: null, invoice_number: null })
+    .eq("id", p.data.orderId)
+    .eq("status", "invoiced");
+  if (error) return { ok: false, error: error.message };
+  refreshMoney();
+  return { ok: true };
+}
+
+const PaidInput = z.object({
+  orderIds: IdList,
+  method: z.enum(["trr", "gotovina", "kartica", "drugo"]),
+  /** Cash sale where no invoice is issued. A reason is required. */
+  waiveInvoice: z.boolean().default(false),
+  note: z.string().trim().max(300).optional().default(""),
+});
+
+/** "Plačano": marks orders as paid (typically cash at the door) and keeps the amount. */
+export async function markOrdersPaid(input: z.input<typeof PaidInput>): Promise<MarkResult> {
+  const p = PaidInput.safeParse(input);
+  if (!p.success) return { ok: false, error: "Preverite izbiro." };
+  const { orderIds, method, waiveInvoice, note } = p.data;
+  if (waiveInvoice && note.length < 3) return { ok: false, error: "Pri prodaji brez računa vpišite razlog." };
+  if (isDemoMode) return { ok: true, done: orderIds.length, skipped: 0 };
+
+  const supabase = await createClient();
+  const { data: orders } = await supabase
+    .from("sales_order")
+    .select("id,status,paid_at,order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty)")
+    .in("id", orderIds);
+  const rows = (orders ?? []).filter((o) => ["confirmed", "planned", "delivered", "invoiced"].includes(o.status as string) && !o.paid_at);
+  if (rows.length === 0) return { ok: false, error: "Naročila so že plačana ali še niso potrjena." };
+
+  const now = new Date().toISOString();
+  for (const o of rows) {
+    const amount = Math.round((o.order_line ?? []).reduce((s: number, l: Parameters<typeof lineGross>[0]) => s + lineGross(l), 0) * 100) / 100;
+    const { error } = await supabase
+      .from("sales_order")
+      .update({
+        paid_at: now,
+        paid_amount: amount,
+        payment_method: method,
+        ...(waiveInvoice ? { invoice_waived: true, invoice_waived_note: note } : {}),
+      })
+      .eq("id", o.id);
+    if (error) return { ok: false, error: error.message };
+  }
+  refreshMoney();
+  return { ok: true, done: rows.length, skipped: orderIds.length - rows.length };
+}
+
+export async function unmarkOrderPaid(orderId: string): Promise<ActionResult> {
+  const p = OrderIdInput.safeParse({ orderId });
+  if (!p.success) return { ok: false, error: "Neveljavno naročilo." };
+  if (isDemoMode) return { ok: true };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ paid_at: null, paid_amount: null, invoice_waived: false, invoice_waived_note: null })
+    .eq("id", p.data.orderId);
+  if (error) return { ok: false, error: error.message };
+  refreshMoney();
+  return { ok: true };
 }

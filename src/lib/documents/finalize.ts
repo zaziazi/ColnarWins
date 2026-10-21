@@ -60,7 +60,7 @@ export async function renderAndStoreDocuments(orderId: string): Promise<Rendered
   const { data: order, error: orderError } = await supabase
     .from("sales_order")
     .select(
-      "order_number,customer(name,address,city,post_code,vat_id,email),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,product(name)),delivery_proof(signature_image,signer_name,note,signed_at,hash)",
+      "order_number,customer(name,address,city,post_code,vat_id,email),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name)),delivery_proof(signature_image,signer_name,note,signed_at,hash)",
     )
     .eq("id", orderId)
     .single();
@@ -96,15 +96,17 @@ export async function renderAndStoreDocuments(orderId: string): Promise<Rendered
       unit_price_net: string;
       vat_rate: string;
       discount_pct: string;
+      free_qty: number | null;
       product: { name: string } | { name: string }[] | null;
     }[]
   ).map((l) => ({
-    name: one(l.product)?.name ?? "—",
+    name: `${one(l.product)?.name ?? "—"}${(l.free_qty ?? 0) > 0 ? ` (gratis ${l.free_qty})` : ""}`,
     ordered: l.quantity_ordered,
     delivered: l.quantity_delivered ?? l.quantity_ordered,
     unitNet: Number(l.unit_price_net),
     vatRate: Number(l.vat_rate),
     discountPct: Number(l.discount_pct),
+    freeQty: l.free_qty ?? 0,
   }));
 
   const data: DeliveryDocData = {

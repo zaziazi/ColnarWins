@@ -25,6 +25,10 @@ export interface Customer {
   deliveryRegion: string | null;
   deliveryNotes: string | null;
   paymentTermsDays: number;
+  /** "person" = fizična oseba (no VAT id, usually pays on the spot). */
+  kind?: "company" | "person";
+  email?: string | null;
+  phone?: string | null;
   /** Open balance in EUR. Drives the overdue warning on the order form. */
   openBalance: number;
   /** Days past due of the oldest unpaid invoice. 0 when nothing is overdue. */
@@ -49,7 +53,14 @@ export type PriceList = "gostinci" | "fizicne";
 export interface StandingOrderLine {
   productId: string;
   quantity: number;
+  /** Discount as a fraction 0..1 (0.1 = 10 %), as in order_line.discount_pct. */
+  discountPct?: number;
+  /** Of `quantity`, how many go out as a gift (not charged, still leave the warehouse). */
+  freeQty?: number;
 }
+
+export type PaymentMethod = "trr" | "gotovina" | "kartica" | "drugo";
+export const PAYMENT_LABEL: Record<PaymentMethod, string> = { trr: "TRR (nakazilo)", gotovina: "Gotovina", kartica: "Kartica", drugo: "Drugo" };
 
 export interface StandingOrder {
   customerId: string;
@@ -77,6 +88,14 @@ export interface OrderListItem {
   reviewNote?: string | null;
   /** Set once this order is a stop on a route — the route's driver, read-only. */
   routedDriverName: string | null;
+  paymentMethod?: PaymentMethod;
+  deliveredAt?: string | null;
+  invoicedAt?: string | null;
+  invoiceNumber?: string | null;
+  /** Cash sale where no invoice is issued (a reason is kept in invoiceWaivedNote). */
+  invoiceWaived?: boolean;
+  invoiceWaivedNote?: string | null;
+  paidAt?: string | null;
   /** Delivery documents e-mail for this order, once the delivery was signed. */
   mail: { status: "queued" | "sent" | "failed" | "no_recipient"; recipient: string | null; error: string | null } | null;
 }
@@ -96,6 +115,7 @@ export interface OrderForEdit {
   driverId: string | null;
   driverName: string | null;
   priceList: PriceList;
+  paymentMethod: PaymentMethod;
   lines: StandingOrderLine[];
 }
 
@@ -137,6 +157,8 @@ export interface DriverStopLine {
   quantityOrdered: number;
   unitPriceNet: number;
   vatRate: number;
+  discountPct?: number;
+  freeQty?: number;
 }
 
 export interface DriverStop {
@@ -204,7 +226,7 @@ export interface StockLevel {
 export interface StockMovementEntry {
   id: string;
   productName: string;
-  movementType: "bottling" | "adjustment";
+  movementType: "bottling" | "adjustment" | "write_off" | "sample_out" | "sample_return";
   quantityDelta: number;
   note: string | null;
   createdByName: string | null;

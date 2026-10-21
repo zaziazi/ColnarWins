@@ -8,7 +8,7 @@ import { Callout } from "@/components/ui/callout";
 import { Card, FieldLabel } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
-import { eur } from "@/lib/format";
+import { eur, lineNet } from "@/lib/format";
 import { SignaturePad, type SignaturePadHandle } from "./signature-pad";
 import type { DriverStop } from "@/lib/types";
 
@@ -40,7 +40,7 @@ export function StopDetail({ stop, pending, onBack, onConfirm, onFail }: Props) 
   const padRef = React.useRef<SignaturePadHandle>(null);
 
   const total = stop.lines.reduce(
-    (sum, l) => sum + (quantities[l.productId] ?? 0) * l.unitPriceNet * (1 + l.vatRate),
+    (sum, l) => sum + lineNet({ quantity: quantities[l.productId] ?? 0, unitPriceNet: l.unitPriceNet, discountPct: l.discountPct, freeQty: l.freeQty }) * (1 + l.vatRate),
     0,
   );
 

@@ -9,6 +9,9 @@ export const dynamic = "force-dynamic";
 const STOCK_MOVEMENT_LABEL: Record<string, string> = {
   bottling: "Stekleničenje",
   adjustment: "Popravek",
+  write_off: "Odpis",
+  sample_out: "Vzorec",
+  sample_return: "Vrnjen vzorec",
 };
 
 export default async function InventoryPage() {

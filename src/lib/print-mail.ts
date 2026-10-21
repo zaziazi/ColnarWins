@@ -1,6 +1,6 @@
 import "server-only";
 import type { DayOrder } from "@/lib/delivery-days";
-import { narocila } from "@/lib/format";
+import { eur, narocila } from "@/lib/format";
 
 /** Where print jobs go. The office worker prints whatever lands here; PRINT_MAIL_TO overrides it. */
 export function printMailTo(): string {
@@ -19,6 +19,18 @@ function dateSl(iso: string): string {
 function addressOf(o: DayOrder): string {
   return [o.address, o.city].filter(Boolean).join(", ");
 }
+
+/** "Gotovina ob dostavi: 123,40 €" - the driver has to collect it; nothing for orders paid by bank transfer. */
+function paymentOf(o: DayOrder): string | null {
+  if (o.paidAt) return "Plačano";
+  if (o.paymentMethod === "gotovina") return `PLAČILO: GOTOVINA OB DOSTAVI – ${eur(o.totalGross)}`;
+  if (o.paymentMethod === "kartica") return "Plačilo: kartica";
+  if (o.paymentMethod === "drugo") return "Plačilo: drugo (glej opombo)";
+  return null;
+}
+
+const lineText = (l: DayOrder["lines"][number]) =>
+  `${l.productName}${l.freeQty > 0 ? ` (od tega ${l.freeQty} gratis)` : ""}${l.discountPct > 0 ? ` (popust ${Math.round(l.discountPct * 1000) / 10} %)` : ""}`;
 
 /** Flag shown at the top of an order that is being re-sent. */
 function flagOf(o: DayOrder): string | null {
@@ -52,8 +64,9 @@ export function buildPrintMail(
         `Dostava: ${when}${o.driverName ? ` · voznik ${o.driverName}` : ""}`,
         o.deliveryNotes ? `Opomba kupca: ${o.deliveryNotes}` : "",
         o.driverNote ? `Opomba: ${o.driverNote}` : "",
+        paymentOf(o) ?? "",
       ].filter(Boolean);
-      return [...head, "", ...o.lines.map((l) => `  ${String(l.quantity).padStart(4)} ×  ${l.productName}`)].join("\n");
+      return [...head, "", ...o.lines.map((l) => `  ${String(l.quantity).padStart(4)} ×  ${lineText(l)}`)].join("\n");
     })
     .join("\n\n----------------------------------------\n\n");
 
@@ -71,13 +84,14 @@ export function buildPrintMail(
           (o.vatId ? `<div style="font-size:15px">Davčna številka: ${esc(o.vatId)}</div>` : "") +
           (o.deliveryNotes ? `<div style="font-size:13px;margin-top:6px">Opomba kupca: ${esc(o.deliveryNotes)}</div>` : "") +
           (o.driverNote ? `<div style="font-size:13px;margin-top:2px">Opomba: ${esc(o.driverNote)}</div>` : "") +
+          (paymentOf(o) ? `<div style="font-size:15px;font-weight:bold;margin-top:8px;color:${o.paymentMethod === "gotovina" && !o.paidAt ? "#b00020" : "#111"}">${esc(paymentOf(o)!)}</div>` : "") +
           `<table style="border-collapse:collapse;margin-top:16px;width:100%;max-width:560px">` +
           `<tr><th style="text-align:left;border-bottom:2px solid #111;padding:6px 8px;font-size:13px">Izdelek</th>` +
           `<th style="text-align:right;border-bottom:2px solid #111;padding:6px 8px;font-size:13px">Količina</th></tr>` +
           o.lines
             .map(
               (l) =>
-                `<tr><td style="border-bottom:1px solid #ccc;padding:8px;font-size:16px">${esc(l.productName)}</td>` +
+                `<tr><td style="border-bottom:1px solid #ccc;padding:8px;font-size:16px">${esc(lineText(l))}</td>` +
                 `<td style="border-bottom:1px solid #ccc;padding:8px;font-size:18px;font-weight:bold;text-align:right">${l.quantity}</td></tr>`,
             )
             .join("") +

@@ -1,32 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Pencil, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Badge, statusLabel, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
-import { Card, FieldLabel } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { getCurrentStaff, getDrivers, getOrders } from "@/lib/data";
-import { getDayStates, type DayState } from "@/lib/delivery-days";
+import { getDayStates } from "@/lib/delivery-days";
 import { isDemoMode } from "@/lib/demo";
-import { dateShort, eur, narocila } from "@/lib/format";
-import { DayConfirm } from "./day-confirm";
-import { DeleteDelivered } from "./delete-delivered";
-import { DeliveryDocs } from "./delivery-docs";
-import { DriverAssign } from "./driver-assign";
-import { OrderActions } from "./order-actions";
+import { narocila } from "@/lib/format";
 import { OrdersTable } from "./orders-table";
+import { PhoneOrders } from "./phone-orders";
 
 export const dynamic = "force-dynamic";
-
-const SOURCE_LABEL: Record<string, string> = {
-  phone: "telefon",
-  email: "e-pošta",
-  standing: "stalno naročilo",
-  field: "teren",
-  manual: "ročno",
-  webshop: "spletna trgovina",
-};
 
 export default async function OrdersPage() {
   const [orders, drivers, staff, dayStates] = await Promise.all([
@@ -69,53 +55,18 @@ export default async function OrdersPage() {
         <OrdersTable orders={orders.filter((o) => o.status !== "cancelled")} />
       </div>
       <div className="min-[900px]:hidden">
-
-      {drafts.length > 0 && (
-        <>
-          <SectionHeading>Čaka na potrditev</SectionHeading>
-          <div className="space-y-2.5 mb-6">
-            {drafts.map((o) => (
-              <OrderCard key={o.id} order={o} drivers={drivers} highlight />
-            ))}
-          </div>
-        </>
-      )}
-
-      {days.length === 0 && drafts.length === 0 && (
-        <Card className="p-5 text-center mb-6">
-          <p className="text-[13px] text-ink-muted">Ni odprtih naročil.</p>
-        </Card>
-      )}
-
-      {days.map((day) => (
-        <div key={day.date ?? "brez"} className="mb-6">
-          <DayHeading
-            date={day.date}
-            today={today}
-            count={day.orders.length}
-            state={dayStates.get(day.date ?? "")}
-            noDriver={day.orders.filter((o) => !o.assignedDriverId && !o.assignedDriverName && !o.routedDriverName).length}
-          />
-          <div className="space-y-2.5">
-            {day.orders.map((o) => (
-              <OrderCard key={o.id} order={o} drivers={drivers} />
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {done.length > 0 && (
-        <details className="mb-6">
-          <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">
-            Dostavljena ({done.length})
-          </summary>
-          <div className="space-y-2.5 mt-2.5">
-            {done.map((o) => (
-              <OrderCard key={o.id} order={o} drivers={drivers} />
-            ))}
-          </div>
-        </details>
-      )}
+        <PhoneOrders
+          drafts={drafts}
+          days={days.map((d) => ({
+            date: d.date,
+            orders: d.orders,
+            state: dayStates.get(d.date ?? "") ?? null,
+            noDriver: d.orders.filter((o) => !o.assignedDriverId && !o.assignedDriverName && !o.routedDriverName).length,
+          }))}
+          done={done}
+          drivers={drivers}
+          today={today}
+        />
       </div>
     </AppShell>
   );
@@ -139,127 +90,4 @@ function groupByDay(orders: Order[]): { date: string | null; orders: Order[] }[]
     else out.push({ date: o.deliveryDate, orders: [o] });
   }
   return out;
-}
-
-function DayHeading({
-  date,
-  today,
-  count,
-  state,
-  noDriver,
-}: {
-  date: string | null;
-  today: string;
-  count: number;
-  state?: DayState;
-  noDriver: number;
-}) {
-  if (!date) {
-    return <SectionHeading>Brez datuma dostave · {count}</SectionHeading>;
-  }
-  const tomorrow = new Date(`${today}T12:00:00`);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowIso = tomorrow.toISOString().slice(0, 10);
-
-  const label = dateShort(new Date(`${date}T12:00:00`));
-  const prefix = date === today ? "Danes · " : date === tomorrowIso ? "Jutri · " : "";
-  const overdue = date < today;
-
-  const word = date === today ? "danes" : date === tomorrowIso ? "jutri" : null;
-
-  return (
-    <div className="flex items-center justify-between gap-3 mb-2.5 px-0.5">
-      <h2
-        className={
-          "text-xs font-bold uppercase tracking-[0.06em] " + (overdue ? "text-danger" : "text-ink-subtle")
-        }
-      >
-        {prefix}
-        {label}
-        {overdue && " · zamuja"} · {count}
-      </h2>
-      <DayConfirm date={date} word={word} confirmed={state?.confirmed ?? false} printed={state?.printed ?? false} noDriver={noDriver} />
-    </div>
-  );
-}
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2.5 px-0.5">
-      {children}
-    </h2>
-  );
-}
-
-function OrderCard({
-  order,
-  drivers,
-  highlight,
-}: {
-  order: Awaited<ReturnType<typeof getOrders>>[number];
-  drivers: Awaited<ReturnType<typeof getDrivers>>;
-  highlight?: boolean;
-}) {
-  return (
-    <Card className={highlight ? "border-warn/30 bg-warn-soft/30" : undefined}>
-      <div className="p-3.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-[15px] truncate">{order.customerName}</h3>
-            <p className="text-[11.5px] text-ink-subtle mt-0.5">
-              #{order.orderNumber} · {SOURCE_LABEL[order.source] ?? order.source}
-              {order.deliveryDate && ` · dostava ${dateShort(order.deliveryDate)}`}
-              {order.createdByName && ` · vnesel/a ${order.createdByName}`}
-              {order.priceList === "fizicne" && " · cene za fizične osebe"}
-            </p>
-            {order.reviewNote && order.status === "draft" && (
-              <p className="text-[12px] text-warn font-semibold mt-1">{order.reviewNote}</p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <Badge tone={statusTone[order.status]}>{statusLabel[order.status]}</Badge>
-            {(order.status === "draft" || order.status === "confirmed") && (
-              <Button
-                asChild
-                variant="secondary"
-                size="sm"
-                className="h-7 px-2 text-[11.5px] gap-1"
-              >
-                <Link href={`/pisarna/${order.id}/uredi`}>
-                  <Pencil className="size-3" /> Uredi
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-2">
-          <OrderActions orderId={order.id} status={order.status} />
-        </div>
-
-        <p className="text-[12.5px] text-ink-muted mt-2.5 leading-relaxed">{order.lineSummary}</p>
-        <div className="flex items-end justify-between mt-1.5">
-          <p className="text-[13px] font-semibold tabular">{eur(order.totalGross)}</p>
-          <div className="text-right">
-            <FieldLabel className="mb-1">Voznik</FieldLabel>
-            {order.routedDriverName || (order.assignedDriverName && !order.assignedDriverId) ? (
-              <p className="text-[12.5px] font-medium text-ink-muted h-7 flex items-center justify-end">
-                {order.routedDriverName ?? order.assignedDriverName}
-              </p>
-            ) : (
-              <DriverAssign
-                orderId={order.id}
-                drivers={drivers}
-                assignedDriverId={order.assignedDriverId}
-              />
-            )}
-          </div>
-        </div>
-        {order.mail && <DeliveryDocs orderId={order.id} mail={order.mail} />}
-        {(order.status === "delivered" || order.status === "invoiced") && (
-          <DeleteDelivered orderId={order.id} hasReceipt={order.status === "invoiced"} />
-        )}
-      </div>
-    </Card>
-  );
 }

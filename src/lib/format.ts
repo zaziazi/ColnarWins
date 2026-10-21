@@ -64,3 +64,32 @@ export function orderTotals(
   );
   return { net, vat, gross: net + vat };
 }
+
+/**
+ * Net value of one order line: what is charged for the bottles that are not gratis, after the
+ * discount (a fraction 0..1, as stored in order_line.discount_pct). Same rule as the database's line_total_net.
+ */
+export function lineNet(l: { quantity: number; unitPriceNet: number; discountPct?: number; freeQty?: number }): number {
+  const paid = Math.max(l.quantity - (l.freeQty ?? 0), 0);
+  return paid * l.unitPriceNet * (1 - (l.discountPct ?? 0));
+}
+
+/** Gross value of a raw order_line row as selected from the database. */
+export function lineGross(l: {
+  quantity_ordered: number;
+  quantity_delivered?: number | null;
+  unit_price_net: string | number;
+  vat_rate: string | number;
+  discount_pct?: string | number | null;
+  free_qty?: number | null;
+}): number {
+  return (
+    lineNet({
+      quantity: l.quantity_delivered ?? l.quantity_ordered,
+      unitPriceNet: Number(l.unit_price_net),
+      discountPct: Number(l.discount_pct ?? 0),
+      freeQty: l.free_qty ?? 0,
+    }) *
+    (1 + Number(l.vat_rate))
+  );
+}

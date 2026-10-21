@@ -68,6 +68,24 @@ export const AUDIT_FIELD_LABEL: Record<string, string> = {
   sees_ac: "vidi Naročila AC",
   delivers: "dostavlja",
   movement_type: "vrsta",
+  payment_method: "način plačila",
+  invoice_number: "št. računa",
+  invoice_waived: "brez računa",
+  invoice_waived_note: "razlog (brez računa)",
+  paid_at: "plačano",
+  paid_amount: "plačan znesek",
+  free_qty: "gratis (kos)",
+  discount_pct: "popust",
+  kind: "vrsta stranke",
+  first_name: "ime",
+  last_name: "priimek",
+  location: "lokacija",
+  tasting_price_eur: "cena na osebo",
+  tasting_fee_eur: "prihodek degustacije",
+  other_income_eur: "drugi prihodki",
+  income_payment_method: "način plačila (degustacija)",
+  income_paid_at: "plačano (degustacija)",
+  income_note: "opomba (prihodek)",
   stage: "faza",
   presenter_id: "voditelj",
   kitchen_id: "hrana",
@@ -84,7 +102,7 @@ export const AUDIT_FIELD_LABEL: Record<string, string> = {
 /** Columns that only add noise to a human reading the log. */
 const HIDDEN = new Set([
   "id", "print_hash", "instance_id", "auth_user_id", "created_by", "confirmed_by", "source_email_text", "source_email_id",
-  "order_id", "discount_pct", "line_total_net", "dunning_paused", "einvoice_channel", "payment_terms_days",
+  "order_id", "line_total_net", "dunning_paused", "einvoice_channel", "payment_terms_days",
   "order_number", "source", "route_id", "sequence",
 ]);
 

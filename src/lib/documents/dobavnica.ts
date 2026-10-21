@@ -53,7 +53,7 @@ export async function renderDobavnica(d: DeliveryDocData): Promise<Uint8Array> {
   for (const l of d.lines) {
     w.ensure(30);
     const short = l.delivered < l.ordered;
-    const amount = l.delivered * l.unitNet * (1 - l.discountPct);
+    const amount = Math.max(l.delivered - (l.freeQty ?? 0), 0) * l.unitNet * (1 - l.discountPct);
     w.text(l.name, col.name, { bold: short });
     w.text(String(l.ordered), col.ordered, { align: "right" });
     w.text(String(l.delivered), col.delivered + 20, { align: "right", bold: short });

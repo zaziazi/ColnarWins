@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { adjustStock } from "./actions";
+import { adjustStock, writeOffStock } from "./actions";
 import { steklenice } from "@/lib/format";
 import type { StockLevel } from "@/lib/types";
 
@@ -15,9 +15,24 @@ export function StockRow({ level }: { level: StockLevel }) {
   const [open, setOpen] = React.useState(false);
   const [delta, setDelta] = React.useState("");
   const [note, setNote] = React.useState("");
+  const [mode, setMode] = React.useState<"adjust" | "writeoff">("adjust");
+  const [reason, setReason] = React.useState<"Razbitje" | "Degustacija" | "Poškodovano" | "Drugo">("Razbitje");
   const [pending, startTransition] = React.useTransition();
 
   function submit() {
+    if (mode === "writeoff") {
+      const q = parseInt(delta.replace(/\D/g, ""), 10);
+      if (!q) return;
+      startTransition(async () => {
+        const result = await writeOffStock({ productId: level.productId, qty: q, reason, note });
+        if (!result.ok) return void toast.error(result.error ?? "Odpis ni uspel");
+        setDelta("");
+        setNote("");
+        setOpen(false);
+        router.refresh();
+      });
+      return;
+    }
     const n = parseInt(delta, 10);
     if (!n) return;
 
@@ -27,7 +42,6 @@ export function StockRow({ level }: { level: StockLevel }) {
         toast.error(result.error ?? "Popravek ni uspel");
         return;
       }
-      toast.success("Zaloga posodobljena");
       setDelta("");
       setNote("");
       setOpen(false);
@@ -57,12 +71,44 @@ export function StockRow({ level }: { level: StockLevel }) {
 
       {open && (
         <div className="mt-3 space-y-2">
+          <div className="inline-flex rounded-[var(--radius-control)] border border-line overflow-hidden text-[12.5px] font-semibold">
+            {(
+              [
+                ["adjust", "Popravek"],
+                ["writeoff", "Odpis"],
+              ] as const
+            ).map(([k, t]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  setMode(k);
+                  setDelta("");
+                }}
+                className={"h-8 px-3 " + (mode === k ? "bg-wine text-white" : "bg-surface text-ink-muted")}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {mode === "writeoff" && (
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value as typeof reason)}
+              className="h-10 w-full rounded-[var(--radius-control)] border border-line bg-surface px-2.5 text-[14px]"
+              aria-label="Razlog odpisa"
+            >
+              {["Razbitje", "Degustacija", "Poškodovano", "Drugo"].map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          )}
           <Input
             type="text"
             inputMode="numeric"
-            placeholder="npr. -6 ali 12"
+            placeholder={mode === "writeoff" ? "koliko steklenic odpisati" : "npr. -6 ali 12"}
             value={delta}
-            onChange={(e) => setDelta(e.target.value.replace(/(?!^-)[^\d]/g, ""))}
+            onChange={(e) => setDelta(mode === "writeoff" ? e.target.value.replace(/\D/g, "") : e.target.value.replace(/(?!^-)[^\d]/g, ""))}
             autoFocus
           />
           <Textarea

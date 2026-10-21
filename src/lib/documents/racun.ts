@@ -63,7 +63,7 @@ export async function renderRacun(d: DeliveryDocData): Promise<Uint8Array> {
     w.text(String(l.delivered), col.qty, { align: "right" });
     w.text(eur(l.unitNet), col.price, { align: "right" });
     w.text(`${Math.round(l.vatRate * 100)} %`, col.vat, { align: "right" });
-    w.text(eur(l.delivered * l.unitNet * (1 - l.discountPct)), col.total, { align: "right" });
+    w.text(eur(Math.max(l.delivered - (l.freeQty ?? 0), 0) * l.unitNet * (1 - l.discountPct)), col.total, { align: "right" });
     w.down(15);
   }
   w.rule();

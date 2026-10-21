@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { lineGross } from "./format";
 import {
   demoCustomers,
   demoOrders,
@@ -43,7 +44,7 @@ export async function getCustomers(): Promise<Customer[]> {
   const { data, error } = await supabase
     .from("customer")
     .select(
-      "id,name,city,address,delivery_region,delivery_notes,payment_terms_days,credit_hold",
+      "id,name,city,address,delivery_region,delivery_notes,payment_terms_days,credit_hold,kind,email,phone",
     )
     .eq("active", true)
     .order("name");
@@ -77,6 +78,9 @@ export async function getCustomers(): Promise<Customer[]> {
     openBalance: byCustomer.get(c.id)?.balance ?? 0,
     daysOverdue: byCustomer.get(c.id)?.days ?? 0,
     creditHold: c.credit_hold,
+    kind: (c.kind as "company" | "person") ?? "company",
+    email: (c.email as string | null) ?? null,
+    phone: (c.phone as string | null) ?? null,
   }));
 }
 
@@ -136,7 +140,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,source,delivery_date,created_at,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
+        "id,order_number,status,source,delivery_date,created_at,delivered_at,invoiced_at,invoice_number,invoice_waived,invoice_waived_note,paid_at,payment_method,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
       );
 
   // Open work, soonest delivery first (no delivery date sinks to the bottom).
@@ -157,10 +161,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
 
   return [...(open.data ?? []), ...(done.data ?? [])].map((o) => {
     const lines = o.order_line ?? [];
-    const gross = lines.reduce((s, l) => {
-      const q = l.quantity_delivered ?? l.quantity_ordered;
-      return s + q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
-    }, 0);
+    const gross = lines.reduce((s, l) => s + lineGross(l), 0);
 
     return {
       id: o.id,
@@ -183,6 +184,13 @@ export async function getOrders(): Promise<OrderListItem[]> {
       assignedDriverId: o.assigned_driver_id,
       assignedDriverName: (o.assigned_driver_name as string | null) ?? null,
       priceList: (o.price_list as "gostinci" | "fizicne") ?? "gostinci",
+      paymentMethod: ((o.payment_method as string | null) ?? "trr") as OrderListItem["paymentMethod"],
+      deliveredAt: (o.delivered_at as string | null) ?? null,
+      invoicedAt: (o.invoiced_at as string | null) ?? null,
+      invoiceNumber: (o.invoice_number as string | null) ?? null,
+      invoiceWaived: Boolean(o.invoice_waived),
+      invoiceWaivedNote: (o.invoice_waived_note as string | null) ?? null,
+      paidAt: (o.paid_at as string | null) ?? null,
       reviewNote: (o.review_note as string | null) ?? null,
       routedDriverName:
         (
@@ -228,7 +236,7 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
   const { data, error } = await supabase
     .from("sales_order")
     .select(
-      "id,customer_id,status,delivery_date,driver_note,assigned_driver_id,assigned_driver_name,price_list,customer(name),order_line(product_id,quantity_ordered)",
+      "id,customer_id,status,delivery_date,driver_note,assigned_driver_id,assigned_driver_name,price_list,payment_method,customer(name),order_line(product_id,quantity_ordered,discount_pct,free_qty)",
     )
     .eq("id", id)
     .single();
@@ -245,9 +253,12 @@ export async function getOrderForEdit(id: string): Promise<OrderForEdit | null> 
     driverId: data.assigned_driver_id,
     driverName: (data.assigned_driver_name as string | null) ?? null,
     priceList: (data.price_list as "gostinci" | "fizicne") ?? "gostinci",
+    paymentMethod: ((data.payment_method as string | null) ?? "trr") as OrderForEdit["paymentMethod"],
     lines: (data.order_line ?? []).map((l) => ({
       productId: l.product_id,
       quantity: l.quantity_ordered,
+      discountPct: Number(l.discount_pct ?? 0),
+      freeQty: l.free_qty ?? 0,
     })),
   };
 }
@@ -272,7 +283,7 @@ export async function getUnroutedOrders(): Promise<UnroutedOrder[]> {
   let query = supabase
     .from("sales_order")
     .select(
-      "id,order_number,delivery_date,customer(name,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))",
+      "id,order_number,delivery_date,customer(name,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))",
     )
     .eq("status", "confirmed");
 
@@ -287,10 +298,7 @@ export async function getUnroutedOrders(): Promise<UnroutedOrder[]> {
 
   return (data ?? []).map((o) => {
     const lines = o.order_line ?? [];
-    const gross = lines.reduce((s, l) => {
-      const q = l.quantity_delivered ?? l.quantity_ordered;
-      return s + q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
-    }, 0);
+    const gross = lines.reduce((s, l) => s + lineGross(l), 0);
     const customer = o.customer as unknown as {
       name: string;
       city: string | null;
@@ -324,7 +332,7 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
   const { data, error } = await supabase
     .from("route")
     .select(
-      "id,vehicle,driver_id,status,driver:staff(full_name),route_stop(id,sequence,order_id,sales_order(order_number,customer(name,address,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,product(name))))",
+      "id,vehicle,driver_id,status,driver:staff(full_name),route_stop(id,sequence,order_id,sales_order(order_number,customer(name,address,city,delivery_notes),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))))",
     )
     .eq("route_date", date)
     .order("vehicle");
@@ -348,6 +356,8 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
         quantity_delivered: number | null;
         unit_price_net: string;
         vat_rate: string;
+        discount_pct?: string | null;
+        free_qty?: number | null;
         product: { name: string } | null;
       }[];
     } | null;
@@ -362,10 +372,7 @@ export async function getRoutesForDate(date: string): Promise<RouteWithStops[]> 
       .map((s) => {
         const so = s.sales_order;
         const lines = so?.order_line ?? [];
-        const gross = lines.reduce((sum, l) => {
-          const q = l.quantity_delivered ?? l.quantity_ordered;
-          return sum + q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
-        }, 0);
+        const gross = lines.reduce((sum, l) => sum + lineGross(l), 0);
         return {
           id: s.id,
           orderId: s.order_id,
@@ -436,7 +443,7 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
   const { data, error } = await supabase
     .from("route")
     .select(
-      "id,vehicle,status,route_stop(id,sequence,order_id,status,fail_reason,sales_order(order_number,customer(name,address,city,delivery_notes,email),order_line(product_id,quantity_ordered,unit_price_net,vat_rate,product(name))))",
+      "id,vehicle,status,route_stop(id,sequence,order_id,status,fail_reason,sales_order(order_number,customer(name,address,city,delivery_notes,email),order_line(product_id,quantity_ordered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))))",
     )
     .eq("route_date", date)
     .eq("driver_id", staffId)
@@ -464,6 +471,8 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
         quantity_ordered: number;
         unit_price_net: string;
         vat_rate: string;
+        discount_pct?: string | null;
+        free_qty?: number | null;
         product: { name: string } | null;
       }[];
     } | null;
@@ -478,10 +487,7 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
       .map((s) => {
         const so = s.sales_order;
         const lines = so?.order_line ?? [];
-        const gross = lines.reduce(
-          (sum, l) => sum + l.quantity_ordered * Number(l.unit_price_net) * (1 + Number(l.vat_rate)),
-          0,
-        );
+        const gross = lines.reduce((sum, l) => sum + lineGross(l), 0);
         return {
           id: s.id,
           orderId: s.order_id,
@@ -501,6 +507,8 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
             quantityOrdered: l.quantity_ordered,
             unitPriceNet: Number(l.unit_price_net),
             vatRate: Number(l.vat_rate),
+            discountPct: Number(l.discount_pct ?? 0),
+            freeQty: l.free_qty ?? 0,
           })),
         };
       });
@@ -568,7 +576,7 @@ export async function getMonthlyOrderTotals(): Promise<{ count: number; totalGro
 
   const { data, error } = await supabase
     .from("sales_order")
-    .select("order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate)")
+    .select("order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty)")
     .neq("status", "draft")
     .neq("status", "cancelled")
     .gte("created_at", monthStart)
@@ -579,8 +587,7 @@ export async function getMonthlyOrderTotals(): Promise<{ count: number; totalGro
   let totalGross = 0;
   for (const o of data ?? []) {
     for (const l of o.order_line ?? []) {
-      const q = l.quantity_delivered ?? l.quantity_ordered;
-      totalGross += q * Number(l.unit_price_net) * (1 + Number(l.vat_rate));
+      totalGross += lineGross(l);
     }
   }
 

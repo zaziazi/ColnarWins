@@ -3,13 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Mail, Trash2 } from "lucide-react";
+import { Download, Mail, Pencil, QrCode, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { ClubMember } from "@/lib/club";
 import { cn } from "@/lib/utils";
 import { deleteMember, saveMemberNote } from "../actions";
+import { EditDialog, QrDialog } from "./member-dialogs";
 
 const dayFmt = new Intl.DateTimeFormat("sl-SI", { day: "numeric", month: "numeric", year: "2-digit", timeZone: "Europe/Ljubljana" });
 const d = (iso: string | null) => (iso ? dayFmt.format(new Date(iso)) : "—");
@@ -105,9 +106,21 @@ export function MemberList({ members, stampsNeeded }: { members: ClubMember[]; s
 function MemberDetail({ m, onChanged }: { m: ClubMember; onChanged: () => void }) {
   const [note, setNote] = React.useState(m.note ?? "");
   const [busy, setBusy] = React.useState(false);
+  const [qrOpen, setQrOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
 
   return (
     <div className="px-4 pb-4 pt-1 bg-surface-muted space-y-3">
+      <div className="grid grid-cols-2 gap-2 pt-2">
+        <Button variant="secondary" onClick={() => setQrOpen(true)}>
+          <QrCode /> QR koda
+        </Button>
+        <Button variant="secondary" onClick={() => setEditOpen(true)}>
+          <Pencil /> Uredi
+        </Button>
+      </div>
+      <QrDialog m={m} open={qrOpen} onOpenChange={setQrOpen} onChanged={onChanged} />
+      <EditDialog m={m} open={editOpen} onOpenChange={setEditOpen} onChanged={onChanged} />
       <dl className="grid grid-cols-2 min-[600px]:grid-cols-4 gap-2 text-[12.5px]">
         <Info k="Koda" v={m.cardCode} />
         <Info k="Telefon" v={m.phone ?? "—"} />

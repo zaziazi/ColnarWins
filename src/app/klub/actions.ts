@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { clubCardUrl, clubMailHtml, clubPublicUrl, clubUnsubscribeUrl, getClubSettings, MEMBER_COLUMNS, QR_PREFIX, SLIPPING_DAYS, toMember, type ClubMember } from "@/lib/club";
+import { clubCardUrl, clubMailHtml, clubPublicUrl, clubUnsubscribeUrl, getClubSettings, MEMBER_COLUMNS, QR_PREFIX, qrSvg, SLIPPING_DAYS, toMember, type ClubMember } from "@/lib/club";
 import { getCurrentStaff } from "@/lib/data";
 import { sendMail } from "@/lib/documents/email";
 import { createClient } from "@/lib/supabase/server";
@@ -117,6 +117,66 @@ export async function saveMemberNote(id: string, note: string): Promise<ActionRe
   if (error) return { ok: false, error: error.message };
   refresh();
   return { ok: true };
+}
+
+/** The member's QR (as on their card) and the link to the card on colnar.si. */
+export async function getMemberQr(id: string): Promise<{ qr: string; code: string; cardUrl: string } | null> {
+  await requireManager();
+  if (!Id.safeParse(id).success) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("club_member").select("card_code,token").eq("id", id).maybeSingle();
+  if (!data) return null;
+  return { qr: await qrSvg(QR_PREFIX + data.card_code), code: data.card_code, cardUrl: clubCardUrl(data.token) };
+}
+
+const MemberEdit = z.object({
+  name: z.string().trim().min(2, "Vpišite ime in priimek.").max(120),
+  email: z.string().trim().toLowerCase().email("E-naslov ni pravilen.").max(200),
+  phone: z.string().trim().max(40),
+  marketing: z.boolean(),
+  stamps: z.coerce.number().int().min(0, "Žigov ne more biti manj kot 0.").max(100),
+});
+
+export async function updateMember(id: string, input: z.input<typeof MemberEdit>): Promise<ActionResult> {
+  await requireManager();
+  if (!Id.safeParse(id).success) return { ok: false, error: "Napačen član" };
+  const p = MemberEdit.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]?.message ?? "Preverite vnos." };
+  const v = p.data;
+  const supabase = await createClient();
+
+  const { data: cur } = await supabase.from("club_member").select("marketing_consent,unsubscribed_at").eq("id", id).maybeSingle();
+  if (!cur) return { ok: false, error: "Član ne obstaja" };
+  const wasOn = cur.marketing_consent && !cur.unsubscribed_at;
+  const marketing =
+    v.marketing === wasOn
+      ? {}
+      : v.marketing
+        ? { marketing_consent: true, consent_at: new Date().toISOString(), unsubscribed_at: null }
+        : { unsubscribed_at: new Date().toISOString() };
+
+  const { error } = await supabase
+    .from("club_member")
+    .update({ name: v.name, email: v.email, phone: v.phone || null, ...marketing })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.code === "23505" ? "Ta e-naslov že ima kartico." : error.message };
+
+  const { data: st, error: stErr } = await supabase.rpc("club_set_stamps", { p_member: id, p_stamps: v.stamps });
+  if (stErr) return { ok: false, error: stErr.message };
+  const r = st as { ok: boolean; error?: string };
+  refresh();
+  return r.ok ? { ok: true } : { ok: false, error: r.error ?? "Žigov ni bilo mogoče shraniti." };
+}
+
+/** Lost or shared card: a new code, so the old QR no longer finds this member. */
+export async function newCardCode(id: string): Promise<{ ok: true; code: string } | { ok: false; error: string }> {
+  await requireManager();
+  if (!Id.safeParse(id).success) return { ok: false, error: "Napačen član" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("club_new_code", { p_member: id });
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true, code: data as string };
 }
 
 /** GDPR erasure on request: the card and its visits are gone for good. */

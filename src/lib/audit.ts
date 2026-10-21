@@ -32,9 +32,16 @@ export const AUDIT_TABLE_LABEL: Record<string, string> = {
   wine_lot: "Vino v kleti",
   wine_lot_event: "Dogodek v kleti",
   rep_stock_movement: "Vino v avtu",
+  club_member: "Član kluba",
+  club_settings: "Pravila kluba",
+  club_campaign: "Sporočilo klubu",
 };
 
 export const AUDIT_FIELD_LABEL: Record<string, string> = {
+  stamps: "žigi",
+  card_code: "koda kartice",
+  marketing_consent: "soglasje za novice",
+  unsubscribed_at: "odjava od novic",
   quantity_ordered: "naročeno",
   quantity_delivered: "dostavljeno",
   quantity_on_hand: "zaloga",

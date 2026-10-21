@@ -15,15 +15,18 @@ export type AiTask =
 interface TaskConfig {
   /** Environment variable that can override the model for this task only. */
   modelEnv: string;
+  /** Room for thinking AND the answer: on the current models thinking tokens count against this. */
   maxTokens: number;
+  /** Thinking depth. Routine sorting is cheap at "low"; reading figures off an invoice gets "medium". */
+  effort: "low" | "medium" | "high";
 }
 
 const TASKS: Record<AiTask, TaskConfig> = {
-  drustva_triage: { modelEnv: "ANTHROPIC_MODEL_TRIAGE", maxTokens: 1200 },
-  web_reservation: { modelEnv: "ANTHROPIC_MODEL_RESERVATION", maxTokens: 1200 },
-  morning_brief: { modelEnv: "ANTHROPIC_MODEL_BRIEF", maxTokens: 700 },
-  inbox_triage: { modelEnv: "ANTHROPIC_MODEL_INBOX", maxTokens: 1800 },
-  bill_extract: { modelEnv: "ANTHROPIC_MODEL_BILL", maxTokens: 900 },
+  drustva_triage: { modelEnv: "ANTHROPIC_MODEL_TRIAGE", maxTokens: 4000, effort: "low" },
+  web_reservation: { modelEnv: "ANTHROPIC_MODEL_RESERVATION", maxTokens: 4000, effort: "low" },
+  morning_brief: { modelEnv: "ANTHROPIC_MODEL_BRIEF", maxTokens: 2000, effort: "low" },
+  inbox_triage: { modelEnv: "ANTHROPIC_MODEL_INBOX", maxTokens: 6000, effort: "low" },
+  bill_extract: { modelEnv: "ANTHROPIC_MODEL_BILL", maxTokens: 6000, effort: "medium" },
 };
 
 const DEFAULT_MODEL = "claude-sonnet-5-5";
@@ -41,6 +44,11 @@ interface ApiResponse {
   error?: { message?: string };
 }
 
+/** Haiku 4.5 and the 4.5 Sonnet reject the effort setting; every newer model accepts it. */
+function supportsEffort(model: string): boolean {
+  return !/haiku|sonnet-4-5|sonnet-4-0|opus-4-[01]|claude-3/.test(model);
+}
+
 async function call(task: AiTask, body: Record<string, unknown>): Promise<{ json: ApiResponse; model: string }> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
@@ -48,7 +56,12 @@ async function call(task: AiTask, body: Record<string, unknown>): Promise<{ json
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: TASKS[task].maxTokens, ...body }),
+    body: JSON.stringify({
+      model,
+      max_tokens: TASKS[task].maxTokens,
+      ...(supportsEffort(model) ? { output_config: { effort: TASKS[task].effort } } : {}),
+      ...body,
+    }),
     cache: "no-store",
   });
   const json = (await res.json().catch(() => ({}))) as ApiResponse;
@@ -78,13 +91,25 @@ export async function aiTool(
           { type: "text", text: args.user },
         ]
       : args.user;
-  const { json, model } = await call(task, {
-    system: args.system,
-    messages: [{ role: "user", content }],
-    tools: [args.tool],
-    tool_choice: { type: "tool", name: args.tool.name },
-  });
-  const block = json.content?.find((b) => b.type === "tool_use" && b.name === args.tool.name);
+  // Newer models refuse a forced tool_choice (HTTP 400), so the tool is requested in words:
+  // tool_choice "auto" works on every model, and the caller validates the result anyway.
+  const system = `${args.system}\n\nAnswer ONLY by calling the \`${args.tool.name}\` tool, exactly once. Do not write any other text.`;
+  const ask = async (extra?: string) => {
+    const r = await call(task, {
+      system,
+      messages: [
+        {
+          role: "user",
+          content: !extra ? content : Array.isArray(content) ? [...content, { type: "text", text: extra }] : `${content}\n\n${extra}`,
+        },
+      ],
+      tools: [args.tool],
+      tool_choice: { type: "auto" },
+    });
+    return { block: r.json.content?.find((b) => b.type === "tool_use" && b.name === args.tool.name), model: r.model };
+  };
+  let { block, model } = await ask();
+  if (!block) ({ block, model } = await ask(`Reminder: call the ${args.tool.name} tool now.`));
   if (!block) throw new Error(`Model did not return the ${args.tool.name} tool call`);
   return { input: block.input, model };
 }

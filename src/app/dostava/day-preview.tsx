@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail } from "lucide-react";
+import { Mail, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { dateShort, eur } from "@/lib/format";
 import type { DayOrder, DeliveryDay } from "@/lib/delivery-days";
 import { cn } from "@/lib/utils";
+import { sendMyOrdersToPrint } from "@/app/tisk/actions";
 import { mailDayToMe } from "./actions";
 
 const addDays = (iso: string, n: number) => {
@@ -51,6 +52,31 @@ export function DayChips({ days, selected, today, meId }: { days: DeliveryDay[];
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+/** "Pošlji v tisk": my orders of this day go to the office mailbox, where they are printed for me. */
+export function PrintMine({ day, to }: { day: string; to: string }) {
+  const [busy, setBusy] = React.useState(false);
+  const [done, setDone] = React.useState<string | null>(null);
+
+  async function send() {
+    setBusy(true);
+    setDone(null);
+    const r = await sendMyOrdersToPrint(day);
+    setBusy(false);
+    if (!r.ok) return void toast.error(r.error);
+    setDone(`Poslano v tisk (${r.sent} naročil). Pisarna ti jih natisne.`);
+  }
+
+  return (
+    <div className="mb-3">
+      <Button size="sm" loading={busy} onClick={() => void send()}>
+        <Printer className="size-3.5" /> Pošlji v tisk (pisarna)
+      </Button>
+      <p className="text-[11.5px] text-ink-subtle mt-1.5">Moja naročila tega dne gredo na {to}, kjer jih v pisarni natisnejo.</p>
+      {done && <p className="text-[12.5px] text-good-ink mt-1">{done}</p>}
     </div>
   );
 }

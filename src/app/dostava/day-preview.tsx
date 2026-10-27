@@ -3,16 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Mail, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { dateShort, eur } from "@/lib/format";
 import type { DayOrder, DeliveryDay } from "@/lib/delivery-days";
 import { cn } from "@/lib/utils";
 import { sendMyOrdersToPrint } from "@/app/tisk/actions";
-import { mailDayToMe } from "./actions";
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T12:00:00`);
@@ -77,61 +75,6 @@ export function PrintMine({ day, to }: { day: string; to: string }) {
       </Button>
       <p className="text-[11.5px] text-ink-subtle mt-1.5">Moja naročila tega dne gredo na {to}, kjer jih v pisarni natisnejo.</p>
       {done && <p className="text-[12.5px] text-good-ink mt-1">{done}</p>}
-    </div>
-  );
-}
-
-/** "Pošlji meni": the deliveries of this day by e-mail, to print yourself. Asks for the address once. */
-export function MailToMe({ day, email }: { day: string; email: string | null }) {
-  const [open, setOpen] = React.useState(false);
-  const [scope, setScope] = React.useState<"mine" | "all">("mine");
-  const [address, setAddress] = React.useState(email ?? "");
-  const [busy, setBusy] = React.useState(false);
-  const [sent, setSent] = React.useState<string | null>(null);
-
-  async function send() {
-    setBusy(true);
-    const r = await mailDayToMe({ day, scope, email: address.trim() });
-    setBusy(false);
-    if (!r.ok) return void toast.error(r.error);
-    setSent(`Poslano na ${r.to} (${r.count} naročil).`);
-  }
-
-  return (
-    <div className="mb-4">
-      <Button size="sm" variant="secondary" onClick={() => setOpen((v) => !v)}>
-        <Mail className="size-3.5" /> Pošlji meni na e-pošto
-      </Button>
-      {open && (
-        <Card className="p-3.5 mt-2.5 space-y-2.5">
-          <div className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5" role="group" aria-label="Katera naročila">
-            {(
-              [
-                ["mine", "Moja naročila"],
-                ["all", "Vsa naročila dneva"],
-              ] as const
-            ).map(([k, t]) => (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={scope === k}
-                onClick={() => setScope(k)}
-                className={cn("h-8 px-3 rounded-[8px] text-[12.5px] font-semibold", scope === k ? "bg-wine text-white" : "text-ink-muted")}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          <Input type="email" inputMode="email" autoComplete="email" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Tvoj e-naslov" className="max-w-[320px]" />
-          <p className="text-[11.5px] text-ink-subtle">Vsako naročilo je na svoji strani, pripravljeno za tisk. E-naslov se shrani za naslednjič.</p>
-          <div className="flex items-center gap-3">
-            <Button size="sm" loading={busy} disabled={!address.trim()} onClick={() => void send()}>
-              Pošlji
-            </Button>
-            {sent && <span className="text-[12.5px] text-good-ink">{sent}</span>}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

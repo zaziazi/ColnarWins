@@ -5,9 +5,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoMode } from "@/lib/demo";
 import { notifyStaff } from "@/lib/notify";
-import { getDeliveryDays } from "@/lib/delivery-days";
-import { mailConfigured, sendMail } from "@/lib/documents/email";
-import { buildPrintMail } from "@/lib/print-mail";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -174,49 +171,4 @@ export async function recordBreakage(input: z.input<typeof BreakageInput>): Prom
   if (error) return { ok: false, error: error.message };
   revalidatePath("/zaloge");
   return { ok: true };
-}
-
-
-const MailMeInput = z.object({
-  day: DayInput,
-  scope: z.enum(["mine", "all"]),
-  email: z.union([z.literal(""), z.string().trim().email()]).optional().default(""),
-});
-
-/**
- * "Pošlji meni": mails the deliveries of one day to the signed-in person himself, to print on his own.
- * Works for any day in the coming week, confirmed or not. It does not touch the office print status.
- * An address typed here is kept on the person for the next time.
- */
-export async function mailDayToMe(input: z.input<typeof MailMeInput>): Promise<{ ok: true; to: string; count: number } | { ok: false; error: string }> {
-  const p = MailMeInput.safeParse(input);
-  if (!p.success) return { ok: false, error: "Preveri e-naslov." };
-  if (isDemoMode) return { ok: false, error: "V demo načinu pošiljanje ni na voljo." };
-  if (!mailConfigured()) return { ok: false, error: "Pošiljanje e-pošte še ni nastavljeno." };
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Seja je potekla. Prijavi se znova." };
-  const { data: me } = await supabase.from("staff").select("id,email").eq("auth_user_id", user.id).single();
-  if (!me) return { ok: false, error: "Uporabnik ni najden." };
-
-  const typed = p.data.email.trim();
-  const to = typed || (me.email as string | null) || "";
-  if (!to) return { ok: false, error: "Vpiši svoj e-naslov." };
-  if (typed && typed !== me.email) await supabase.from("staff").update({ email: typed }).eq("id", me.id);
-
-  const day = (await getDeliveryDays({ ahead: 8 })).find((d) => d.date === p.data.day);
-  if (!day) return { ok: false, error: "Za ta dan ni naročil." };
-  const active = day.orders.filter((o) => !o.cancelled);
-  const orders = p.data.scope === "mine" ? active.filter((o) => o.driverId === me.id) : active;
-  if (orders.length === 0) {
-    return { ok: false, error: p.data.scope === "mine" ? "Za ta dan nimaš dodeljenih naročil. Izberi »Vsa naročila dneva«." : "Za ta dan ni naročil." };
-  }
-
-  const { subject, text, html } = buildPrintMail(day.date, orders, p.data.scope === "mine" ? "moja naročila" : undefined);
-  const r = await sendMail({ to, subject, text, html, internal: true });
-  if (!r.ok) return { ok: false, error: `Pošiljanje ni uspelo: ${r.error}` };
-  return { ok: true, to, count: orders.length };
 }

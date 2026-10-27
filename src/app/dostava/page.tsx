@@ -2,9 +2,8 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
 import { getDeliveryDays, todayIso } from "@/lib/delivery-days";
-import { createClient } from "@/lib/supabase/server";
 import { printMailTo } from "@/lib/print-mail";
-import { DayChips, DayPreview, MailToMe, PrintMine } from "./day-preview";
+import { DayChips, DayPreview, PrintMine } from "./day-preview";
 import { DeliveryList } from "./delivery-list";
 import { PushToggle } from "./push-toggle";
 
@@ -30,9 +29,6 @@ export default async function DostavaPage({ searchParams }: { searchParams: Prom
   const selected = q.d && /^\d{4}-\d{2}-\d{2}$/.test(q.d) && q.d > today && days.some((d) => d.date === q.d) ? q.d : today;
   const day = days.find((d) => d.date === selected) ?? null;
 
-  const supabase = await createClient();
-  const { data: me } = await supabase.from("staff").select("email").eq("id", staff.id).maybeSingle();
-
   return (
     <AppShell
       title="Dostava"
@@ -45,7 +41,6 @@ export default async function DostavaPage({ searchParams }: { searchParams: Prom
       <PushToggle />
       <DayChips days={days} selected={selected} today={today} meId={staff.id} />
       <PrintMine day={selected} to={printMailTo()} />
-      <MailToMe day={selected} email={(me?.email as string | null) ?? null} />
       {selected === today ? (
         <DeliveryList day={day} date={today} canEdit={staff.role !== "sales"} meId={staff.id} />
       ) : day ? (

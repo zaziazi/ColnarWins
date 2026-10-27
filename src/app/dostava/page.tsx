@@ -2,12 +2,14 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
 import { getDeliveryDays, todayIso } from "@/lib/delivery-days";
+import { createClient } from "@/lib/supabase/server";
+import { DayChips, DayPreview, MailToMe } from "./day-preview";
 import { DeliveryList } from "./delivery-list";
 import { PushToggle } from "./push-toggle";
 
 export const dynamic = "force-dynamic";
 
-export default async function DostavaPage() {
+export default async function DostavaPage({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
   const staff = await getCurrentStaff();
 
   if (!staff) {
@@ -21,19 +23,32 @@ export default async function DostavaPage() {
   }
 
   const today = todayIso();
-  const day = (await getDeliveryDays()).find((d) => d.date === today) ?? null;
+  const q = await searchParams;
+  // the coming week can be looked at; only today can be ticked off
+  const days = await getDeliveryDays({ ahead: 8 });
+  const selected = q.d && /^\d{4}-\d{2}-\d{2}$/.test(q.d) && q.d > today && days.some((d) => d.date === q.d) ? q.d : today;
+  const day = days.find((d) => d.date === selected) ?? null;
+
+  const supabase = await createClient();
+  const { data: me } = await supabase.from("staff").select("email").eq("id", staff.id).maybeSingle();
 
   return (
     <AppShell
       title="Dostava"
-      subtitle="Današnja dostava"
+      subtitle={selected === today ? "Današnja dostava" : "Pregled prihodnjih dni"}
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="narocila"
     >
       <PushToggle />
-      <DeliveryList day={day} date={today} canEdit={staff.role !== "sales"} meId={staff.id} />
+      <DayChips days={days} selected={selected} today={today} meId={staff.id} />
+      <MailToMe day={selected} email={(me?.email as string | null) ?? null} />
+      {selected === today ? (
+        <DeliveryList day={day} date={today} canEdit={staff.role !== "sales"} meId={staff.id} />
+      ) : day ? (
+        <DayPreview day={day} meId={staff.id} today={today} />
+      ) : null}
     </AppShell>
   );
 }

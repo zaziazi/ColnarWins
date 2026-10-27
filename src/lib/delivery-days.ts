@@ -86,12 +86,12 @@ function fingerprint(o: {
  * involved): unfinished days from the last two days up to four days ahead.
  * A day is "confirmed" once the driver has confirmed it.
  */
-export async function getDeliveryDays(): Promise<DeliveryDay[]> {
+export async function getDeliveryDays(opts: { ahead?: number } = {}): Promise<DeliveryDay[]> {
   if (isDemoMode) return [];
 
   const today = isoDay(0);
   const from = isoDay(-2);
-  const to = isoDay(4);
+  const to = isoDay(opts.ahead ?? 4);
   const supabase = await createClient();
 
   const [ordersRes, daysRes] = await Promise.all([

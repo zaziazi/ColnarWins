@@ -110,7 +110,7 @@ export function AppShell({
   const allTabs = SECTION_TABS[section];
   const tabs =
     section === "narocila" && role === "sales"
-      ? allTabs?.filter((t) => t.href === "/dostava" || t.href === "/pisarna/novo")
+      ? allTabs?.filter((t) => t.href === "/dostava" || t.href === "/pisarna/novo" || t.href === "/tisk")
       : section === "finance" && !isAdmin
         ? undefined // the new Finance tools are for the admin only for now
         : section === "klub" && role !== "manager"

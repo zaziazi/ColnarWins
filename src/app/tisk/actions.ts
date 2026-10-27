@@ -111,7 +111,7 @@ export async function dismissCancelled(orderId: string): Promise<{ ok: true } | 
  * A salesperson / driver sends his own orders of a day (today or the coming week) to the office for printing.
  * Unlike the office's "Pošlji v tisk" this does not wait for the day to be confirmed: it is the person himself asking for his papers.
  */
-export async function sendMyOrdersToPrint(day: string): Promise<PrintResult> {
+export async function sendMyOrdersToPrint(day: string, orderIds?: string[]): Promise<PrintResult> {
   if (!z.string().regex(/^\d{4}-\d{2}-\d{2}$/).safeParse(day).success) return { ok: false, error: "Neveljaven datum." };
   if (isDemoMode) return { ok: false, error: "V demo načinu pošiljanje ni na voljo." };
   if (!mailConfigured()) return { ok: false, error: "Pošiljanje e-pošte ni nastavljeno (MAIL_FROM in SMTP_* v Vercelu)." };
@@ -125,7 +125,8 @@ export async function sendMyOrdersToPrint(day: string): Promise<PrintResult> {
   if (!me) return { ok: false, error: "Uporabnik ni najden." };
 
   const found = (await getDeliveryDays({ ahead: 8 })).find((d) => d.date === day);
-  const orders = (found?.orders ?? []).filter((o) => !o.cancelled && o.driverId === me.id);
+  const wanted = orderIds && orderIds.length > 0 ? new Set(orderIds) : null;
+  const orders = (found?.orders ?? []).filter((o) => !o.cancelled && o.driverId === me.id && (!wanted || wanted.has(o.orderId)));
   if (orders.length === 0) return { ok: false, error: "Za ta dan nimaš dodeljenih naročil." };
 
   const { sent, failure, to } = await mailForPrint(day, orders, true);

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { dateShort, narocila } from "@/lib/format";
 import type { DeliveryDay, DayOrder } from "@/lib/delivery-days";
-import { dismissCancelled, sendToPrint } from "./actions";
+import { dismissCancelled, sendMyOrdersToPrint, sendToPrint } from "./actions";
 
 function addDays(iso: string, n: number): string {
   const d = new Date(`${iso}T12:00:00`);
@@ -39,13 +39,17 @@ function StatusBadge({ order }: { order: DayOrder }) {
   return <Badge tone="neutral">Še ni poslano</Badge>;
 }
 
-export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today: string; mailTo: string }) {
+/**
+ * `mine`: a salesperson's view. Only his own orders, every day of the coming week (no need to wait for the
+ * day to be confirmed), and sending goes through his own action, so nobody else's orders are ever sent.
+ */
+export function PrintPanel({ days, today, mailTo, mine = false }: { days: DeliveryDay[]; today: string; mailTo: string; mine?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
 
   async function send(key: string, day: string, orderIds?: string[]) {
     setBusy(key);
-    const res = await sendToPrint({ day, orderIds });
+    const res = mine ? await sendMyOrdersToPrint(day, orderIds) : await sendToPrint({ day, orderIds });
     setBusy(null);
     if (!res.ok) return toast.error(res.error);
     router.refresh();
@@ -59,8 +63,8 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
     router.refresh();
   }
 
-  const confirmed = days.filter((d) => d.confirmedAt);
-  const waiting = days.filter((d) => !d.confirmedAt && d.date >= today);
+  const confirmed = mine ? days : days.filter((d) => d.confirmedAt);
+  const waiting = mine ? [] : days.filter((d) => !d.confirmedAt && d.date >= today);
 
   if (days.length === 0) {
     return (
@@ -73,12 +77,12 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
   return (
     <div>
       <p className="text-[12.5px] text-ink-muted mb-4 px-0.5 flex items-center gap-1.5">
-        <Mail className="size-3.5 shrink-0" /> Naročila se pošljejo na <strong>{mailTo}</strong>, tam jih natisne pisarna.
+        <Mail className="size-3.5 shrink-0" /> {mine ? "Tvoja naročila" : "Naročila"} se pošljejo na <strong>{mailTo}</strong>, tam jih natisne pisarna.
       </p>
 
       {confirmed.length === 0 && (
         <Card className="p-5 text-center mb-6">
-          <p className="text-[13px] text-ink-muted">Noben dan še ni potrjen. Dostavo za dan potrdiš v zavihku Naročila.</p>
+          <p className="text-[13px] text-ink-muted">{mine ? "Nimaš dodeljenih naročil za naslednje dni." : "Noben dan še ni potrjen. Dostavo za dan potrdiš v zavihku Naročila."}</p>
         </Card>
       )}
 
@@ -96,7 +100,8 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
                 </h2>
                 <p className="text-[12px] text-ink-muted mt-0.5 truncate">
                   {narocila(active.length)}
-                  {day.confirmedByName && ` · potrdil/a ${day.confirmedByName}`}
+                  {!mine && day.confirmedByName && ` · potrdil/a ${day.confirmedByName}`}
+                  {mine && !day.confirmedAt && " · dan še ni potrjen"}
                 </p>
               </div>
               <Button
@@ -138,7 +143,7 @@ export function PrintPanel({ days, today, mailTo }: { days: DeliveryDay[]; today
                       </li>
                     ))}
                   </ul>
-                  {o.cancelled && (
+                  {o.cancelled && !mine && (
                     <div className="mt-2.5">
                       <Button size="sm" variant="secondary" loading={busy === o.orderId} onClick={() => void dismiss(o.orderId)}>
                         <X className="size-3.5" /> Odstrani

@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
@@ -21,20 +20,24 @@ export default async function TiskPage() {
     );
   }
 
-  if (staff.role === "sales") redirect("/dostava");
-
-  const days = await getDeliveryDays();
+  // a salesperson sees and prints only his own orders, for the coming week, confirmed or not
+  const mine = staff.role === "sales";
+  const days = mine
+    ? (await getDeliveryDays({ ahead: 8 }))
+        .map((d) => ({ ...d, orders: d.orders.filter((o) => o.driverId === staff.id) }))
+        .filter((d) => d.date >= todayIso() && d.orders.length > 0)
+    : await getDeliveryDays();
 
   return (
     <AppShell
       title="Tisk"
-      subtitle="Potrjeni dnevi dostave"
+      subtitle={mine ? "Moja naročila za tisk" : "Potrjeni dnevi dostave"}
       who={staff.fullName}
       role={staff.role}
       seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="narocila"
     >
-      <PrintPanel days={days} today={todayIso()} mailTo={printMailTo()} />
+      <PrintPanel days={days} today={todayIso()} mailTo={printMailTo()} mine={mine} />
     </AppShell>
   );
 }

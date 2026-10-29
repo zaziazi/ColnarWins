@@ -3,9 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, BarChart3, Users } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, BarChart3, Users, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
+import { FixButton } from "@/components/fix-button";
 import { ViewAsPicker } from "@/components/view-as";
 import { Drawer, visibleGroups } from "./drawer";
 import { createClient } from "@/lib/supabase/client";
@@ -52,6 +53,7 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/admin",             label: "Uporabniki in vloge", icon: UserCog, exact: true },
     { href: "/admin/degustacije", label: "Degustacije",         icon: CalendarCheck },
     { href: "/admin/dnevnik",     label: "Dnevnik",             icon: History },
+    { href: "/admin/fix",         label: "FIX predlogi",        icon: Wrench },
   ],
   finance: [
     { href: "/finance",            label: "Pregled denarja",     icon: Banknote, exact: true },
@@ -258,6 +260,7 @@ export function AppShell({
             </div>
             <div className="flex items-center gap-2">
               {who && <span className="text-xs text-ink-subtle">{who}</span>}
+              {role && <FixButton />}
               <button
                 type="button"
                 aria-label="Osveži"
@@ -276,17 +279,20 @@ export function AppShell({
               <h1 className="mt-2.5 min-[900px]:mt-0 text-xl min-[900px]:text-2xl font-bold tracking-[-0.02em]">{title}</h1>
               {subtitle && <p className="text-[12.5px] min-[900px]:text-[13.5px] text-ink-muted mt-0.5">{subtitle}</p>}
             </div>
-            <button
-              type="button"
-              aria-label="Osveži"
-              title="Osveži podatke"
-              disabled={refreshing}
-              onClick={() => startRefresh(() => router.refresh())}
-              className="hidden min-[900px]:grid h-9 w-9 place-items-center rounded-[8px] text-ink-subtle
-                         hover:bg-surface-muted hover:text-ink transition-colors disabled:opacity-60"
-            >
-              <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-            </button>
+            <div className="hidden min-[900px]:flex items-center gap-2">
+              {role && <FixButton />}
+              <button
+                type="button"
+                aria-label="Osveži"
+                title="Osveži podatke"
+                disabled={refreshing}
+                onClick={() => startRefresh(() => router.refresh())}
+                className="grid h-9 w-9 place-items-center rounded-[8px] text-ink-subtle
+                           hover:bg-surface-muted hover:text-ink transition-colors disabled:opacity-60"
+              >
+                <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+              </button>
+            </div>
           </div>
         </header>
 

@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { getViewAsState } from "@/lib/data";
 import { ViewAsBanner, ViewAsProvider } from "@/components/view-as";
+import { PwaBoot } from "@/components/install-app";
 
 export const metadata: Metadata = {
   title: "Colnix",
@@ -16,6 +17,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +25,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="sl">
       <body>
+        <PwaBoot />
         <ViewAsProvider state={viewAs}>
           <ViewAsBanner />
           {children}

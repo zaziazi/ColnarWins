@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { FixButton } from "@/components/fix-button";
 import { ViewAsPicker } from "@/components/view-as";
+import { InstallCard } from "@/components/install-app";
 import { Drawer, visibleGroups } from "./drawer";
 import { createClient } from "@/lib/supabase/client";
 
@@ -331,11 +332,12 @@ export function AppShell({
             wide ? "min-[900px]:max-w-[1280px]" : "min-[900px]:max-w-[820px]",
           )}
         >
+          {section === "dashboard" && <InstallCard />}
           {children}
         </main>
 
         {tabs && (
-          <nav className="min-[900px]:hidden fixed bottom-0 inset-x-0 mx-auto w-full max-w-[520px] bg-surface border-t border-line flex">
+          <nav className="min-[900px]:hidden fixed bottom-0 inset-x-0 mx-auto w-full max-w-[520px] bg-surface border-t border-line flex pb-[env(safe-area-inset-bottom)]">
             {tabs.map(({ href, label, icon: Icon, exact }) => {
               const active = exact ? pathname === href : pathname.startsWith(href);
               return (

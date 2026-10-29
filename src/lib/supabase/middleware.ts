@@ -41,6 +41,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === "/api/instantly/webhook" || // Instantly events (secret header)
     request.nextUrl.pathname === "/api/degustacije/inbound" || // website reservation e-mails (secret header)
     request.nextUrl.pathname === "/manifest.webmanifest" ||
+    request.nextUrl.pathname === "/colnix-sw.js" ||
     request.nextUrl.pathname.startsWith("/api/cron/"); // guarded by CRON_SECRET, not a session
 
   // A login created by the admin carries a temporary password: send it to the change-password

@@ -65,6 +65,7 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none; /* installed app: no accidental pull-to-refresh; there is a Osveži button */
   }
   body {
     background-color: var(--color-canvas);

@@ -8,6 +8,7 @@ import { getRepCustomers, resolveRep } from "@/lib/sales/work";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { PlanButton } from "../plan-button";
+import { NewCustomerButton } from "./new-customer";
 import { AddCustomer, RemoveCustomer, type Candidate } from "./owner-editor";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function MyCustomersPage({ searchParams }: { searchParams: 
   const staff = await getCurrentStaff();
   if (!staff || (staff.role !== "sales" && staff.role !== "manager")) {
     return (
-      <AppShell title="Moje stranke" who="Prijava potrebna" section="prodaja">
+      <AppShell title="Moje stranke" who="Prijava potrebna" section="dashboard">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted">Ta stran je na voljo samo prodaji in vodstvu.</p>
         </Card>
@@ -55,7 +56,7 @@ export default async function MyCustomersPage({ searchParams }: { searchParams: 
       subtitle={isManager ? repName : `${customers.length} strank · ${dormant} brez naročila 60+ dni`}
       who={staff.fullName}
       role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
-      section="prodaja"
+      section="dashboard"
       wide
     >
       {isManager && reps.length > 1 && (
@@ -72,6 +73,10 @@ export default async function MyCustomersPage({ searchParams }: { searchParams: 
         Tukaj so stranke, ki jih je pridobil {isManager ? repName : "ti"}. Stranke od prej nimajo prodajalca; njihova naročila lahko vseeno vozi {isManager ? repName : "ti"}, a ne štejejo kot prodaja.
         {isManager ? "" : " Stranke ti dodeli vodstvo; nove stranke, ki jih vneseš sam, so avtomatsko tvoje."}
       </p>
+
+      <div className="mb-4">
+        <NewCustomerButton repId={isManager ? repId : undefined} repName={isManager ? repName : undefined} />
+      </div>
 
       {isManager && <AddCustomer repId={repId} repName={repName} candidates={candidates} />}
 

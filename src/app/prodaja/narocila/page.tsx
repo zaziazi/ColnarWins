@@ -33,7 +33,7 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
   const staff = await getCurrentStaff();
   if (!staff || (staff.role !== "sales" && staff.role !== "manager")) {
     return (
-      <AppShell title="Moja naročila" who="Prijava potrebna" section="prodaja">
+      <AppShell title="Moja naročila" who="Prijava potrebna" section="dashboard">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted">Ta stran je na voljo samo prodaji in vodstvu.</p>
         </Card>
@@ -67,7 +67,7 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
       subtitle={isManager ? repName : "Naročila tvojih strank in dostave, ki jih voziš"}
       who={staff.fullName}
       role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
-      section="prodaja"
+      section="dashboard"
       wide
     >
       {isManager && reps.length > 1 && (

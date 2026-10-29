@@ -54,7 +54,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
   if (staff?.role === "sales" && !mayEdit) redirect("/prodaja/narocila");
 
   const editable = order && (order.status === "draft" || order.status === "confirmed");
-  const shellSection = staff?.role === "sales" ? "prodaja" : "narocila";
+  const shellSection = staff?.role === "sales" ? "dashboard" : "narocila";
 
   if (!editable) {
     return (

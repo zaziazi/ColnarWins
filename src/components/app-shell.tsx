@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, BarChart3, Users, Wrench } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, BarChart3, Users, Wrench, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { FixButton } from "@/components/fix-button";
@@ -34,14 +34,18 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
     { href: "/nacrt",        label: "Načrt",      icon: MapPin },
     { href: "/voznik",       label: "Voznik",     icon: Truck },
   ],
+  // Each person's own Pregled; the detail pages a salesperson or manager needs hang off it.
+  dashboard: [
+    { href: "/pregled",            label: "Pregled",    icon: LayoutDashboard, exact: true },
+    { href: "/prodaja/stranke",    label: "Stranke",    icon: Users },
+    { href: "/prodaja/narocila",   label: "Naročila",   icon: ClipboardList },
+    { href: "/prodaja/statistika", label: "Statistika", icon: BarChart3 },
+  ],
   prodaja: [
     { href: "/prodaja",        label: "Zemljevid",   icon: MapIcon, exact: true },
     { href: "/prodaja/teden",  label: "Načrt",       icon: CalendarDays },
     { href: "/prodaja/danes",  label: "Na terenu",    icon: Footprints },
-    { href: "/prodaja/stranke", label: "Stranke",    icon: Users },
-    { href: "/prodaja/narocila", label: "Naročila",  icon: ClipboardList },
     { href: "/prodaja/zaloga", label: "Vino v avtu", icon: Wine },
-    { href: "/prodaja/statistika", label: "Statistika", icon: BarChart3 },
   ],
   degustacije: [
     { href: "/degustacije",            label: "Odgovori",          icon: MessageSquareReply, exact: true },
@@ -112,7 +116,9 @@ export function AppShell({
       ? allTabs?.filter((t) => t.href === "/dostava" || t.href === "/pisarna/novo" || t.href === "/tisk")
       : section === "finance" && !isAdmin
         ? undefined // the new Finance tools are for the admin only for now
-        : allTabs;
+        : section === "dashboard" && role !== "sales" && role !== "manager"
+          ? undefined // only salespeople and managers have detail pages under Pregled
+          : allTabs;
 
   const { home, groups } = visibleGroups(role, seesAc, isAdmin, denied);
 
@@ -144,6 +150,18 @@ export function AppShell({
               <home.icon className="size-[18px]" strokeWidth={1.8} />
               {home.label}
             </Link>
+          )}
+          {home && section === "dashboard" && tabs && (
+            <div className="ml-5 mt-0.5 mb-1.5 pl-3 border-l border-line space-y-0.5">
+              {tabs.map(({ href: h, label: l, exact }) => {
+                const on = exact ? pathname === h : pathname.startsWith(h);
+                return (
+                  <Link key={h} href={h} className={cn("block px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-colors", on ? "text-wine font-semibold" : "text-ink-subtle hover:text-ink")}>
+                    {l}
+                  </Link>
+                );
+              })}
+            </div>
           )}
           {groups.map((g) => {
             const open = g.sections.some((x) => x.key === section);

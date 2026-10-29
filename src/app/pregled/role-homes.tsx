@@ -10,6 +10,7 @@ import { dateSl, eur, flasa } from "@/lib/format";
 import { addDays, dayMonth, monthStart, todayIso } from "@/lib/sales/dates";
 import { getSalesStats } from "@/lib/sales/stats";
 import { getRepCustomers, getRepWork } from "@/lib/sales/work";
+import { NewCustomerButton } from "@/app/prodaja/stranke/new-customer";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -89,6 +90,10 @@ export async function SalesHome({ staff }: { staff: Staff }) {
 
   return (
     <Shell staff={staff} subtitle="tvoje delo in tvoje stranke">
+      <div className="flex flex-wrap gap-2 mb-5">
+        <NewCustomerButton />
+        <Link href="/pisarna/novo" className="h-9 px-3.5 rounded-full text-[13px] font-semibold border border-line bg-surface text-ink-muted inline-flex items-center">Novo naročilo</Link>
+      </div>
       <Heading>Ta teden</Heading>
       <div className="grid grid-cols-2 min-[900px]:grid-cols-5 gap-2.5 mb-2">
         <Stat label="Obiski" value={String(c.visits)} delta={c.visits - p.visits} hint={`${c.met} srečanj`} />
@@ -129,7 +134,10 @@ export async function SalesHome({ staff }: { staff: Staff }) {
         </section>
       </div>
 
-      <Heading>Ta mesec: naročila in dostave</Heading>
+      <div className="flex items-baseline justify-between mb-2.5 px-0.5">
+        <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle">Ta mesec: naročila in dostave</h2>
+        <Link href="/prodaja/narocila" className="text-[12.5px] font-semibold text-wine shrink-0">Moja naročila →</Link>
+      </div>
       <div className="grid grid-cols-2 min-[900px]:grid-cols-4 gap-2.5 mb-6">
         <Stat label="Naročila mojih strank" value={String(work.customerOrders.count)} hint={Object.entries(work.customerOrders.byStatus).map(([k, n]) => `${n} ${(statusLabel[k as keyof typeof statusLabel] ?? k).toLowerCase()}`).join(" · ") || `${work.customerCount} strank`} />
         <Stat label="Vrednost naročil" value={eur(work.customerOrders.value)} hint="brez osnutkov" good />

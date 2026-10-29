@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { OrderForm } from "@/components/order-form";
+import { createClient } from "@/lib/supabase/server";
 import {
   getCurrentStaff,
   getCustomers,
@@ -40,13 +41,24 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
     getCurrentStaff(),
   ]);
 
-  if (staff?.role === "sales") redirect("/dostava");
+  // A salesperson may change orders of his own customers and ones he entered himself, nobody else's.
+  let mayEdit = staff?.role !== "sales";
+  if (staff?.role === "sales" && order) {
+    const supabase = await createClient();
+    const [{ data: c }, { data: o }] = await Promise.all([
+      supabase.from("customer").select("sales_rep_id").eq("id", order.customerId).single(),
+      supabase.from("sales_order").select("created_by").eq("id", id).single(),
+    ]);
+    mayEdit = c?.sales_rep_id === staff.id || o?.created_by === staff.id;
+  }
+  if (staff?.role === "sales" && !mayEdit) redirect("/prodaja/narocila");
 
   const editable = order && (order.status === "draft" || order.status === "confirmed");
+  const shellSection = staff?.role === "sales" ? "prodaja" : "narocila";
 
   if (!editable) {
     return (
-      <AppShell title="Uredi naročilo" who={staff?.fullName ?? "Prijava potrebna"} role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin} denied={staff?.denied} section="narocila">
+      <AppShell title="Uredi naročilo" who={staff?.fullName ?? "Prijava potrebna"} role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin} denied={staff?.denied} section={shellSection}>
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted leading-relaxed">
             {order ? "Tega naročila ni več mogoče urejati." : "Naročilo ne obstaja."}
@@ -62,7 +74,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
       subtitle={order.customerName}
       who={staff?.fullName ?? "Prijava potrebna"}
       role={staff?.role} seesAc={staff?.seesAc} isAdmin={staff?.isAdmin} denied={staff?.denied}
-      section="narocila"
+      section={shellSection}
     >
       <OrderForm
         customers={customers}
@@ -70,6 +82,8 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
         standingOrders={standingOrders}
         deliveryDates={nextDeliveryDates()}
         drivers={drivers}
+        extrasNeedApproval={staff?.role === "sales"}
+        doneHref={staff?.role === "sales" ? "/prodaja/narocila" : "/pisarna"}
         editOrder={{
           id: order.id,
           customerId: order.customerId,

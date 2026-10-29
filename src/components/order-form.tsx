@@ -43,6 +43,8 @@ interface Props {
   editOrder?: EditOrder;
   /** A salesperson may add a discount or gratis, but the office confirms such an order. */
   extrasNeedApproval?: boolean;
+  /** Where to go after saving; the office list by default. */
+  doneHref?: string;
 }
 
 /**
@@ -61,6 +63,7 @@ export function OrderForm({
   drivers,
   editOrder,
   extrasNeedApproval = false,
+  doneHref = "/pisarna",
 }: Props) {
   const router = useRouter();
 
@@ -221,7 +224,7 @@ export function OrderForm({
           return;
         }
 
-        router.push("/pisarna");
+        router.push(doneHref);
         router.refresh();
         return;
       }

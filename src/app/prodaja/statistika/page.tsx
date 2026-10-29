@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { Badge } from "@/components/ui/badge";
+import { Badge, statusLabel } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
 import { eur, flasa } from "@/lib/format";
+import { getRepWork } from "@/lib/sales/work";
 import { addDays, dayMonth, todayIso } from "@/lib/sales/dates";
 import { getSalesStats, type PeriodNumbers, type StatsRange } from "@/lib/sales/stats";
 import { createClient } from "@/lib/supabase/server";
@@ -43,6 +44,10 @@ export default async function SalesStatsPage({ searchParams }: { searchParams: P
   const pickedName = staff.role === "manager" ? (repList.find((r) => r.id === picked)?.full_name ?? staff.fullName) : staff.fullName;
 
   const s = await getSalesStats(supabase, picked, range, today);
+  const work = await getRepWork(supabase, picked, s.from, s.to, today);
+  const statusLine = Object.entries(work.customerOrders.byStatus)
+    .map(([k, n]) => `${n} ${(statusLabel[k as keyof typeof statusLabel] ?? k).toLowerCase()}`)
+    .join(" · ");
   const c = s.current;
   const p = s.previous;
   const conv = c.met > 0 ? Math.round((c.ordered / c.met) * 100) : 0;
@@ -90,6 +95,22 @@ export default async function SalesStatsPage({ searchParams }: { searchParams: P
         <Stat label="Razmislili bodo" value={String(c.thinking)} delta={c.thinking - p.thinking} hint="še ni zaprto" warn={c.thinking > 0} />
         <Stat label="Vzorci" value={flasa(c.sampleBottles)} hint="steklenic natočenih" />
       </div>
+
+      <Heading>Naročila in dostave</Heading>
+      <div className="grid grid-cols-2 min-[900px]:grid-cols-4 gap-2.5 mb-4">
+        <Stat label="Naročila mojih strank" value={String(work.customerOrders.count)} hint={statusLine || `${work.customerCount} strank na seznamu`} />
+        <Stat label="Vrednost naročil" value={eur(work.customerOrders.value)} hint="brez osnutkov" good />
+        <Stat label="Moje dostave" value={String(work.deliveries.count)} hint={`${eur(work.deliveries.value)} · ${work.deliveries.forOwn} mojim, ${work.deliveries.forOthers} drugim strankam`} />
+        <Stat label="Dostave pred mano" value={String(work.upcoming)} hint="potrjeno ali načrtovano" />
+      </div>
+      <Link href={`/prodaja/stranke${staff.role === "manager" ? `?p=${picked}` : ""}`} className="block mb-5">
+        <Card className={cn("p-3.5 flex items-center justify-between gap-3", work.dormant > 0 && "border-warn")}>
+          <p className="text-[13px] text-ink-muted">
+            <strong className="text-ink">{work.dormant}</strong> od {work.customerCount} strank brez naročila 60+ dni
+          </p>
+          <span className="text-[12.5px] font-semibold text-wine shrink-0">Moje stranke →</span>
+        </Card>
+      </Link>
 
       <Card className="p-3.5 mb-5">
         <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-ink-subtle mb-2">Obiski po dnevih</p>

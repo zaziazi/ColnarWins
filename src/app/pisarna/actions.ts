@@ -203,7 +203,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   const { data: existing, error: fetchError } = await supabase
     .from("sales_order")
-    .select("status,price_list,customer_id")
+    .select("status,price_list,customer_id,created_by")
     .eq("id", orderId)
     .single();
 
@@ -214,9 +214,32 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
     return { ok: false, error: "Tega naročila ni več mogoče urejati." };
   }
 
+  // A salesperson edits only orders of his own customers or ones he entered himself,
+  // and a discount or gratis puts the order back to the office for a look, like a new one.
+  const { data: auth } = await supabase.auth.getUser();
+  const { data: actor } = auth.user
+    ? await supabase.from("staff").select("id,role").eq("auth_user_id", auth.user.id).single()
+    : { data: null };
+  const isSales = actor?.role === "sales";
+  if (isSales) {
+    const { data: cust } = await supabase.from("customer").select("sales_rep_id").eq("id", existing.customer_id).single();
+    if (cust?.sales_rep_id !== actor.id && existing.created_by !== actor.id) {
+      return { ok: false, error: "To naročilo ni tvoje." };
+    }
+  }
+  const holdForOffice = isSales && lines.some((l) => l.discountPct > 0 || l.freeQty > 0);
+
   const { error: updateError } = await supabase
     .from("sales_order")
-    .update({ delivery_date: deliveryDate, driver_note: note || null, assigned_driver_id: driverId ?? null, assigned_driver_name: driverId ? null : driverName || null, price_list: priceList, payment_method: paymentMethod })
+    .update({
+      delivery_date: deliveryDate,
+      driver_note: note || null,
+      assigned_driver_id: driverId ?? null,
+      assigned_driver_name: driverId ? null : driverName || null,
+      price_list: priceList,
+      payment_method: paymentMethod,
+      ...(holdForOffice ? { status: "draft", review_note: "Prodajnik je vnesel popust ali gratis: preveri in potrdi." } : {}),
+    })
     .eq("id", orderId);
 
   if (updateError) return { ok: false, error: updateError.message };
@@ -262,6 +285,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
 
   await saveCustomerEmail(supabase, existing.customer_id as string, customerEmail);
   revalidatePath("/pisarna");
+  revalidatePath("/prodaja/narocila");
   revalidatePath(`/pisarna/${orderId}/uredi`);
   return { ok: true };
 }

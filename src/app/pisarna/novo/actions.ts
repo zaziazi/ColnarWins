@@ -149,6 +149,8 @@ export async function createPersonCustomer(
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false, error: "Seja je potekla. Prijavi se znova." };
 
+  // A customer a salesperson enters himself is his from the start.
+  const { data: me } = await supabase.from("staff").select("id,role").eq("auth_user_id", auth.user.id).single();
   const name = `${p.data.lastName} ${p.data.firstName}`;
   const { data, error } = await supabase
     .from("customer")
@@ -164,6 +166,7 @@ export async function createPersonCustomer(
       email: p.data.email || null,
       payment_terms_days: 0,
       active: true,
+      sales_rep_id: me?.role === "sales" ? me.id : null,
     })
     .select("id")
     .single();

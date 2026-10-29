@@ -10,6 +10,7 @@ import { getDayStates } from "@/lib/delivery-days";
 import { isDemoMode } from "@/lib/demo";
 import { narocila } from "@/lib/format";
 import { OrdersTable } from "./orders-table";
+import { CancelledOrders } from "./cancelled-orders";
 import { PhoneOrders } from "./phone-orders";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function OrdersPage() {
   const drafts = orders.filter((o) => o.status === "draft");
   const open = orders.filter((o) => o.status === "confirmed" || o.status === "planned");
   const done = orders.filter((o) => o.status === "delivered" || o.status === "invoiced");
+  const cancelled = orders.filter((o) => o.status === "cancelled");
   if (staff?.role === "sales") redirect("/prodaja/narocila"); // salespeople get the read-only orders-by-day view
   const days = groupByDay(open);
   const today = todayIso();
@@ -68,6 +70,7 @@ export default async function OrdersPage() {
           today={today}
         />
       </div>
+      <CancelledOrders orders={cancelled} />
     </AppShell>
   );
 }

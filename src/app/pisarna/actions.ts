@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isDemoMode } from "@/lib/demo";
+import { getCurrentStaff } from "@/lib/data";
 import { saveCustomerEmail } from "@/lib/customer-email";
 import { sendStoredDocuments } from "@/lib/documents/finalize";
 import { lineGross } from "@/lib/format";
@@ -119,6 +120,7 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<Act
     return { ok: true };
   }
 
+  if (!(await officeOnly())) return { ok: false, error: "Ni dostopa." };
   const supabase = await createClient();
 
   const { data: existing, error: fetchError } = await supabase
@@ -144,6 +146,81 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<Act
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/pisarna");
+  revalidatePath("/dostava");
+  revalidatePath("/tisk");
+  return { ok: true };
+}
+
+/** Cancelling, restoring and deleting are for the office and management only. */
+async function officeOnly(): Promise<boolean> {
+  const me = await getCurrentStaff();
+  return me?.role === "manager" || me?.role === "office";
+}
+
+/**
+ * Takes a cancelled order back. It returns as "confirmed" when it had been confirmed before, otherwise as a draft.
+ * For the mistaken cancel: nothing else about the order was touched.
+ */
+export async function restoreOrder(orderId: string): Promise<ActionResult> {
+  const parsed = OrderIdInput.safeParse({ orderId });
+  if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
+  if (isDemoMode) return { ok: true };
+  if (!(await officeOnly())) return { ok: false, error: "Ni dostopa." };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from("sales_order").select("status,confirmed_at").eq("id", parsed.data.orderId).single();
+  if (!existing) return { ok: false, error: "Naročilo ne obstaja." };
+  if (existing.status !== "cancelled") return { ok: false, error: "Naročilo ni preklicano." };
+
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ status: existing.confirmed_at ? "confirmed" : "draft", cancelled_at: null, cancel_reason: null })
+    .eq("id", parsed.data.orderId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/pisarna");
+  revalidatePath("/dostava");
+  revalidatePath("/tisk");
+  revalidatePath("/prodaja/narocila");
+  return { ok: true };
+}
+
+/**
+ * Permanently deletes an order that was never delivered (draft, confirmed, planned or cancelled) with its lines.
+ * A delivered order has its own, stricter delete. If the order is already tied to a route, an invoice or a sent mail
+ * the database refuses, and we say so instead of leaving things half-deleted.
+ */
+export async function deleteOrder(orderId: string): Promise<ActionResult> {
+  const parsed = OrderIdInput.safeParse({ orderId });
+  if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
+  if (isDemoMode) return { ok: true };
+  if (!(await officeOnly())) return { ok: false, error: "Ni dostopa." };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from("sales_order").select("status").eq("id", parsed.data.orderId).single();
+  if (!existing) return { ok: false, error: "Naročilo ne obstaja." };
+  if (existing.status === "delivered" || existing.status === "invoiced") {
+    return { ok: false, error: "Dostavljenega naročila izbriši pri dostavljenih naročilih." };
+  }
+
+  const { data, error } = await supabase
+    .from("sales_order")
+    .delete()
+    .eq("id", parsed.data.orderId)
+    .in("status", ["draft", "confirmed", "planned", "cancelled"])
+    .select("id");
+  if (error) {
+    return {
+      ok: false,
+      error: error.code === "23503" ? "Naročila ni mogoče izbrisati, ker je že povezano s potjo dostave, računom ali poslano e-pošto. Raje ga prekliči." : error.message,
+    };
+  }
+  if (!data || data.length === 0) return { ok: false, error: "Naročila ni bilo mogoče izbrisati." };
+
+  revalidatePath("/pisarna");
+  revalidatePath("/dostava");
+  revalidatePath("/tisk");
+  revalidatePath("/prodaja/narocila");
   return { ok: true };
 }
 

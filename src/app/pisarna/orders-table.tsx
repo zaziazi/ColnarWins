@@ -13,6 +13,7 @@ import { dateShort, eur } from "@/lib/format";
 import type { OrderListItem, OrderStatus } from "@/lib/types";
 import { confirmOrders } from "./actions";
 import { MoneyDialog, OrderMoney } from "./order-money";
+import { OrderActions } from "./order-actions";
 
 const SOURCE: Record<string, string> = {
   phone: "telefon",
@@ -131,7 +132,7 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                 <th className="px-3 py-2.5 font-bold text-right">Vrednost</th>
                 <th className="px-3 py-2.5 font-bold">Plačilo / račun</th>
                 <th className="px-3 py-2.5 font-bold">Vir</th>
-                <th className="px-3 py-2.5 w-20" />
+                <th className="px-3 py-2.5 w-44" />
               </tr>
             </thead>
             <tbody>
@@ -169,6 +170,9 @@ export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                         </Link>
                       </Button>
                     )}
+                    <div className="mt-1.5 flex justify-end">
+                      <OrderActions orderId={o.id} status={o.status} />
+                    </div>
                   </td>
                 </tr>
               ))}

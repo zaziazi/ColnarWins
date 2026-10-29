@@ -96,6 +96,9 @@ export interface OrderListItem {
   invoiceWaived?: boolean;
   invoiceWaivedNote?: string | null;
   paidAt?: string | null;
+  /** Set on cancelled orders. */
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
   /** Delivery documents e-mail for this order, once the delivery was signed. */
   mail: { status: "queued" | "sent" | "failed" | "no_recipient"; recipient: string | null; error: string | null } | null;
 }

@@ -142,12 +142,12 @@ export async function getOrders(): Promise<OrderListItem[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,source,delivery_date,created_at,delivered_at,invoiced_at,invoice_number,invoice_waived,invoice_waived_note,paid_at,payment_method,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
+        "id,order_number,status,source,delivery_date,created_at,delivered_at,invoiced_at,invoice_number,invoice_waived,invoice_waived_note,paid_at,cancelled_at,cancel_reason,payment_method,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
       );
 
   // Open work, soonest delivery first (no delivery date sinks to the bottom).
   // Delivered/invoiced orders are history: newest few only.
-  const [open, done] = await Promise.all([
+  const [open, done, cancelled] = await Promise.all([
     base()
       .in("status", ["draft", "confirmed", "planned"])
       .order("delivery_date", { ascending: true, nullsFirst: false })
@@ -156,12 +156,18 @@ export async function getOrders(): Promise<OrderListItem[]> {
       .in("status", ["delivered", "invoiced"])
       .order("delivered_at", { ascending: false, nullsFirst: false })
       .limit(30),
+    // recently cancelled, so a mistaken cancel can be undone
+    base()
+      .eq("status", "cancelled")
+      .order("cancelled_at", { ascending: false, nullsFirst: false })
+      .limit(30),
   ]);
 
   if (open.error) throw open.error;
   if (done.error) throw done.error;
+  if (cancelled.error) throw cancelled.error;
 
-  return [...(open.data ?? []), ...(done.data ?? [])].map((o) => {
+  return [...(open.data ?? []), ...(done.data ?? []), ...(cancelled.data ?? [])].map((o) => {
     const lines = o.order_line ?? [];
     const gross = lines.reduce((s, l) => s + lineGross(l), 0);
 
@@ -188,6 +194,8 @@ export async function getOrders(): Promise<OrderListItem[]> {
       priceList: (o.price_list as "gostinci" | "fizicne") ?? "gostinci",
       paymentMethod: ((o.payment_method as string | null) ?? "trr") as OrderListItem["paymentMethod"],
       deliveredAt: (o.delivered_at as string | null) ?? null,
+      cancelledAt: (o.cancelled_at as string | null) ?? null,
+      cancelReason: (o.cancel_reason as string | null) ?? null,
       invoicedAt: (o.invoiced_at as string | null) ?? null,
       invoiceNumber: (o.invoice_number as string | null) ?? null,
       invoiceWaived: Boolean(o.invoice_waived),

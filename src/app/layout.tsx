@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
+import { getViewAsState } from "@/lib/data";
+import { ViewAsBanner, ViewAsProvider } from "@/components/view-as";
 
 export const metadata: Metadata = {
   title: "Colnix",
@@ -16,11 +18,15 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const viewAs = await getViewAsState();
   return (
     <html lang="sl">
       <body>
-        {children}
+        <ViewAsProvider state={viewAs}>
+          <ViewAsBanner />
+          {children}
+        </ViewAsProvider>
         <Toaster
           position="bottom-center"
           offset={80}

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, Stamp, BarChart3, Users, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
+import { ViewAsPicker } from "@/components/view-as";
 import { Drawer, visibleGroups } from "./drawer";
 import { createClient } from "@/lib/supabase/client";
 
@@ -227,6 +228,7 @@ export function AppShell({
           })}
         </nav>
         <div className="border-t border-line pt-3 mt-3 space-y-0.5">
+          <ViewAsPicker className="block px-3 pb-2" />
           <Link href="/obvestila" className="flex items-center gap-3 px-3 py-1.5 rounded-[8px] text-[13px] font-medium text-ink-muted hover:bg-surface-muted">
             <Bell className="size-4" strokeWidth={1.8} /> Obvestila
           </Link>

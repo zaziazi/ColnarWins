@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canUseFinance, canUseOfficeTools } from "@/lib/office";
+import { ViewAsPicker } from "@/components/view-as";
 import type { StaffRole } from "@/lib/types";
 import type { SectionKey } from "./app-shell";
 
@@ -183,6 +184,7 @@ export function Drawer({
             );
           })}
         </nav>
+        <ViewAsPicker className="block border-t border-line px-4 pt-3" />
         <div className="border-t border-line px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <Link href="/obvestila" onClick={onClose} className="text-[13px] font-semibold text-ink-muted hover:text-ink">

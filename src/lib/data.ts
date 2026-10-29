@@ -1,4 +1,5 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { lineGross } from "./format";
 import {
@@ -20,6 +21,7 @@ import type {
   Product,
   ReceivablesAgeingBucket,
   RouteWithStops,
+  StaffRole,
   StandingOrder,
   StockLevel,
   StockMovementEntry,
@@ -522,8 +524,18 @@ export async function getRouteForDriver(date: string, staffId: string): Promise<
   });
 }
 
-/** The logged-in staff member, or null if logged out / demo mode. Drives role-based UI. */
-export async function getCurrentStaff(): Promise<CurrentStaff | null> {
+export const VIEW_AS_COOKIE = "colnix_view_as";
+
+type StaffRow = { id: string; full_name: string; role: StaffRole; sees_ac: boolean; is_admin: boolean | null; denied_sections: string[] | null };
+
+function toCurrentStaff(data: StaffRow): CurrentStaff {
+  return { id: data.id, fullName: data.full_name, role: data.role, seesAc: data.sees_ac, isAdmin: data.role === "manager" && Boolean(data.is_admin), denied: data.denied_sections ?? [] };
+}
+
+const STAFF_COLUMNS = "id,full_name,role,sees_ac,is_admin,denied_sections";
+
+/** The person who is actually logged in, never the "view as" person. */
+export async function getRealStaff(): Promise<CurrentStaff | null> {
   if (isDemoMode) return null;
 
   const supabase = await createClient();
@@ -532,15 +544,50 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from("staff")
-    .select("id,full_name,role,sees_ac,is_admin,denied_sections")
-    .eq("auth_user_id", user.id)
-    .single();
-
+  const { data, error } = await supabase.from("staff").select(STAFF_COLUMNS).eq("auth_user_id", user.id).single();
   if (error || !data) return null;
+  return toCurrentStaff(data as StaffRow);
+}
 
-  return { id: data.id, fullName: data.full_name, role: data.role, seesAc: data.sees_ac, isAdmin: data.role === "manager" && Boolean(data.is_admin), denied: (data.denied_sections as string[] | null) ?? [] };
+/**
+ * The logged-in staff member, or null if logged out / demo mode. Drives role-based UI.
+ * When the admin has picked "Poglej kot …" this returns that person's profile instead, so every
+ * page and tab shows exactly what they see. Only the admin's cookie is honoured; data is still
+ * read with the admin's own login.
+ */
+export async function getCurrentStaff(): Promise<CurrentStaff | null> {
+  const real = await getRealStaff();
+  if (!real?.isAdmin) return real;
+
+  const target = (await cookies()).get(VIEW_AS_COOKIE)?.value;
+  if (!target || target === real.id) return real;
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("staff").select(STAFF_COLUMNS).eq("id", target).eq("active", true).maybeSingle();
+  return data ? toCurrentStaff(data as StaffRow) : real;
+}
+
+export interface ViewAsState {
+  /** Only the admin gets a switcher. */
+  enabled: boolean;
+  /** Who is being shown right now (null = the admin's own view). */
+  viewingId: string | null;
+  viewingName: string | null;
+  people: { id: string; name: string; role: StaffRole }[];
+}
+
+export async function getViewAsState(): Promise<ViewAsState> {
+  const none: ViewAsState = { enabled: false, viewingId: null, viewingName: null, people: [] };
+  const real = await getRealStaff();
+  if (!real?.isAdmin) return none;
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("staff").select("id,full_name,role").eq("active", true).order("full_name");
+  const people = (data ?? []).filter((p) => p.id !== real.id).map((p) => ({ id: p.id, name: p.full_name, role: p.role as StaffRole }));
+
+  const target = (await cookies()).get(VIEW_AS_COOKIE)?.value;
+  const viewing = people.find((p) => p.id === target) ?? null;
+  return { enabled: true, viewingId: viewing?.id ?? null, viewingName: viewing?.name ?? null, people };
 }
 
 /** Receivables bucketed by age, for the manager dashboard. RLS makes this manager-only. */

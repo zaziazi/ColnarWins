@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentStaff } from "@/lib/data";
 import { isDemoMode } from "@/lib/demo";
 import { getDeliveryDays } from "@/lib/delivery-days";
 import { mailConfigured, sendMail } from "@/lib/documents/email";
@@ -116,13 +117,9 @@ export async function sendMyOrdersToPrint(day: string, orderIds?: string[]): Pro
   if (isDemoMode) return { ok: false, error: "V demo načinu pošiljanje ni na voljo." };
   if (!mailConfigured()) return { ok: false, error: "Pošiljanje e-pošte ni nastavljeno (MAIL_FROM in SMTP_* v Vercelu)." };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Seja je potekla. Prijavi se znova." };
-  const { data: me } = await supabase.from("staff").select("id").eq("auth_user_id", user.id).single();
-  if (!me) return { ok: false, error: "Uporabnik ni najden." };
+  // the effective person, so the admin's "Poglej kot Žak" sends Žak's orders
+  const me = await getCurrentStaff();
+  if (!me) return { ok: false, error: "Seja je potekla. Prijavi se znova." };
 
   const found = (await getDeliveryDays({ ahead: 8 })).find((d) => d.date === day);
   const wanted = orderIds && orderIds.length > 0 ? new Set(orderIds) : null;

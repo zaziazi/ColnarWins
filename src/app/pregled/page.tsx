@@ -7,6 +7,7 @@ import { getBrief, type BriefItem } from "@/lib/brief";
 import { getCurrentStaff, getMonthlyOrderTotals } from "@/lib/data";
 import { dateSl, eur, narocila } from "@/lib/format";
 import { RefreshBrief } from "./refresh-brief";
+import { DriverHome, EventsHome, OfficeHome, SalesHome } from "./role-homes";
 
 export const dynamic = "force-dynamic";
 
@@ -29,15 +30,21 @@ function greeting(): string {
 export default async function DashboardPage() {
   const staff = await getCurrentStaff();
 
-  if (!staff || staff.role !== "manager") {
+  if (!staff) {
     return (
       <AppShell title="Pregled" who="Prijava potrebna" section="dashboard">
         <Card className="p-7 text-center">
-          <p className="text-[13.5px] text-ink-muted leading-relaxed">Ta stran je na voljo samo vodstvu.</p>
+          <p className="text-[13.5px] text-ink-muted leading-relaxed">Prijavi se, da vidiš svoj pregled.</p>
         </Card>
       </AppShell>
     );
   }
+
+  // everyone has their own Pregled; management keeps the full dashboard below
+  if (staff.role === "sales") return <SalesHome staff={staff} />;
+  if (staff.role === "driver") return <DriverHome staff={staff} />;
+  if (staff.role === "office") return <OfficeHome staff={staff} />;
+  if (staff.role === "events") return <EventsHome staff={staff} />;
 
   const [brief, monthly] = await Promise.all([getBrief({ showOffice: staff.isAdmin }), getMonthlyOrderTotals()]);
   const n = brief.numbers;

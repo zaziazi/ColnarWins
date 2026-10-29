@@ -32,5 +32,5 @@ export async function changePassword(input: { password: string; repeat: string }
     const same = /different from the old password|same/i.test(error.message);
     return { ok: false, error: same ? "Novo geslo mora biti drugačno od starega." : "Gesla ni bilo mogoče spremeniti." };
   }
-  redirect("/pisarna");
+  redirect("/pregled");
 }

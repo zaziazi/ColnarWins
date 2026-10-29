@@ -28,7 +28,7 @@ export function LoginForm() {
       toast.error("Napačno uporabniško ime ali geslo.");
       return;
     }
-    router.push("/pisarna");
+    router.push("/pregled");
     router.refresh();
   }
 

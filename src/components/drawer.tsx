@@ -30,7 +30,7 @@ export const SECTIONS: {
   icon: typeof ClipboardList;
   visible: (role?: StaffRole, seesAc?: boolean, isAdmin?: boolean, denied?: string[]) => boolean;
 }[] = [
-  { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: (r) => r === "manager" },
+  { key: "dashboard", href: "/pregled",  label: "Pregled",  icon: LayoutDashboard, visible: () => true },
   { key: "narocila",  href: "/pisarna",  label: "Naročila", icon: ClipboardList,   visible: () => true },
   { key: "narocilaAc", href: "/nacrt", label: "Naročila AC", icon: ClipboardCheck, visible: (_r, ac) => ac === true },
   { key: "posta",     href: "/posta",    label: "Pošta",    icon: Mail,            visible: (r, _a, admin) => canUseOfficeTools(admin, r) },

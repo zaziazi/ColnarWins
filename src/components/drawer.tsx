@@ -73,7 +73,7 @@ export function visibleGroups(role?: StaffRole, seesAc?: boolean, isAdmin?: bool
       .map((x) => ({
         key: x.key,
         // a salesperson only has the Dostava tab in Naročila
-        href: x.key === "narocila" && role === "sales" ? "/dostava" : x.href,
+        href: x.key === "narocila" && role === "sales" ? "/prodaja/narocila" : x.href,
         label: g.inner?.[x.key] ?? x.label,
         icon: x.icon,
       }));

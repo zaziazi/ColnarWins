@@ -24,7 +24,7 @@ export default async function OrdersPage() {
   const drafts = orders.filter((o) => o.status === "draft");
   const open = orders.filter((o) => o.status === "confirmed" || o.status === "planned");
   const done = orders.filter((o) => o.status === "delivered" || o.status === "invoiced");
-  if (staff?.role === "sales") redirect("/dostava"); // Prodaja users only use Dostava here
+  if (staff?.role === "sales") redirect("/prodaja/narocila"); // salespeople get the read-only orders-by-day view
   const days = groupByDay(open);
   const today = todayIso();
 

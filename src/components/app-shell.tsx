@@ -72,6 +72,14 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   ],
 };
 
+/** A salesperson's Naročila section: enter an order, see every order by day (read-only), deliver, send to print. */
+const SALES_ORDER_TABS: NavItem[] = [
+  { href: "/pisarna/novo",     label: "Novo",     icon: Plus },
+  { href: "/prodaja/narocila", label: "Naročila", icon: ClipboardList },
+  { href: "/dostava",          label: "Dostava",  icon: Truck },
+  { href: "/tisk",             label: "Tisk",     icon: Printer },
+];
+
 /**
  * One shell for the whole field app.
  *
@@ -113,8 +121,10 @@ export function AppShell({
   const allTabs = SECTION_TABS[section];
   const tabs =
     section === "narocila" && role === "sales"
-      ? allTabs?.filter((t) => t.href === "/dostava" || t.href === "/pisarna/novo" || t.href === "/tisk")
-      : section === "finance" && !isAdmin
+      ? SALES_ORDER_TABS // Novo, all orders by day (read-only), Dostava, Tisk
+      : section === "dashboard" && role === "sales"
+        ? allTabs?.filter((t) => t.href !== "/prodaja/narocila") // his orders sit in the Naročila section
+        : section === "finance" && !isAdmin
         ? undefined // the new Finance tools are for the admin only for now
         : section === "dashboard" && role !== "sales" && role !== "manager"
           ? undefined // only salespeople and managers have detail pages under Pregled

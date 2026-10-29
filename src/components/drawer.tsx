@@ -7,8 +7,6 @@ import {
   Building2,
   CalendarCheck,
   ShieldCheck,
-  Stamp,
-  Store,
   ClipboardList,
   ClipboardCheck,
   Landmark,
@@ -41,7 +39,6 @@ export const SECTIONS: {
   { key: "admin",     href: "/admin",    label: "Admin",    icon: ShieldCheck,     visible: (r, _ac, admin) => r === "manager" && admin === true },
   { key: "klet",      href: "/klet",     label: "Klet",     icon: Warehouse,       visible: (r, _a, _m, d) => r === "manager" && !d?.includes("klet") },
   { key: "zaloge",    href: "/zaloge",   label: "Zaloge",   icon: Wine,            visible: (r, _a, _m, d) => r === "manager" && !d?.includes("zaloge") },
-  { key: "klub",      href: "/klub",     label: "Klub zvestobe", icon: Stamp,         visible: () => true },
   { key: "finance",   href: "/finance",  label: "Finance",  icon: Landmark,        visible: (r, _a, _m, d) => canUseFinance(r, d) },
 ];
 
@@ -62,7 +59,6 @@ const GROUPS: { key: string; label: string; icon: typeof ClipboardList; sections
   { key: "pisarna", label: "Pisarna", icon: Building2, sections: ["posta", "finance", "admin"] },
   { key: "klet", label: "Klet", icon: Warehouse, sections: ["klet", "zaloge"], inner: { klet: "Klet", zaloge: "Zaloge" } },
   { key: "degustacije", label: "Degustacije", icon: CalendarCheck, sections: ["degustacije"] },
-  { key: "vinoteka", label: "Vinoteka", icon: Store, sections: ["klub"] },
 ];
 
 /** Pregled stands alone on top; everything else sits in four groups. Empty groups disappear. */

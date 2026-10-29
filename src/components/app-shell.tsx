@@ -3,14 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, Stamp, BarChart3, Users, Send } from "lucide-react";
+import { ClipboardList, Plus, MapPin, Truck, Menu, FlaskConical, Warehouse, Upload, Map as MapIcon, CalendarDays, Footprints, Wine, MessageSquareReply, CalendarPlus, UserCog, CalendarCheck, Printer, History, Banknote, FileText, ReceiptText, ArrowLeftRight, RefreshCw, LogOut, Bell, KeyRound, BarChart3, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/types";
 import { ViewAsPicker } from "@/components/view-as";
 import { Drawer, visibleGroups } from "./drawer";
 import { createClient } from "@/lib/supabase/client";
 
-export type SectionKey = "dashboard" | "narocila" | "narocilaAc" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance" | "posta" | "klub";
+export type SectionKey = "dashboard" | "narocila" | "narocilaAc" | "prodaja" | "degustacije" | "admin" | "klet" | "zaloge" | "finance" | "posta";
 
 type NavItem = {
   href: string;
@@ -20,12 +20,6 @@ type NavItem = {
 };
 
 const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
-  klub: [
-    { href: "/klub",           label: "Žig",       icon: Stamp, exact: true },
-    { href: "/klub/pregled",   label: "Pregled",   icon: BarChart3 },
-    { href: "/klub/clani",     label: "Člani",     icon: Users },
-    { href: "/klub/sporocila", label: "Sporočila", icon: Send },
-  ],
   narocila: [
     { href: "/pisarna/novo", label: "Novo",       icon: Plus },
     { href: "/pisarna",      label: "Naročila",   icon: ClipboardList, exact: true },
@@ -116,9 +110,7 @@ export function AppShell({
       ? allTabs?.filter((t) => t.href === "/dostava" || t.href === "/pisarna/novo" || t.href === "/tisk")
       : section === "finance" && !isAdmin
         ? undefined // the new Finance tools are for the admin only for now
-        : section === "klub" && role !== "manager"
-          ? undefined // everyone can stamp; the overview, members and mails are for managers
-          : allTabs;
+        : allTabs;
 
   const { home, groups } = visibleGroups(role, seesAc, isAdmin, denied);
 

@@ -24,9 +24,9 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   narocila: [
     { href: "/pisarna/novo", label: "Novo",       icon: Plus },
     { href: "/pisarna",      label: "Naročila",   icon: ClipboardList, exact: true },
-    { href: "/dostava",      label: "Dostava",    icon: Truck },
-    { href: "/tisk",         label: "Tisk",       icon: Printer },
     { href: "/pisarna/koledar", label: "Koledar",   icon: CalendarDays },
+    { href: "/tisk",         label: "Tisk",       icon: Printer },
+    { href: "/dostava",      label: "Dostava",    icon: Truck },
   ],
   // The advanced flow (route planner, loading lists, signature + documents).
   // Only for staff with sees_ac - Novo and Naročila are shared with "narocila".
@@ -76,8 +76,8 @@ const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
 const SALES_ORDER_TABS: NavItem[] = [
   { href: "/pisarna/novo",     label: "Novo",     icon: Plus },
   { href: "/prodaja/narocila", label: "Naročila", icon: ClipboardList },
-  { href: "/dostava",          label: "Dostava",  icon: Truck },
   { href: "/tisk",             label: "Tisk",     icon: Printer },
+  { href: "/dostava",          label: "Dostava",  icon: Truck },
 ];
 
 /**
@@ -121,7 +121,7 @@ export function AppShell({
   const allTabs = SECTION_TABS[section];
   const tabs =
     section === "narocila" && role === "sales"
-      ? SALES_ORDER_TABS // Novo, all orders by day (read-only), Dostava, Tisk
+      ? SALES_ORDER_TABS // Novo, all orders by day (read-only), Tisk, Dostava
       : section === "dashboard" && role === "sales"
         ? allTabs?.filter((t) => t.href !== "/prodaja/narocila") // his orders sit in the Naročila section
         : section === "finance" && !isAdmin

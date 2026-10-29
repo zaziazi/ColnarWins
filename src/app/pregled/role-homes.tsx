@@ -136,7 +136,7 @@ export async function SalesHome({ staff }: { staff: Staff }) {
 
       <div className="flex items-baseline justify-between mb-2.5 px-0.5">
         <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-ink-subtle">Ta mesec: naročila in dostave</h2>
-        <Link href="/prodaja/narocila" className="text-[12.5px] font-semibold text-wine shrink-0">Moja naročila →</Link>
+        <Link href="/prodaja/narocila" className="text-[12.5px] font-semibold text-wine shrink-0">Vsa naročila po dnevih →</Link>
       </div>
       <div className="grid grid-cols-2 min-[900px]:grid-cols-4 gap-2.5 mb-6">
         <Stat label="Naročila mojih strank" value={String(work.customerOrders.count)} hint={Object.entries(work.customerOrders.byStatus).map(([k, n]) => `${n} ${(statusLabel[k as keyof typeof statusLabel] ?? k).toLowerCase()}`).join(" · ") || `${work.customerCount} strank`} />

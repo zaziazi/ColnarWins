@@ -97,6 +97,27 @@ interface OrderRow {
 
 const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
+function toRepOrder(o: OrderRow, repId: string): RepOrder {
+  const c = one(o.customer);
+  const mine = c?.sales_rep_id === repId;
+  return {
+    id: o.id,
+    orderNumber: o.order_number,
+    customerName: c?.name ?? "—",
+    city: c?.city ?? null,
+    status: o.status,
+    deliveryDate: o.delivery_date,
+    totalGross: o.order_line.reduce((s, l) => s + lineGross(l), 0),
+    lineSummary: o.order_line.map((l) => `${l.quantity_delivered ?? l.quantity_ordered}× ${one(l.product)?.name ?? ""}`).join(" · "),
+    driverName: one(o.driver)?.full_name ?? o.assigned_driver_name,
+    mineCustomer: mine,
+    drives: o.assigned_driver_id === repId,
+    canEdit: (mine || o.created_by === repId) && (o.status === "draft" || o.status === "confirmed"),
+  };
+}
+
+const byDay = (a: RepOrder, b: RepOrder) => (a.deliveryDate ?? "9999").localeCompare(b.deliveryDate ?? "9999") || a.orderNumber - b.orderNumber;
+
 /** Open orders plus the last four months of everything else: his customers' orders and the ones he drives. */
 export async function getRepOrders(db: Db, repId: string, today: string): Promise<RepOrder[]> {
   const since = addDays(today, -120);
@@ -118,26 +139,19 @@ export async function getRepOrders(db: Db, repId: string, today: string): Promis
     take(res.data);
   }
 
-  return [...found.values()]
-    .map((o): RepOrder => {
-      const c = one(o.customer);
-      const mine = c?.sales_rep_id === repId;
-      return {
-        id: o.id,
-        orderNumber: o.order_number,
-        customerName: c?.name ?? "—",
-        city: c?.city ?? null,
-        status: o.status,
-        deliveryDate: o.delivery_date,
-        totalGross: o.order_line.reduce((s, l) => s + lineGross(l), 0),
-        lineSummary: o.order_line.map((l) => `${l.quantity_delivered ?? l.quantity_ordered}× ${one(l.product)?.name ?? ""}`).join(" · "),
-        driverName: one(o.driver)?.full_name ?? o.assigned_driver_name,
-        mineCustomer: mine,
-        drives: o.assigned_driver_id === repId,
-        canEdit: (mine || o.created_by === repId) && (o.status === "draft" || o.status === "confirmed"),
-      };
-    })
-    .sort((a, b) => (a.deliveryDate ?? "9999").localeCompare(b.deliveryDate ?? "9999") || a.orderNumber - b.orderNumber);
+  return [...found.values()].map((o) => toRepOrder(o, repId)).sort(byDay);
+}
+
+/** Every order of the winery (open ones plus the last four months), for the "all orders by day" view. Status and value only. */
+export async function getAllOrders(db: Db, repId: string, today: string): Promise<RepOrder[]> {
+  const since = addDays(today, -120);
+  const { data, error } = await db
+    .from("sales_order")
+    .select(ORDER_SELECT)
+    .or(`status.in.(draft,confirmed,planned),delivery_date.gte.${since}`)
+    .limit(1000);
+  if (error) throw error;
+  return ((data ?? []) as unknown as OrderRow[]).map((o) => toRepOrder(o, repId)).sort(byDay);
 }
 
 export interface RepWork {

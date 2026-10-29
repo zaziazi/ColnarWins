@@ -5,8 +5,8 @@ import { Badge, statusLabel, statusTone } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { getCurrentStaff } from "@/lib/data";
 import { eur } from "@/lib/format";
-import { dayMonth, todayIso } from "@/lib/sales/dates";
-import { getRepOrders, resolveRep, type RepOrder } from "@/lib/sales/work";
+import { addDays, dayMonth, todayIso, weekdayName } from "@/lib/sales/dates";
+import { getAllOrders, getRepOrders, resolveRep, type RepOrder } from "@/lib/sales/work";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +16,8 @@ type Who = "all" | "mine" | "drive";
 type Stage = "open" | "done" | "cancelled";
 
 const WHO: { key: Who; label: string }[] = [
-  { key: "all", label: "Vse" },
-  { key: "mine", label: "Naročila mojih strank" },
+  { key: "all", label: "Vsa naročila" },
+  { key: "mine", label: "Mojih strank" },
   { key: "drive", label: "Dostave, ki jih vozim" },
 ];
 const STAGE: { key: Stage; label: string }[] = [
@@ -33,7 +33,7 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
   const staff = await getCurrentStaff();
   if (!staff || (staff.role !== "sales" && staff.role !== "manager")) {
     return (
-      <AppShell title="Moja naročila" who="Prijava potrebna" section="dashboard">
+      <AppShell title="Naročila" who="Prijava potrebna" section="dashboard">
         <Card className="p-7 text-center">
           <p className="text-[13.5px] text-ink-muted">Ta stran je na voljo samo prodaji in vodstvu.</p>
         </Card>
@@ -48,12 +48,25 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
   const { repId, repName, reps } = await resolveRep(supabase, staff, q.p);
   const isManager = staff.role === "manager";
 
-  const all = await getRepOrders(supabase, repId, todayIso());
+  const today = todayIso();
+  // "Vsa naročila" shows everybody's orders by day; the other two views are about him only
+  const all = who === "all" ? await getAllOrders(supabase, repId, today) : await getRepOrders(supabase, repId, today);
   const counts = (s: Stage) => all.filter((o) => stageOf(o) === s).length;
   const shown = all
     .filter((o) => stageOf(o) === stage)
     .filter((o) => (who === "mine" ? o.mineCustomer : who === "drive" ? o.drives : true));
   if (stage === "done") shown.reverse(); // newest delivery first
+
+  // one heading per delivery day
+  const days: { date: string | null; orders: RepOrder[] }[] = [];
+  for (const o of shown) {
+    const last = days[days.length - 1];
+    if (last && last.date === o.deliveryDate) last.orders.push(o);
+    else days.push({ date: o.deliveryDate, orders: [o] });
+  }
+  const tomorrow = addDays(today, 1);
+  const dayLabel = (d: string | null) =>
+    d === null ? "Brez datuma dostave" : `${d === today ? "Danes · " : d === tomorrow ? "Jutri · " : ""}${weekdayName(d)}, ${dayMonth(d)}`;
 
   const href = (patch: { w?: Who; s?: Stage; p?: string }) => {
     const w = patch.w ?? who;
@@ -63,8 +76,8 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
 
   return (
     <AppShell
-      title="Moja naročila"
-      subtitle={isManager ? repName : "Naročila tvojih strank in dostave, ki jih voziš"}
+      title="Naročila"
+      subtitle={isManager ? repName : "Vsa naročila po dnevih"}
       who={staff.fullName}
       role={staff.role} seesAc={staff.seesAc} isAdmin={staff.isAdmin} denied={staff.denied}
       section="dashboard"
@@ -103,9 +116,16 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
           <p className="text-[13.5px] text-ink-muted">Ni naročil v tem pogledu.</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 min-[900px]:grid-cols-2 gap-2.5">
-          {shown.map((o) => (
-            <Card key={o.id} className="p-3.5">
+        <div className="space-y-6">
+          {days.map((d) => (
+            <section key={d.date ?? "none"}>
+              <h2 className={cn("text-xs font-bold uppercase tracking-[0.06em] mb-2.5 px-0.5", stage === "open" && d.date !== null && d.date < today ? "text-danger" : "text-ink-subtle")}>
+                {dayLabel(d.date)}
+                {stage === "open" && d.date !== null && d.date < today && " · zamuja"} · {d.orders.length}
+              </h2>
+              <div className="grid grid-cols-1 min-[900px]:grid-cols-2 gap-2.5">
+                {d.orders.map((o) => (
+                  <Card key={o.id} className="p-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-[15px] truncate">{o.customerName}</p>
@@ -132,6 +152,9 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
                 </div>
               </div>
             </Card>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

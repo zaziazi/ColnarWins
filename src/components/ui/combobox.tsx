@@ -39,10 +39,31 @@ export function Combobox({
   emptyText = "Ni zadetkov.",
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const listRef = React.useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value);
 
+  // Each new search starts at the best match: without this the list keeps its old scroll position and
+  // the first hit can sit thousands of pixels above what is shown. Runs after cmdk has re-sorted the items.
+  React.useEffect(() => {
+    const reset = () => listRef.current?.scrollTo({ top: 0 });
+    reset();
+    const raf = requestAnimationFrame(reset);
+    const t = window.setTimeout(reset, 30);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [search, open]);
+
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setSearch("");
+      }}
+    >
       <Popover.Trigger asChild>
         <button
           type="button"
@@ -72,11 +93,13 @@ export function Combobox({
           <Command className="w-full" loop>
             <div className="border-b border-line px-3">
               <CommandInput
+                value={search}
+                onValueChange={setSearch}
                 placeholder={searchPlaceholder}
                 className="w-full h-11 bg-transparent text-[15px] outline-none placeholder:text-ink-subtle"
               />
             </div>
-            <CommandList className="max-h-64 overflow-y-auto p-1">
+            <CommandList ref={listRef} className="max-h-64 overflow-y-auto p-1">
               <CommandEmpty className="px-3 py-6 text-center text-sm text-ink-subtle">
                 {emptyText}
               </CommandEmpty>
@@ -88,6 +111,7 @@ export function Combobox({
                     onSelect={() => {
                       onChange(o.value);
                       setOpen(false);
+                      setSearch("");
                     }}
                     className="flex items-center gap-2 px-3 py-2.5 rounded-[8px] cursor-pointer
                                data-[selected=true]:bg-wine-soft"

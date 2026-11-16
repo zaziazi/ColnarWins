@@ -155,8 +155,8 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
                   )}
                 </div>
               </div>
-              {o.canEdit && !isManager && o.status === "cancelled" && <RestoreButton orderId={o.id} />}
-              {o.canEdit && !isManager && o.status !== "cancelled" && (
+              {o.own && !isManager && o.status === "cancelled" && <RestoreButton orderId={o.id} />}
+              {o.own && !isManager && o.status !== "cancelled" && (
                 <div className="mt-2.5 pt-2.5 border-t border-line">
                   <OrderActions orderId={o.id} status={o.status} limited />
                 </div>

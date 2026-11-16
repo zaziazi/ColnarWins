@@ -98,8 +98,10 @@ export interface RepOrder {
   mineCustomer: boolean;
   /** He is the driver. */
   drives: boolean;
-  /** He may change it: his customer, or an order he entered himself. */
+  /** He may change it: his customer, or an order he entered himself, and it is still a draft or confirmed. */
   canEdit: boolean;
+  /** His customer or entered by him, whatever the status: he may cancel, delete or restore it. */
+  own: boolean;
 }
 
 const ORDER_SELECT =
@@ -136,6 +138,7 @@ function toRepOrder(o: OrderRow, repId: string): RepOrder {
     mineCustomer: mine,
     drives: o.assigned_driver_id === repId,
     canEdit: (mine || o.created_by === repId) && (o.status === "draft" || o.status === "confirmed"),
+    own: mine || o.created_by === repId,
   };
 }
 

@@ -13,7 +13,8 @@ import type { OrderStatus } from "@/lib/types";
 const CANCELLABLE: OrderStatus[] = ["draft", "confirmed", "planned"];
 
 /** Confirm / cancel controls on an order card. Cancel is two-step — same warn-before-committing pattern as the Klet stage change. */
-export function OrderActions({ orderId, status }: { orderId: string; status: OrderStatus }) {
+/** `limited` (a salesperson) hides Potrdi: only the office confirms. */
+export function OrderActions({ orderId, status, limited = false }: { orderId: string; status: OrderStatus; limited?: boolean }) {
   const router = useRouter();
   const [confirmingCancel, setConfirmingCancel] = React.useState(false);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
@@ -76,7 +77,7 @@ export function OrderActions({ orderId, status }: { orderId: string; status: Ord
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <div className="flex gap-1.5">
-        {status === "draft" && (
+        {status === "draft" && !limited && (
           <Button size="sm" className="h-7 px-2 text-[11.5px] gap-1" onClick={confirm} loading={pending}>
             <Check className="size-3" /> Potrdi
           </Button>

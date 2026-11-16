@@ -183,7 +183,7 @@ const Booking = z.object({
   tastingPriceEur: z.number().min(0).max(100000).nullable().optional(),
   tastingFeeEur: z.number().min(0).max(1000000).nullable().optional(),
   otherIncomeEur: z.number().min(0).max(1000000).nullable().optional(),
-  incomePaymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo"]).nullable().optional(),
+  incomePaymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo", "kompenzacija"]).nullable().optional(),
   incomePaid: z.boolean().optional(),
   incomeNote: z.string().max(300).nullable().optional(),
   /** Save even though the day is full / not a hosting day / blocked. */

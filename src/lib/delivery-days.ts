@@ -33,10 +33,12 @@ export interface DayOrder {
   /** Created after the driver confirmed this day. */
   addedAfterConfirm: boolean;
   printSentAt: string | null;
-  paymentMethod: "trr" | "gotovina" | "kartica" | "drugo";
+  paymentMethod: "trr" | "gotovina" | "kartica" | "drugo" | "kompenzacija";
   /** Gross value of the order (after discounts and gratis): what the driver collects when paid in cash. */
   totalGross: number;
   paidAt: string | null;
+  /** The office has the invoice ready for the driver to hand over. */
+  invoiceReady: boolean;
   invoiceWaived: boolean;
   /** Content differs from what was last mailed for printing. */
   changedAfterPrint: boolean;
@@ -86,11 +88,11 @@ function fingerprint(o: {
  * involved): unfinished days from the last two days up to four days ahead.
  * A day is "confirmed" once the driver has confirmed it.
  */
-export async function getDeliveryDays(opts: { ahead?: number } = {}): Promise<DeliveryDay[]> {
+export async function getDeliveryDays(opts: { ahead?: number; behind?: number } = {}): Promise<DeliveryDay[]> {
   if (isDemoMode) return [];
 
   const today = isoDay(0);
-  const from = isoDay(-2);
+  const from = isoDay(-(opts.behind ?? 2));
   const to = isoDay(opts.ahead ?? 4);
   const supabase = await createClient();
 
@@ -98,7 +100,7 @@ export async function getDeliveryDays(opts: { ahead?: number } = {}): Promise<De
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,customer_id,delivery_date,driver_note,payment_method,paid_at,invoice_waived,assigned_driver_id,assigned_driver_name,driver:staff!sales_order_assigned_driver_id_fkey(full_name),confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))",
+        "id,order_number,status,customer_id,delivery_date,driver_note,payment_method,paid_at,invoice_ready_at,invoice_waived,assigned_driver_id,assigned_driver_name,driver:staff!sales_order_assigned_driver_id_fkey(full_name),confirmed_at,created_at,cancelled_at,print_sent_at,print_hash,print_dismissed_at,customer(name,address,city,vat_id,delivery_notes),order_line(product_id,quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name))",
       )
       .gte("delivery_date", from)
       .lte("delivery_date", to)
@@ -121,6 +123,7 @@ export async function getDeliveryDays(opts: { ahead?: number } = {}): Promise<De
     driver_note: string | null;
     payment_method: string | null;
     paid_at: string | null;
+    invoice_ready_at: string | null;
     invoice_waived: boolean | null;
     assigned_driver_id: string | null;
     assigned_driver_name: string | null;
@@ -177,6 +180,7 @@ export async function getDeliveryDays(opts: { ahead?: number } = {}): Promise<De
       paymentMethod: ((o.payment_method as DayOrder["paymentMethod"] | null) ?? "trr"),
       totalGross: o.order_line.reduce((sum, l) => sum + lineGross({ ...l, quantity_delivered: null }), 0),
       paidAt: o.paid_at,
+      invoiceReady: Boolean(o.invoice_ready_at),
       invoiceWaived: Boolean(o.invoice_waived),
       lines: o.order_line
         .map((l) => ({

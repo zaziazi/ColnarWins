@@ -16,7 +16,7 @@ const OrderInput = z.object({
   driverName: z.string().trim().max(80).nullable().optional(),
   /** Which price list the line prices come from. */
   priceList: z.enum(["gostinci", "fizicne"]).default("gostinci"),
-  paymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo"]).default("trr"),
+  paymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo", "kompenzacija"]).default("trr"),
   /** E-mail for the invoice / delivery note; saved on the customer when it changed. */
   customerEmail: z.union([z.literal(""), z.string().trim().email()]).nullable().optional(),
   holdForReview: z.boolean().default(false),
@@ -74,10 +74,7 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
     .eq("auth_user_id", user.id)
     .single();
 
-  // A salesperson's order with a discount or gratis is only a draft until the office has looked at it.
-  const hasExtras = lines.some((l) => l.discountPct > 0 || l.freeQty > 0);
-  const salesExtras = staff?.role === "sales" && hasExtras;
-  const status = holdForReview || salesExtras ? "draft" : "confirmed";
+  const status = holdForReview ? "draft" : "confirmed";
 
   const { data: order, error: orderError } = await supabase
     .from("sales_order")
@@ -91,7 +88,6 @@ export async function createOrder(input: OrderInput): Promise<ActionResult> {
       assigned_driver_name: driverId ? null : driverName || null,
       price_list: priceList,
       payment_method: paymentMethod,
-      review_note: salesExtras ? "Prodajnik je vnesel popust ali gratis: preveri in potrdi." : null,
       created_by: staff?.id ?? null,
       confirmed_by: status === "confirmed" ? (staff?.id ?? null) : null,
       confirmed_at: status === "confirmed" ? new Date().toISOString() : null,

@@ -24,6 +24,8 @@ export interface Customer {
   address: string | null;
   deliveryRegion: string | null;
   deliveryNotes: string | null;
+  /** Poslovna enota: which venue of a company this is. */
+  businessUnit?: string | null;
   paymentTermsDays: number;
   /** "person" = fizična oseba (no VAT id, usually pays on the spot). */
   kind?: "company" | "person";
@@ -59,8 +61,8 @@ export interface StandingOrderLine {
   freeQty?: number;
 }
 
-export type PaymentMethod = "trr" | "gotovina" | "kartica" | "drugo";
-export const PAYMENT_LABEL: Record<PaymentMethod, string> = { trr: "TRR (nakazilo)", gotovina: "Gotovina", kartica: "Kartica", drugo: "Drugo" };
+export type PaymentMethod = "trr" | "gotovina" | "kartica" | "drugo" | "kompenzacija";
+export const PAYMENT_LABEL: Record<PaymentMethod, string> = { trr: "TRR (nakazilo)", gotovina: "Gotovina", kartica: "Kartica", drugo: "Drugo", kompenzacija: "Kompenzacija" };
 
 export interface StandingOrder {
   customerId: string;
@@ -92,6 +94,8 @@ export interface OrderListItem {
   deliveredAt?: string | null;
   invoicedAt?: string | null;
   invoiceNumber?: string | null;
+  /** The office prepared the invoice before delivery and the driver was told. */
+  invoiceReadyAt?: string | null;
   /** Cash sale where no invoice is issued (a reason is kept in invoiceWaivedNote). */
   invoiceWaived?: boolean;
   invoiceWaivedNote?: string | null;

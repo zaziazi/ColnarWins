@@ -9,6 +9,7 @@ import { getCurrentStaff } from "@/lib/data";
 import { saveCustomerEmail } from "@/lib/customer-email";
 import { sendStoredDocuments } from "@/lib/documents/finalize";
 import { lineGross } from "@/lib/format";
+import { notifyStaff } from "@/lib/notify";
 
 const AssignDriverInput = z.object({
   orderId: z.string().min(1),
@@ -120,7 +121,7 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<Act
     return { ok: true };
   }
 
-  if (!(await officeOnly())) return { ok: false, error: "Ni dostopa." };
+  if (!(await canTouchOrder(parsed.data.orderId))) return { ok: false, error: "Ni dostopa." };
   const supabase = await createClient();
 
   const { data: existing, error: fetchError } = await supabase
@@ -151,10 +152,19 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<Act
   return { ok: true };
 }
 
-/** Cancelling, restoring and deleting are for the office and management only. */
-async function officeOnly(): Promise<boolean> {
+/**
+ * Cancelling, restoring and deleting: the office and management may do it to any order, a salesperson only to
+ * orders of his own customers or ones he entered himself (the same rule as editing an order).
+ */
+async function canTouchOrder(orderId: string): Promise<boolean> {
   const me = await getCurrentStaff();
-  return me?.role === "manager" || me?.role === "office";
+  if (me?.role === "manager" || me?.role === "office") return true;
+  if (me?.role !== "sales") return false;
+  const supabase = await createClient();
+  const { data: o } = await supabase.from("sales_order").select("created_by,customer(sales_rep_id)").eq("id", orderId).maybeSingle();
+  if (!o) return false;
+  const rep = (o.customer as unknown as { sales_rep_id: string | null } | null)?.sales_rep_id;
+  return rep === me.id || o.created_by === me.id;
 }
 
 /**
@@ -165,7 +175,7 @@ export async function restoreOrder(orderId: string): Promise<ActionResult> {
   const parsed = OrderIdInput.safeParse({ orderId });
   if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
   if (isDemoMode) return { ok: true };
-  if (!(await officeOnly())) return { ok: false, error: "Ni dostopa." };
+  if (!(await canTouchOrder(parsed.data.orderId))) return { ok: false, error: "Ni dostopa." };
 
   const supabase = await createClient();
   const { data: existing } = await supabase.from("sales_order").select("status,confirmed_at").eq("id", parsed.data.orderId).single();
@@ -194,7 +204,7 @@ export async function deleteOrder(orderId: string): Promise<ActionResult> {
   const parsed = OrderIdInput.safeParse({ orderId });
   if (!parsed.success) return { ok: false, error: "Neveljavno naročilo." };
   if (isDemoMode) return { ok: true };
-  if (!(await officeOnly())) return { ok: false, error: "Ni dostopa." };
+  if (!(await canTouchOrder(parsed.data.orderId))) return { ok: false, error: "Ni dostopa." };
 
   const supabase = await createClient();
   const { data: existing } = await supabase.from("sales_order").select("status").eq("id", parsed.data.orderId).single();
@@ -231,7 +241,7 @@ const UpdateOrderInput = z.object({
   driverId: z.string().min(1).nullable().optional(),
   driverName: z.string().trim().max(80).nullable().optional(),
   priceList: z.enum(["gostinci", "fizicne"]).default("gostinci"),
-  paymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo"]).default("trr"),
+  paymentMethod: z.enum(["trr", "gotovina", "kartica", "drugo", "kompenzacija"]).default("trr"),
   customerEmail: z.union([z.literal(""), z.string().trim().email()]).nullable().optional(),
   lines: z
     .array(
@@ -291,8 +301,7 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
     return { ok: false, error: "Tega naročila ni več mogoče urejati." };
   }
 
-  // A salesperson edits only orders of his own customers or ones he entered himself,
-  // and a discount or gratis puts the order back to the office for a look, like a new one.
+  // A salesperson edits only orders of his own customers or ones he entered himself.
   const { data: auth } = await supabase.auth.getUser();
   const { data: actor } = auth.user
     ? await supabase.from("staff").select("id,role").eq("auth_user_id", auth.user.id).single()
@@ -304,7 +313,6 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
       return { ok: false, error: "To naročilo ni tvoje." };
     }
   }
-  const holdForOffice = isSales && lines.some((l) => l.discountPct > 0 || l.freeQty > 0);
 
   const { error: updateError } = await supabase
     .from("sales_order")
@@ -315,7 +323,6 @@ export async function updateOrder(input: UpdateOrderInput): Promise<ActionResult
       assigned_driver_name: driverId ? null : driverName || null,
       price_list: priceList,
       payment_method: paymentMethod,
-      ...(holdForOffice ? { status: "draft", review_note: "Prodajnik je vnesel popust ali gratis: preveri in potrdi." } : {}),
     })
     .eq("id", orderId);
 
@@ -488,6 +495,64 @@ export async function markInvoiced(orderIds: string[], invoiceNumber?: string | 
   return { ok: true, done: ready.length, skipped: ids.data.length - ready.length };
 }
 
+/**
+ * "Račun pripravljen": the office has made the invoice (in e-računi) before the delivery. The assigned drivers get a
+ * push so they know to bring it, and the order shows "Račun pripravljen" on Dostava. Office and management only.
+ */
+export async function markInvoiceReady(orderIds: string[]): Promise<MarkResult> {
+  const ids = IdList.safeParse(orderIds);
+  if (!ids.success) return { ok: false, error: "Izberite naročila." };
+  if (isDemoMode) return { ok: true, done: ids.data.length, skipped: 0 };
+  const me = await getCurrentStaff();
+  if (me?.role !== "manager" && me?.role !== "office") return { ok: false, error: "Ni dostopa." };
+
+  const supabase = await createClient();
+  const { data: orders } = await supabase
+    .from("sales_order")
+    .select("id,status,invoice_ready_at,assigned_driver_id,delivery_date,customer(name)")
+    .in("id", ids.data);
+  const ready = (orders ?? []).filter((o) => ["confirmed", "planned", "delivered"].includes(o.status as string) && !o.invoice_ready_at);
+  if (ready.length === 0) return { ok: false, error: "Za ta naročila je račun že pripravljen ali pa še niso potrjena." };
+
+  const { error } = await supabase
+    .from("sales_order")
+    .update({ invoice_ready_at: new Date().toISOString() })
+    .in("id", ready.map((o) => o.id as string));
+  if (error) return { ok: false, error: error.message };
+
+  // one push per driver, listing the customers whose invoices are ready
+  const byDriver = new Map<string, string[]>();
+  for (const o of ready) {
+    if (!o.assigned_driver_id) continue;
+    const name = (o.customer as unknown as { name: string } | null)?.name ?? "stranka";
+    byDriver.set(o.assigned_driver_id as string, [...(byDriver.get(o.assigned_driver_id as string) ?? []), name]);
+  }
+  for (const [driverId, names] of byDriver) {
+    await notifyStaff([driverId], {
+      title: "Račun je pripravljen",
+      body: names.length === 1 ? `${names[0]}: račun je pripravljen za dostavo.` : `Računi so pripravljeni: ${names.join(", ")}.`,
+      url: "/dostava",
+      tag: `invoice-ready-${driverId}`,
+    });
+  }
+  refreshMoney();
+  return { ok: true, done: ready.length, skipped: ids.data.length - ready.length };
+}
+
+/** Takes the "račun pripravljen" mark back. */
+export async function unmarkInvoiceReady(orderId: string): Promise<ActionResult> {
+  const p = OrderIdInput.safeParse({ orderId });
+  if (!p.success) return { ok: false, error: "Neveljavno naročilo." };
+  if (isDemoMode) return { ok: true };
+  const me = await getCurrentStaff();
+  if (me?.role !== "manager" && me?.role !== "office") return { ok: false, error: "Ni dostopa." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("sales_order").update({ invoice_ready_at: null }).eq("id", p.data.orderId);
+  if (error) return { ok: false, error: error.message };
+  refreshMoney();
+  return { ok: true };
+}
+
 /** Takes the "račun izdan" mark back (a slip of the finger). Refused when the app itself holds an invoice for the order. */
 export async function unmarkInvoiced(orderId: string): Promise<ActionResult> {
   const p = OrderIdInput.safeParse({ orderId });
@@ -508,7 +573,7 @@ export async function unmarkInvoiced(orderId: string): Promise<ActionResult> {
 
 const PaidInput = z.object({
   orderIds: IdList,
-  method: z.enum(["trr", "gotovina", "kartica", "drugo"]),
+  method: z.enum(["trr", "gotovina", "kartica", "drugo", "kompenzacija"]),
   /** Cash sale where no invoice is issued. A reason is required. */
   waiveInvoice: z.boolean().default(false),
   note: z.string().trim().max(300).optional().default(""),

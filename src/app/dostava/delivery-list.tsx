@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Banknote, Check, CheckCheck, HandHelping, Pencil, Undo2 } from "lucide-react";
+import { Banknote, Check, CheckCheck, HandHelping, Pencil, Scale, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,11 +30,14 @@ const unassigned = (o: DayOrder) => !o.driverId && !o.driverName;
 export function DeliveryList({
   day: initial,
   date,
+  today,
   canEdit = true,
   meId,
 }: {
   day: DeliveryDay | null;
   date: string;
+  /** Today's date: the list shows any day, and says so when it is not today. */
+  today: string;
   canEdit?: boolean;
   meId: string | null;
 }) {
@@ -44,6 +47,17 @@ export function DeliveryList({
   const [breakageFor, setBreakageFor] = React.useState<string | null>(null);
 
   React.useEffect(() => setDay(initial), [initial]);
+
+  /** The debt is settled by offsetting (kompenzacija): the order counts as paid, the invoice is still issued. */
+  async function compensated(order: DayOrder) {
+    if (!window.confirm(`Označim naročilo ${order.customerName} kot poravnano s kompenzacijo?`)) return;
+    setDay((d) => (d ? { ...d, orders: d.orders.map((o) => (o.orderId === order.orderId ? { ...o, paidAt: new Date().toISOString(), paymentMethod: "kompenzacija" } : o)) } : d));
+    const r = await markOrdersPaid({ orderIds: [order.orderId], method: "kompenzacija", waiveInvoice: false });
+    if (!r.ok) {
+      toast.error(r.error);
+      router.refresh();
+    }
+  }
 
   async function cashReceived(order: DayOrder) {
     if (!window.confirm(`Prejeto ${eur(order.totalGross)} v gotovini od ${order.customerName}?`)) return;
@@ -107,7 +121,7 @@ export function DeliveryList({
   if (!day || orders.length === 0) {
     return (
       <Card className="p-7 text-center">
-        <p className="text-[13.5px] text-ink-muted">Za danes ni potrjenih naročil za dostavo.</p>
+        <p className="text-[13.5px] text-ink-muted">{date === today ? "Za danes" : "Za ta dan"} ni potrjenih naročil za dostavo.</p>
       </Card>
     );
   }
@@ -177,8 +191,11 @@ export function DeliveryList({
             </p>
             {order.driverNote && <p className="text-[12px] text-warn font-medium mt-1">{order.driverNote}</p>}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {order.invoiceReady && <Badge tone="info">Račun pripravljen</Badge>}
               {order.paidAt ? (
-                <Badge tone="good">Plačano</Badge>
+                <Badge tone="good">{order.paymentMethod === "kompenzacija" ? "Plačano · kompenzacija" : "Plačano"}</Badge>
+              ) : order.paymentMethod === "kompenzacija" ? (
+                <Badge tone="neutral">Kompenzacija</Badge>
               ) : order.paymentMethod === "gotovina" ? (
                 <Badge tone="warn">Gotovina ob dostavi · {eur(order.totalGross)}</Badge>
               ) : order.paymentMethod === "kartica" ? (
@@ -247,6 +264,11 @@ export function DeliveryList({
                 <Banknote className="size-3.5" /> Prejel gotovino
               </Button>
             )}
+            {!order.paidAt && (
+              <Button size="sm" variant="secondary" onClick={() => void compensated(order)}>
+                <Scale className="size-3.5" /> Kompenzacija
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={() => setBreakageFor(breakageFor === order.orderId ? null : order.orderId)}>
               Razbito
             </Button>
@@ -268,7 +290,7 @@ export function DeliveryList({
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-subtle">
-              Danes · {dateShort(new Date(`${date}T12:00:00`))}
+              {date === today ? "Danes" : date < today ? "Za nazaj" : "Vnaprej"} · {dateShort(new Date(`${date}T12:00:00`))}
               {showMineCounter && " · moje dostave"}
             </p>
             <p className="mt-1 text-[26px] leading-none font-bold tabular tracking-[-0.02em]">

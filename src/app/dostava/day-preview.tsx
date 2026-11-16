@@ -19,12 +19,20 @@ const addDays = (iso: string, n: number) => {
 };
 
 const label = (date: string, today: string) =>
-  date === today ? "Danes" : date === addDays(today, 1) ? "Jutri" : dateShort(new Date(`${date}T12:00:00`));
+  date === today
+    ? "Danes"
+    : date === addDays(today, 1)
+      ? "Jutri"
+      : date === addDays(today, -1)
+        ? "Včeraj"
+        : dateShort(new Date(`${date}T12:00:00`));
 
-/** The days of the coming week that have deliveries; tapping one shows what is on it. */
+/** Days with deliveries: unfinished past days, today and the coming week; tapping one opens it so it can be ticked off. */
 export function DayChips({ days, selected, today, meId }: { days: DeliveryDay[]; selected: string; today: string; meId: string | null }) {
-  const upcoming = days.filter((d) => d.date >= today && d.orders.some((o) => !o.cancelled));
-  const items = upcoming.some((d) => d.date === today) ? upcoming : [{ date: today, orders: [] as DayOrder[] } as DeliveryDay, ...upcoming];
+  const upcoming = days.filter((d) => d.orders.some((o) => !o.cancelled));
+  const items = upcoming.some((d) => d.date === today)
+    ? upcoming
+    : [...upcoming.filter((d) => d.date < today), { date: today, orders: [] as DayOrder[] } as DeliveryDay, ...upcoming.filter((d) => d.date > today)];
   if (items.length <= 1) return null;
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 mb-4 -mx-1 px-1" role="tablist" aria-label="Dan dostave">
@@ -40,7 +48,11 @@ export function DayChips({ days, selected, today, meId }: { days: DeliveryDay[];
             aria-selected={on}
             className={cn(
               "shrink-0 rounded-[var(--radius-control)] border px-3 py-1.5 text-left",
-              on ? "bg-wine text-white border-wine" : "bg-surface border-line text-ink-muted hover:border-line-strong",
+              on
+                ? "bg-wine text-white border-wine"
+                : d.date < today
+                  ? "bg-warn-soft border-warn/30 text-warn"
+                  : "bg-surface border-line text-ink-muted hover:border-line-strong",
             )}
           >
             <span className="block text-[13px] font-semibold">{label(d.date, today)}</span>

@@ -46,7 +46,7 @@ export async function getCustomers(): Promise<Customer[]> {
   const { data, error } = await supabase
     .from("customer")
     .select(
-      "id,name,city,address,delivery_region,delivery_notes,payment_terms_days,credit_hold,kind,email,phone",
+      "id,name,city,address,delivery_region,delivery_notes,payment_terms_days,credit_hold,kind,email,phone,business_unit",
     )
     .eq("active", true)
     .order("name");
@@ -76,6 +76,7 @@ export async function getCustomers(): Promise<Customer[]> {
     address: c.address,
     deliveryRegion: c.delivery_region,
     deliveryNotes: c.delivery_notes,
+    businessUnit: (c.business_unit as string | null) ?? null,
     paymentTermsDays: c.payment_terms_days,
     openBalance: byCustomer.get(c.id)?.balance ?? 0,
     daysOverdue: byCustomer.get(c.id)?.days ?? 0,
@@ -142,7 +143,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
     supabase
       .from("sales_order")
       .select(
-        "id,order_number,status,source,delivery_date,created_at,delivered_at,invoiced_at,invoice_number,invoice_waived,invoice_waived_note,paid_at,cancelled_at,cancel_reason,payment_method,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
+        "id,order_number,status,source,delivery_date,created_at,delivered_at,invoiced_at,invoice_number,invoice_waived,invoice_waived_note,paid_at,invoice_ready_at,cancelled_at,cancel_reason,payment_method,assigned_driver_id,assigned_driver_name,price_list,review_note,customer(name),creator:staff!sales_order_created_by_fkey(full_name),order_line(quantity_ordered,quantity_delivered,unit_price_net,vat_rate,discount_pct,free_qty,product(name)),route_stop(route(driver:staff(full_name))),outbound_email(status,recipient,error)",
       );
 
   // Open work, soonest delivery first (no delivery date sinks to the bottom).
@@ -198,6 +199,7 @@ export async function getOrders(): Promise<OrderListItem[]> {
       cancelReason: (o.cancel_reason as string | null) ?? null,
       invoicedAt: (o.invoiced_at as string | null) ?? null,
       invoiceNumber: (o.invoice_number as string | null) ?? null,
+      invoiceReadyAt: (o.invoice_ready_at as string | null) ?? null,
       invoiceWaived: Boolean(o.invoice_waived),
       invoiceWaivedNote: (o.invoice_waived_note as string | null) ?? null,
       paidAt: (o.paid_at as string | null) ?? null,

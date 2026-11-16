@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { PAYMENT_LABEL, type OrderListItem, type PaymentMethod } from "@/lib/types";
-import { markInvoiced, markOrdersPaid, unmarkInvoiced, unmarkOrderPaid } from "./actions";
+import { markInvoiced, markInvoiceReady, markOrdersPaid, unmarkInvoiced, unmarkInvoiceReady, unmarkOrderPaid } from "./actions";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString("sl-SI", { day: "numeric", month: "numeric" });
 
@@ -19,6 +19,7 @@ export function MoneyBadges({ order }: { order: OrderListItem }) {
     <div className="flex flex-wrap items-center gap-1.5">
       {method !== "trr" && !order.paidAt && <Badge tone={method === "gotovina" ? "warn" : "neutral"}>{PAYMENT_LABEL[method]}</Badge>}
       {order.paidAt && <Badge tone="good">Plačano {day(order.paidAt)} · {PAYMENT_LABEL[method].split(" ")[0]}</Badge>}
+      {order.invoiceReadyAt && order.status !== "invoiced" && <Badge tone="info">Račun pripravljen</Badge>}
       {order.invoiceWaived ? (
         <Badge tone="danger">Brez računa</Badge>
       ) : order.status === "invoiced" ? (
@@ -107,6 +108,25 @@ export function MoneyDialog({
               </div>
             ) : (
               <div className="mt-2 space-y-2">
+                {single && single.status !== "delivered" && (
+                  <div className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] bg-info-soft px-3 py-2">
+                    {single.invoiceReadyAt ? (
+                      <>
+                        <p className="text-[13px] text-info">Račun je pripravljen {day(single.invoiceReadyAt)}, voznik je obveščen.</p>
+                        <Button size="sm" variant="ghost" loading={busy} onClick={() => run(() => unmarkInvoiceReady(single.id))}>
+                          Odstrani
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[13px] text-info">Račun že narejen? Obvestim voznika.</p>
+                        <Button size="sm" loading={busy} onClick={() => run(() => markInvoiceReady([single.id]))}>
+                          Račun pripravljen
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
                 {single && <Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Številka računa (neobvezno)" />}
                 <Button
                   size="sm"

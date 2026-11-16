@@ -33,6 +33,14 @@ export interface OwnedCustomer {
   name: string;
   city: string | null;
   phone: string | null;
+  /** The rest of the details the edit dialog needs. */
+  vatId: string | null;
+  address: string | null;
+  postCode: string | null;
+  email: string | null;
+  contactName: string | null;
+  businessUnit: string | null;
+  deliveryNotes: string | null;
   lastOrderOn: string | null;
   orders90: number;
   ordersTotal: number;
@@ -42,9 +50,17 @@ const chunks = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil
 
 /** The customers that belong to this salesperson, with when they last ordered. */
 export async function getRepCustomers(db: Db, repId: string): Promise<OwnedCustomer[]> {
-  const { data, error } = await db.from("customer").select("id,name,city,phone").eq("sales_rep_id", repId).eq("active", true).order("name");
+  const { data, error } = await db
+    .from("customer")
+    .select("id,name,city,phone,vat_id,address,post_code,email,contact_name,business_unit,delivery_notes")
+    .eq("sales_rep_id", repId)
+    .eq("active", true)
+    .order("name");
   if (error) throw error;
-  const rows = (data ?? []) as { id: string; name: string; city: string | null; phone: string | null }[];
+  const rows = (data ?? []) as {
+    id: string; name: string; city: string | null; phone: string | null; vat_id: string | null; address: string | null; post_code: string | null;
+    email: string | null; contact_name: string | null; business_unit: string | null; delivery_notes: string | null;
+  }[];
   const stats = new Map<string, { last_order_on: string | null; orders_total: number; orders_90d: number }>();
   for (const part of chunks(rows.map((r) => r.id), 100)) {
     const { data: s } = await db.from("v_customer_orders").select("customer_id,last_order_on,orders_total,orders_90d").in("customer_id", part);
@@ -55,6 +71,13 @@ export async function getRepCustomers(db: Db, repId: string): Promise<OwnedCusto
     name: r.name,
     city: r.city,
     phone: r.phone,
+    vatId: r.vat_id,
+    address: r.address,
+    postCode: r.post_code,
+    email: r.email,
+    contactName: r.contact_name,
+    businessUnit: r.business_unit,
+    deliveryNotes: r.delivery_notes,
     lastOrderOn: stats.get(r.id)?.last_order_on ?? null,
     orders90: stats.get(r.id)?.orders_90d ?? 0,
     ordersTotal: stats.get(r.id)?.orders_total ?? 0,

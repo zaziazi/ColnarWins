@@ -41,8 +41,6 @@ interface Props {
   drivers: Driver[];
   /** When present, edits this existing draft instead of creating a new order. */
   editOrder?: EditOrder;
-  /** A salesperson may add a discount or gratis, but the office confirms such an order. */
-  extrasNeedApproval?: boolean;
   /** Where to go after saving; the office list by default. */
   doneHref?: string;
 }
@@ -62,7 +60,6 @@ export function OrderForm({
   deliveryDates,
   drivers,
   editOrder,
-  extrasNeedApproval = false,
   doneHref = "/pisarna",
 }: Props) {
   const router = useRouter();
@@ -186,7 +183,7 @@ export function OrderForm({
   const customerOptions: ComboboxOption[] = allCustomers.map((c) => ({
     value: c.id,
     label: c.name,
-    hint: [c.city, c.deliveryRegion].filter(Boolean).join(" · "),
+    hint: [c.businessUnit, c.city, c.deliveryRegion].filter(Boolean).join(" · "),
     meta:
       c.daysOverdue > 0 ? (
         <Badge tone={c.daysOverdue > 30 ? "danger" : "warn"}>{c.daysOverdue} dni</Badge>
@@ -426,9 +423,6 @@ export function OrderForm({
                 </div>
                 {qty > 0 && extrasOpen[p.id] && (
                   <div className="-mt-1 pb-3 flex flex-wrap items-end gap-3 justify-end">
-                    {extrasNeedApproval && (
-                      <p className="w-full text-right text-[11px] text-ink-subtle">Naročilo s popustom ali gratis potrdi pisarna.</p>
-                    )}
                     <label className="text-[11px] font-semibold text-ink-subtle">
                       Popust %
                       <Input

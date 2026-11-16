@@ -8,6 +8,7 @@ import { getRepCustomers, resolveRep } from "@/lib/sales/work";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { PlanButton } from "../plan-button";
+import { EditCustomerButton } from "./edit-customer";
 import { NewCustomerButton } from "./new-customer";
 import { AddCustomer, RemoveCustomer, type Candidate } from "./owner-editor";
 
@@ -94,7 +95,7 @@ export default async function MyCustomersPage({ searchParams }: { searchParams: 
                   <div className="min-w-0">
                     <p className="font-semibold text-[15px] truncate">{c.name}</p>
                     <p className="text-[11.5px] text-ink-subtle mt-0.5">
-                      {[c.city, c.lastOrderOn ? `${days !== null && days < 0 ? "dostava" : "zadnje naročilo"} ${dayMonth(c.lastOrderOn)}` : "še ni naročil", c.orders90 > 0 ? `${c.orders90} v 90 dneh` : null].filter(Boolean).join(" · ")}
+                      {[c.businessUnit, c.city, c.lastOrderOn ? `${days !== null && days < 0 ? "dostava" : "zadnje naročilo"} ${dayMonth(c.lastOrderOn)}` : "še ni naročil", c.orders90 > 0 ? `${c.orders90} v 90 dneh` : null].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   {days === null ? <Badge tone="warn">brez naročil</Badge> : days < 0 ? <Badge tone="info">naročeno</Badge> : days > 60 ? <Badge tone="danger">{days} dni</Badge> : days > 30 ? <Badge tone="warn">{days} dni</Badge> : <Badge tone="good">{days} dni</Badge>}
@@ -103,7 +104,10 @@ export default async function MyCustomersPage({ searchParams }: { searchParams: 
                   <div className="flex items-center gap-3">
                     {c.phone && <a href={`tel:${c.phone}`} className="text-[12.5px] font-semibold text-wine">{c.phone}</a>}
                   </div>
-                  {isManager && <RemoveCustomer customerId={c.id} name={c.name} />}
+                  <div className="flex items-center gap-3">
+                    <EditCustomerButton customer={c} />
+                    {isManager && <RemoveCustomer customerId={c.id} name={c.name} />}
+                  </div>
                 </div>
                 {!isManager && <div className="mt-3"><PlanButton target={{ customerId: c.id }} /></div>}
               </Card>

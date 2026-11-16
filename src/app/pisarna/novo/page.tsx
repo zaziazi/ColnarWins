@@ -42,7 +42,6 @@ export default async function NewOrderPage() {
         standingOrders={standingOrders}
         deliveryDates={nextDeliveryDates()}
         drivers={drivers}
-        extrasNeedApproval={staff?.role === "sales"}
       />
     </AppShell>
   );

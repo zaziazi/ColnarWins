@@ -82,7 +82,6 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
         standingOrders={standingOrders}
         deliveryDates={nextDeliveryDates()}
         drivers={drivers}
-        extrasNeedApproval={staff?.role === "sales"}
         doneHref={staff?.role === "sales" ? "/prodaja/narocila" : "/pisarna"}
         editOrder={{
           id: order.id,

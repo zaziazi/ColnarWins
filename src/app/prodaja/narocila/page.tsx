@@ -9,6 +9,8 @@ import { addDays, dayMonth, todayIso, weekdayName } from "@/lib/sales/dates";
 import { getAllOrders, getRepOrders, resolveRep, type RepOrder } from "@/lib/sales/work";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { OrderActions } from "@/app/pisarna/order-actions";
+import { RestoreButton } from "./restore-button";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +155,12 @@ export default async function MyOrdersPage({ searchParams }: { searchParams: Pro
                   )}
                 </div>
               </div>
+              {o.canEdit && !isManager && o.status === "cancelled" && <RestoreButton orderId={o.id} />}
+              {o.canEdit && !isManager && o.status !== "cancelled" && (
+                <div className="mt-2.5 pt-2.5 border-t border-line">
+                  <OrderActions orderId={o.id} status={o.status} limited />
+                </div>
+              )}
             </Card>
                 ))}
               </div>
